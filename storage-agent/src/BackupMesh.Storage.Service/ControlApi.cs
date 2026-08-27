@@ -118,8 +118,12 @@ public static class ControlApi
             if (invalid is not null) return invalid;
             if (catalog.SourceAgentId == Guid.Empty || catalog.UpdatedAt == default || catalog.BackupSets.Any(set => set.BackupSetId == Guid.Empty || set.SourcePaths.Any(string.IsNullOrWhiteSpace)) || catalog.BackupSets.Select(set => set.BackupSetId).Distinct().Count() != catalog.BackupSets.Length)
                 return Problem(400, "INVALID_REQUEST", "Catalog IDs, timestamps, Backup Set IDs, and source paths must be valid and unique.");
-            catalogs.Upsert(catalog);
-            http.Response.Headers["Idempotency-Replayed"] = "false";
+            var outcome = catalogs.Upsert(catalog);
+            if (outcome == StoreOutcome.InvalidSequence)
+                return Problem(409, "STALE_CATALOG", "A newer catalog from this Source Agent is already stored.");
+            if (outcome == StoreOutcome.Conflict)
+                return Problem(409, "REPLAY_CONFLICT", "The catalog timestamp was reused with different content.");
+            http.Response.Headers["Idempotency-Replayed"] = (outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant();
             return Results.NoContent();
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/source/catalogs", (SourceCatalogStore catalogs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(catalogs.List()); });

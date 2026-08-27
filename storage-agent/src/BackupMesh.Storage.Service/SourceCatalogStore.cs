@@ -24,10 +24,23 @@ public sealed class SourceCatalogStore
         _catalogs = Load(_persistencePath);
     }
 
-    public void Upsert(SourceCatalog catalog)
+    public StoreOutcome Upsert(SourceCatalog catalog)
     {
         lock (_gate)
         {
+            if (_catalogs.TryGetValue(catalog.SourceAgentId, out var current))
+            {
+                if (catalog.UpdatedAt < current.UpdatedAt)
+                {
+                    return StoreOutcome.InvalidSequence;
+                }
+
+                if (catalog.UpdatedAt == current.UpdatedAt)
+                {
+                    return CatalogsEqual(current, catalog) ? StoreOutcome.Replayed : StoreOutcome.Conflict;
+                }
+            }
+
             var updated = new Dictionary<Guid, SourceCatalog>(_catalogs)
             {
                 [catalog.SourceAgentId] = catalog
@@ -35,8 +48,19 @@ public sealed class SourceCatalogStore
 
             Persist(_persistencePath, updated.Values);
             _catalogs = updated;
+            return StoreOutcome.Accepted;
         }
     }
+
+    private static bool CatalogsEqual(SourceCatalog left, SourceCatalog right) =>
+        left.SourceAgentId == right.SourceAgentId
+        && left.SourceAgentName == right.SourceAgentName
+        && left.UpdatedAt == right.UpdatedAt
+        && left.BackupSets.Length == right.BackupSets.Length
+        && left.BackupSets.Zip(right.BackupSets).All(pair =>
+            pair.First.BackupSetId == pair.Second.BackupSetId
+            && pair.First.Name == pair.Second.Name
+            && pair.First.SourcePaths.SequenceEqual(pair.Second.SourcePaths, StringComparer.Ordinal));
 
     public IReadOnlyList<SourceCatalog> List()
     {
