@@ -14,7 +14,9 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
         var demoMode = e.Args.Any(argument => argument.Equals("--demo", StringComparison.OrdinalIgnoreCase));
-        _window = new MainWindow(demoMode);
+        var endpointArgument = e.Args.FirstOrDefault(argument => argument.StartsWith("--service-endpoint=", StringComparison.OrdinalIgnoreCase));
+        var serviceEndpoint = endpointArgument is null ? null : endpointArgument[(endpointArgument.IndexOf('=') + 1)..];
+        _window = new MainWindow(demoMode, serviceEndpoint);
         _window.Closing += (_, args) => { args.Cancel = true; _window.Hide(); };
 
         var menu = new Forms.ContextMenuStrip();

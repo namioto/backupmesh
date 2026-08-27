@@ -81,6 +81,27 @@ func TestReportEndpoints(t *testing.T) {
 	}
 }
 
+func TestPublishSourceCatalog(t *testing.T) {
+	var received SourceCatalog
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/source/catalog" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatal(err)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	catalog := SourceCatalog{SourceAgentID: "f91436ac-0ca9-4bcb-b0d0-42bc7181f611", SourceAgentName: "Home server", UpdatedAt: time.Now(), BackupSets: []SourceCatalogBackupSet{{BackupSetID: "7d750726-97ab-4f81-9f09-f06c34f524d1", Name: "photos", SourcePaths: []string{"/srv/photos"}}}}
+	if err := (Client{BaseURL: srv.URL}).PublishSourceCatalog(context.Background(), "catalog-key-0001", catalog); err != nil {
+		t.Fatal(err)
+	}
+	if received.SourceAgentName != catalog.SourceAgentName || len(received.BackupSets) != 1 {
+		t.Fatalf("received = %#v", received)
+	}
+}
+
 func TestResponseBodyIsBounded(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(strings.Repeat("x", maxResponseBytes+1)))

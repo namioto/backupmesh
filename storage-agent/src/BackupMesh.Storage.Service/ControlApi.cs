@@ -12,7 +12,25 @@ public sealed record BackupProgress([property: JsonPropertyName("event_id")] Gui
 public sealed record BackupResult([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("snapshot_id"), StringLength(128, MinimumLength = 1)] string? SnapshotId, [property: JsonPropertyName("bytes_added"), Range(0, long.MaxValue)] long? BytesAdded, [property: JsonPropertyName("error_code"), RegularExpression("^[A-Z][A-Z0-9_]*$"), StringLength(64)] string? ErrorCode, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record CancelRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("reason"), StringLength(512)] string? Reason);
 public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("last_sequence")] long LastSequence, [property: JsonPropertyName("progress")] BackupProgress? Progress, [property: JsonPropertyName("result")] BackupResult? Result);
+public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
+public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
+
+public sealed class SourceCatalogStore
+{
+    private readonly object _gate = new();
+    private readonly Dictionary<Guid, SourceCatalog> _catalogs = [];
+
+    public void Upsert(SourceCatalog catalog)
+    {
+        lock (_gate) _catalogs[catalog.SourceAgentId] = catalog;
+    }
+
+    public IReadOnlyList<SourceCatalog> List()
+    {
+        lock (_gate) return _catalogs.Values.OrderBy(catalog => catalog.SourceAgentName, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+}
 
 public sealed class BackupJobStore
 {
@@ -109,6 +127,18 @@ public static class ControlApi
             http.Response.Headers["Idempotency-Replayed"] = "false"; return Results.Accepted(value: result.Status);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
+        api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var invalid = Validate(catalog);
+            if (invalid is not null) return invalid;
+            if (catalog.SourceAgentId == Guid.Empty || catalog.UpdatedAt == default || catalog.BackupSets.Any(set => set.BackupSetId == Guid.Empty || set.SourcePaths.Any(string.IsNullOrWhiteSpace)) || catalog.BackupSets.Select(set => set.BackupSetId).Distinct().Count() != catalog.BackupSets.Length)
+                return Problem(400, "INVALID_REQUEST", "Catalog IDs, timestamps, Backup Set IDs, and source paths must be valid and unique.");
+            catalogs.Upsert(catalog);
+            http.Response.Headers["Idempotency-Replayed"] = "false";
+            return Results.NoContent();
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
+        api.MapGet("/source/catalogs", (SourceCatalogStore catalogs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(catalogs.List()); });
         return endpoints;
     }
     private static IResult EventResult(StoreOutcome outcome, HttpContext http)

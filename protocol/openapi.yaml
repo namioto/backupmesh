@@ -18,6 +18,7 @@ security:
 tags:
   - name: Storage
   - name: Backup
+  - name: Source
 paths:
   /storage/status:
     get:
@@ -198,6 +199,59 @@ paths:
                 $ref: '#/components/schemas/JobStatus'
         '404':
           $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /source/catalog:
+    post:
+      tags: [Source]
+      operationId: publishSourceCatalog
+      summary: Publish the Source Agent's current Backup Set catalog
+      description: |
+        Replaces the previously published catalog for the authenticated Source
+        Agent. The source_agent_id in the body MUST match the paired certificate
+        identity. Removing a Backup Set leaves its target mappings unresolved so
+        the user can review them instead of silently deleting configuration.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCatalog'
+      responses:
+        '204':
+          description: Catalog stored
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+        default:
+          $ref: '#/components/responses/Error'
+  /source/catalogs:
+    get:
+      tags: [Source]
+      operationId: listSourceCatalogs
+      summary: List catalogs published by paired Source Agents
+      description: Intended for the authenticated local Storage Agent UI.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Published Source catalogs
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 1024
+                items:
+                  $ref: '#/components/schemas/SourceCatalog'
         default:
           $ref: '#/components/responses/Error'
 components:
@@ -385,6 +439,31 @@ components:
           oneOf:
             - {$ref: '#/components/schemas/BackupResult'}
             - {type: 'null'}
+    SourceCatalog:
+      type: object
+      additionalProperties: false
+      required: [source_agent_id, source_agent_name, updated_at, backup_sets]
+      properties:
+        source_agent_id: {type: string, format: uuid}
+        source_agent_name: {type: string, minLength: 1, maxLength: 128}
+        updated_at: {type: string, format: date-time}
+        backup_sets:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/SourceCatalogBackupSet'
+    SourceCatalogBackupSet:
+      type: object
+      additionalProperties: false
+      required: [backup_set_id, name, source_paths]
+      properties:
+        backup_set_id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 128}
+        source_paths:
+          type: array
+          minItems: 1
+          maxItems: 4096
+          items: {type: string, minLength: 1, maxLength: 4096}
     Error:
       type: object
       additionalProperties: false

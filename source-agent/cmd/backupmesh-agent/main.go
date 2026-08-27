@@ -28,7 +28,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <validate|backup|version>")
+		return fmt.Errorf("usage: backupmesh-agent <validate|sync|backup|version>")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -49,6 +49,15 @@ func run(args []string) error {
 	case "validate":
 		fmt.Println("configuration is valid")
 		return nil
+	case "sync":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1"}
+		if err := publishCatalog(ctx, api, cfg); err != nil {
+			return fmt.Errorf("publish Source catalog: %w", err)
+		}
+		fmt.Println("Source catalog synchronized")
+		return nil
 	case "backup":
 		set, ok := cfg.FindBackupSet(*setName)
 		if !ok {
@@ -57,6 +66,9 @@ func run(args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
 		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1"}
+		if err := publishCatalog(ctx, api, cfg); err != nil {
+			return fmt.Errorf("publish Source catalog: %w", err)
+		}
 		status, err := api.GetStorageStatus(ctx)
 		if err != nil {
 			return fmt.Errorf("check storage status: %w", err)
@@ -145,6 +157,18 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func publishCatalog(ctx context.Context, api controlapi.Client, cfg config.Config) error {
+	key, err := controlapi.UUIDv4()
+	if err != nil {
+		return fmt.Errorf("create catalog idempotency key: %w", err)
+	}
+	sets := make([]controlapi.SourceCatalogBackupSet, 0, len(cfg.BackupSets))
+	for _, set := range cfg.BackupSets {
+		sets = append(sets, controlapi.SourceCatalogBackupSet{BackupSetID: set.ID, Name: set.Name, SourcePaths: append([]string(nil), set.Paths...)})
+	}
+	return api.PublishSourceCatalog(ctx, key, controlapi.SourceCatalog{SourceAgentID: cfg.Agent.ID, SourceAgentName: cfg.Agent.Name, UpdatedAt: time.Now().UTC(), BackupSets: sets})
 }
 
 func runHooks(ctx context.Context, hooks [][]string) error {

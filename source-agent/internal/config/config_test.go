@@ -6,7 +6,7 @@ import (
 )
 
 func validConfig() Config {
-	return Config{Agent: Agent{ID: "f91436ac-0ca9-4bcb-b0d0-42bc7181f611"}, Storage: Storage{ControlEndpoint: "https://storage.local:7443", RepositoryPasswordFile: "/run/secrets/restic-password"}, BackupSets: []BackupSet{{Name: "home", Paths: []string{"/home/user"}}}}
+	return Config{Agent: Agent{ID: "f91436ac-0ca9-4bcb-b0d0-42bc7181f611", Name: "Home server"}, Storage: Storage{ControlEndpoint: "https://storage.local:7443", RepositoryPasswordFile: "/run/secrets/restic-password"}, BackupSets: []BackupSet{{ID: "7d750726-97ab-4f81-9f09-f06c34f524d1", Name: "home", Paths: []string{"/home/user"}}}}
 }
 
 func TestValidateValid(t *testing.T) {
@@ -21,7 +21,7 @@ func TestValidateReportsMultipleProblems(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate() expected error")
 	}
-	for _, want := range []string{"agent.id", "controlEndpoint", "repositoryPasswordFile", "negative", "paths", "duplicated", "hook"} {
+	for _, want := range []string{"agent.id", "agent.name", "controlEndpoint", "repositoryPasswordFile", "negative", "paths", "duplicated", "hook"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not contain %q", err, want)
 		}

@@ -10,6 +10,7 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControlApiOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
+builder.Services.AddSingleton<SourceCatalogStore>();
 builder.Services.AddSingleton<RequiredControlHeadersFilter>();
 builder.Services.AddSingleton<IStorageDiscovery, PollingDriveDiscovery>();
 builder.Services.AddSingleton<IStorageIdentityVerifier, BasicStorageIdentityVerifier>();

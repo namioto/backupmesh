@@ -19,6 +19,9 @@ truth.
   v1. Deprecation precedes removal, and removal requires `/api/v2`.
 - Agents should expose their product and protocol versions through diagnostics;
   HTTP compatibility is determined by the URL major version, not product version.
+- Source Agents publish stable Backup Set UUIDs through `/source/catalog`.
+  Storage UIs read `/source/catalogs`; mappings retain those UUIDs when display
+  names or source paths change.
 
 ## Security invariants
 

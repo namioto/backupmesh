@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows.Input;
@@ -17,6 +18,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ConfigurationStore _store = new();
     private readonly IDeviceInventory _deviceInventory = new WindowsDeviceInventory();
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private readonly DispatcherTimer _catalogTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    private readonly ISourceCatalogClient _catalogClient;
+    private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
     private DeviceViewModel? _selectedDevice;
@@ -45,9 +49,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true)
     {
         _demoMode = demoMode;
+        _catalogClient = catalogClient ?? new SourceCatalogClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
@@ -55,9 +60,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
         SaveCommand = new RelayCommand(Save);
         _deviceTimer.Tick += (_, _) => RefreshDrives();
-        Load();
+        _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
+        if (loadLocalState) Load();
+        else Activity.Add("Storage Agent UI test state initialized.");
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
-        RefreshDrives();
+        if (loadLocalState) RefreshDrives();
     }
 
     public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, $"BackupMesh Storage Agent — {value}"); } }
@@ -75,7 +82,60 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool AutomaticBackups { get; set; } = true;
     public int GracePeriodMinutes { get; set; } = 30;
 
-    public void StartDeviceMonitoring() => _deviceTimer.Start();
+    public void StartDeviceMonitoring()
+    {
+        _deviceTimer.Start();
+        if (!_demoMode)
+        {
+            _catalogTimer.Start();
+            _ = RefreshCatalogsAsync();
+        }
+    }
+
+    private async Task RefreshCatalogsAsync()
+    {
+        try
+        {
+            var catalogs = await _catalogClient.ListAsync(_shutdown.Token);
+            ApplyCatalogs(catalogs);
+            FooterStatus = catalogs.Count == 0 ? "No Source Agent has published a catalog yet." : $"Synchronized {catalogs.Count} Source Agent catalog(s).";
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException)
+        {
+            FooterStatus = "Storage Service is unavailable; showing the last known Source catalog.";
+        }
+        catch (TaskCanceledException)
+        {
+            FooterStatus = "Source catalog synchronization timed out.";
+        }
+    }
+
+    public Task RefreshCatalogsOnceAsync() => RefreshCatalogsAsync();
+
+    private void ApplyCatalogs(IReadOnlyList<SourceCatalogDto> catalogs)
+    {
+        foreach (var existing in BackupSets) existing.IsAvailable = false;
+        foreach (var catalog in catalogs)
+        {
+            foreach (var set in catalog.BackupSets)
+            {
+                var model = new SourceBackupSet(set.BackupSetId, catalog.SourceAgentId, catalog.SourceAgentName, set.Name, set.SourcePaths);
+                var existing = BackupSets.FirstOrDefault(item => item.Id == set.BackupSetId);
+                if (existing is null) BackupSets.Add(new(model));
+                else existing.Update(model);
+            }
+        }
+        Sources.Clear();
+        foreach (var group in BackupSets.GroupBy(set => new { set.Model.SourceAgentId, set.Model.SourceAgentName }).OrderBy(group => group.Key.SourceAgentName, StringComparer.OrdinalIgnoreCase))
+        {
+            var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
+            foreach (var set in group.OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase)) source.BackupSets.Add(set);
+            Sources.Add(source);
+        }
+        SelectedBackupSet ??= BackupSets.FirstOrDefault(set => set.IsAvailable);
+        NotifyCounts();
+    }
 
     public void TogglePause()
     {
@@ -273,7 +333,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         else key.DeleteValue("BackupMesh.Storage.Agent", throwOnMissingValue: false);
     }
 
-    public void Dispose() => _deviceTimer.Stop();
+    public void Dispose()
+    {
+        _shutdown.Cancel();
+        _deviceTimer.Stop();
+        _catalogTimer.Stop();
+        if (_catalogClient is IDisposable disposable) disposable.Dispose();
+        _shutdown.Dispose();
+    }
 }
 
 public sealed class SourceAgentViewModel(Guid id, string displayName)
@@ -283,11 +350,22 @@ public sealed class SourceAgentViewModel(Guid id, string displayName)
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
 }
 
-public sealed class BackupSetViewModel(SourceBackupSet model)
+public sealed class BackupSetViewModel : ObservableObject
 {
-    public SourceBackupSet Model { get; } = model;
+    private SourceBackupSet _model;
+    private bool _isAvailable = true;
+    public BackupSetViewModel(SourceBackupSet model) => _model = model;
+    public SourceBackupSet Model => _model;
     public Guid Id => Model.Id;
-    public string DisplayName => $"{Model.SourceAgentName} / {Model.Name}";
+    public bool IsAvailable { get => _isAvailable; set { if (Set(ref _isAvailable, value)) OnPropertyChanged(nameof(DisplayName)); } }
+    public string DisplayName => $"{Model.SourceAgentName} / {Model.Name}{(IsAvailable ? string.Empty : " (not reported)")}";
+    public void Update(SourceBackupSet model)
+    {
+        _model = model;
+        IsAvailable = true;
+        OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(DisplayName));
+    }
 }
 
 public sealed class DeviceViewModel : ObservableObject

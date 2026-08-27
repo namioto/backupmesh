@@ -28,6 +28,7 @@ type Storage struct {
 }
 
 type BackupSet struct {
+	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	Paths   []string `json:"paths"`
 	Include []string `json:"include,omitempty"`
@@ -64,6 +65,9 @@ func (c Config) Validate() error {
 	} else if !isUUID(c.Agent.ID) {
 		problems = append(problems, errors.New("agent.id must be a UUID"))
 	}
+	if strings.TrimSpace(c.Agent.Name) == "" {
+		problems = append(problems, errors.New("agent.name is required"))
+	}
 	u, err := url.Parse(c.Storage.ControlEndpoint)
 	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		problems = append(problems, errors.New("storage.controlEndpoint must be an absolute HTTP(S) URL"))
@@ -80,6 +84,9 @@ func (c Config) Validate() error {
 	seen := map[string]bool{}
 	for i, set := range c.BackupSets {
 		prefix := fmt.Sprintf("backupSets[%d]", i)
+		if !isUUID(set.ID) {
+			problems = append(problems, fmt.Errorf("%s.id must be a UUID", prefix))
+		}
 		if strings.TrimSpace(set.Name) == "" {
 			problems = append(problems, fmt.Errorf("%s.name is required", prefix))
 		} else if seen[set.Name] {

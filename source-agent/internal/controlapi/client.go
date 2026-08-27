@@ -80,6 +80,19 @@ type BackupResult struct {
 	Message     string    `json:"message,omitempty"`
 }
 
+type SourceCatalogBackupSet struct {
+	BackupSetID string   `json:"backup_set_id"`
+	Name        string   `json:"name"`
+	SourcePaths []string `json:"source_paths"`
+}
+
+type SourceCatalog struct {
+	SourceAgentID   string                   `json:"source_agent_id"`
+	SourceAgentName string                   `json:"source_agent_name"`
+	UpdatedAt       time.Time                `json:"updated_at"`
+	BackupSets      []SourceCatalogBackupSet `json:"backup_sets"`
+}
+
 type problem struct {
 	Code   string `json:"code"`
 	Detail string `json:"detail"`
@@ -103,6 +116,10 @@ func (c Client) ReportProgress(ctx context.Context, key string, in BackupProgres
 
 func (c Client) ReportResult(ctx context.Context, key string, in BackupResult) error {
 	return c.do(ctx, http.MethodPost, "/backup/result", key, in, http.StatusNoContent, nil)
+}
+
+func (c Client) PublishSourceCatalog(ctx context.Context, key string, in SourceCatalog) error {
+	return c.do(ctx, http.MethodPost, "/source/catalog", key, in, http.StatusNoContent, nil)
 }
 
 func (c Client) do(ctx context.Context, method, path, key string, body any, expected int, out any) error {
