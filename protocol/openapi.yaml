@@ -254,6 +254,35 @@ paths:
                   $ref: '#/components/schemas/SourceCatalog'
         default:
           $ref: '#/components/responses/Error'
+  /storage/configuration:
+    get:
+      tags: [Storage]
+      operationId: getStorageConfiguration
+      summary: Read the authoritative Storage Agent topology
+      responses:
+        '200':
+          description: Current configuration and optimistic-concurrency revision
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StorageConfigurationDocument'}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Storage]
+      operationId: updateStorageConfiguration
+      summary: Replace the authoritative Storage Agent topology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StorageConfigurationUpdate'}
+      responses:
+        '200':
+          description: Configuration stored
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StorageConfigurationDocument'}
+        '409': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     mutualTLS:
@@ -464,6 +493,68 @@ components:
           minItems: 1
           maxItems: 4096
           items: {type: string, minLength: 1, maxLength: 4096}
+    StorageConfigurationDocument:
+      type: object
+      additionalProperties: false
+      required: [revision, updatedAt, configuration]
+      properties:
+        revision: {type: integer, format: int64, minimum: 0}
+        updatedAt: {type: string, format: date-time}
+        configuration: {$ref: '#/components/schemas/StorageAgentConfiguration'}
+    StorageConfigurationUpdate:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, configuration]
+      properties:
+        expectedRevision: {type: integer, format: int64, minimum: 0}
+        configuration: {$ref: '#/components/schemas/StorageAgentConfiguration'}
+    StorageAgentConfiguration:
+      type: object
+      additionalProperties: false
+      required: [devices, backupSets, mappings]
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/components/schemas/RegisteredDevice'}
+        backupSets:
+          type: array
+          items: {$ref: '#/components/schemas/ConfiguredBackupSet'}
+        mappings:
+          type: array
+          items: {$ref: '#/components/schemas/BackupTargetMapping'}
+    RegisteredDevice:
+      type: object
+      additionalProperties: false
+      required: [id, stableId, displayName, registeredAt, arrivalDelayMinutes]
+      properties:
+        id: {type: string, format: uuid}
+        stableId: {type: string, minLength: 1, maxLength: 1024}
+        displayName: {type: string, minLength: 1, maxLength: 256}
+        volumeLabel: {type: [string, 'null'], maxLength: 256}
+        lastKnownRoot: {type: [string, 'null'], maxLength: 4096}
+        registeredAt: {type: string, format: date-time}
+        lastSeenAt: {type: [string, 'null'], format: date-time}
+        arrivalDelayMinutes: {type: integer, minimum: 0, maximum: 1440}
+    ConfiguredBackupSet:
+      type: object
+      additionalProperties: false
+      required: [id, sourceAgentId, sourceAgentName, name, sourcePaths]
+      properties:
+        id: {type: string, format: uuid}
+        sourceAgentId: {type: string, format: uuid}
+        sourceAgentName: {type: string, minLength: 1, maxLength: 128}
+        name: {type: string, minLength: 1, maxLength: 128}
+        sourcePaths: {type: array, minItems: 1, items: {type: string, minLength: 1}}
+    BackupTargetMapping:
+      type: object
+      additionalProperties: false
+      required: [id, backupSetId, deviceId, repositoryPath, enabled]
+      properties:
+        id: {type: string, format: uuid}
+        backupSetId: {type: string, format: uuid}
+        deviceId: {type: string, format: uuid}
+        repositoryPath: {type: string, minLength: 1, maxLength: 4096}
+        enabled: {type: boolean}
     Error:
       type: object
       additionalProperties: false

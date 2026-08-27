@@ -6,13 +6,16 @@ builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Sto
 builder.Services.Configure<RestServerOptions>(builder.Configuration.GetSection("RestServer"));
 builder.Services.Configure<ControlApiOptions>(builder.Configuration.GetSection("ControlApi"));
 builder.Services.Configure<SourceCatalogOptions>(builder.Configuration.GetSection("SourceCatalog"));
+builder.Services.Configure<StorageConfigurationOptions>(builder.Configuration.GetSection("StorageConfiguration"));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RestServerOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControlApiOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SourceCatalogOptions>>().Value);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageConfigurationOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<SourceCatalogStore>();
+builder.Services.AddSingleton<StorageConfigurationStore>();
 builder.Services.AddSingleton<RequiredControlHeadersFilter>();
 builder.Services.AddSingleton<IStorageDiscovery, PollingDriveDiscovery>();
 builder.Services.AddSingleton<IStorageIdentityVerifier, BasicStorageIdentityVerifier>();

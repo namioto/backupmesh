@@ -127,6 +127,21 @@ public static class ControlApi
             return Results.NoContent();
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/source/catalogs", (SourceCatalogStore catalogs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(catalogs.List()); });
+        api.MapGet("/storage/configuration", (StorageConfigurationStore configuration, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return Results.Ok(configuration.Get());
+        });
+        api.MapPut("/storage/configuration", (StorageConfigurationUpdate update, StorageConfigurationStore configuration, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var errors = BackupTopologyValidator.Validate(update.Configuration);
+            if (errors.Count > 0) return Problem(400, "INVALID_CONFIGURATION", errors[0]);
+            var result = configuration.Update(update);
+            return result.Outcome == StoreOutcome.Conflict
+                ? Problem(409, "CONFIGURATION_CONFLICT", $"Configuration revision {result.Document.Revision} is current; reload before saving.")
+                : Results.Ok(result.Document);
+        });
         return endpoints;
     }
     private static IResult EventResult(StoreOutcome outcome, HttpContext http)

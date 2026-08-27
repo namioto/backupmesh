@@ -40,8 +40,24 @@ public static class BackupTopologyValidator
         var deviceIds = configuration.Devices.Select(device => device.Id).ToHashSet();
         var backupSetIds = configuration.BackupSets.Select(set => set.Id).ToHashSet();
 
+        if (deviceIds.Count != configuration.Devices.Count) errors.Add("Registered device IDs must be unique.");
+        if (configuration.Devices.Select(device => device.StableId).Distinct(StringComparer.OrdinalIgnoreCase).Count() != configuration.Devices.Count)
+            errors.Add("Registered device identities must be unique.");
+        if (backupSetIds.Count != configuration.BackupSets.Count) errors.Add("Backup Set IDs must be unique.");
+        foreach (var device in configuration.Devices)
+        {
+            if (device.Id == Guid.Empty || string.IsNullOrWhiteSpace(device.StableId) || string.IsNullOrWhiteSpace(device.DisplayName))
+                errors.Add("Registered devices must have an ID, stable identity, and display name.");
+        }
+        foreach (var backupSet in configuration.BackupSets)
+        {
+            if (backupSet.Id == Guid.Empty || backupSet.SourceAgentId == Guid.Empty || string.IsNullOrWhiteSpace(backupSet.Name))
+                errors.Add("Backup Sets must have valid IDs, a Source Agent ID, and a name.");
+        }
+
         foreach (var mapping in configuration.Mappings)
         {
+            if (mapping.Id == Guid.Empty) errors.Add("Mappings must have a valid ID.");
             if (!deviceIds.Contains(mapping.DeviceId)) errors.Add($"Mapping {mapping.Id} references an unknown device.");
             if (!backupSetIds.Contains(mapping.BackupSetId)) errors.Add($"Mapping {mapping.Id} references an unknown backup set.");
             if (!IsSafeRelativeRepositoryPath(mapping.RepositoryPath)) errors.Add($"Mapping {mapping.Id} has an unsafe repository path.");
