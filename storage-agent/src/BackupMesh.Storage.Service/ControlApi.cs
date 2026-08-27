@@ -6,8 +6,8 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); }
-public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("repository"), Required, RegularExpression("^[A-Za-z0-9][A-Za-z0-9._-]*$"), StringLength(128, MinimumLength = 1)] string Repository, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags);
-public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt, [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
+public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags);
+public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("device_id")] Guid DeviceId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt, [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
 public sealed record BackupProgress([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("reported_at")] DateTimeOffset ReportedAt, [property: JsonPropertyName("phase"), Required, RegularExpression("^(SCANNING|UPLOADING|FINALIZING)$")] string Phase, [property: JsonPropertyName("bytes_done"), Range(0, long.MaxValue)] long BytesDone, [property: JsonPropertyName("bytes_total"), Range(0, long.MaxValue)] long? BytesTotal, [property: JsonPropertyName("files_done"), Range(0, long.MaxValue)] long FilesDone, [property: JsonPropertyName("files_total"), Range(0, long.MaxValue)] long? FilesTotal, [property: JsonPropertyName("message"), StringLength(512)] string? Message);
 public sealed record BackupResult([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("snapshot_id"), StringLength(128, MinimumLength = 1)] string? SnapshotId, [property: JsonPropertyName("bytes_added"), Range(0, long.MaxValue)] long? BytesAdded, [property: JsonPropertyName("error_code"), RegularExpression("^[A-Z][A-Z0-9_]*$"), StringLength(64)] string? ErrorCode, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record CancelRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("reason"), StringLength(512)] string? Reason);
@@ -22,16 +22,19 @@ public sealed class BackupJobStore
     private readonly Dictionary<Guid, JobStatus> _jobs = [];
     private readonly Dictionary<string, (string Signature, BackupAdmission Admission)> _admissions = [];
     private readonly Dictionary<Guid, object> _events = [];
+    private readonly Dictionary<Guid, Guid> _jobMappings = [];
+    private readonly Dictionary<Guid, Guid> _activeMappings = [];
     public Guid? ActiveJobId { get; private set; }
-    public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint)
+    public bool HasActiveJobs { get { lock (_gate) return _activeMappings.Count > 0; } }
+    public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default)
     {
         lock (_gate)
         {
-            var signature = $"{request.JobId:N}|{request.SourceAgentId:N}|{request.RequestedAt:O}|{request.Repository}|{string.Join(',', request.SnapshotTags ?? [])}";
+            var signature = $"{request.JobId:N}|{request.SourceAgentId:N}|{request.BackupSetId:N}|{request.TargetMappingId:N}|{request.RequestedAt:O}|{string.Join(',', request.SnapshotTags ?? [])}";
             if (_admissions.TryGetValue(key, out var prior)) return prior.Signature == signature ? (StoreOutcome.Replayed, prior.Admission) : (StoreOutcome.Conflict, null);
-            if (ActiveJobId is not null || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
-            var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, "ACCEPTED", now, endpoint);
-            _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null); _admissions[key] = (signature, admission); ActiveJobId = request.JobId;
+            if (_activeMappings.ContainsKey(request.TargetMappingId) || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
+            var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint);
+            _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
             return (StoreOutcome.Accepted, admission);
         }
     }
@@ -54,7 +57,9 @@ public sealed class BackupJobStore
             if (_events.TryGetValue(result.EventId, out var prior)) return Equals(prior, result) ? StoreOutcome.Replayed : StoreOutcome.Conflict;
             if (Terminal(job.State)) return StoreOutcome.Terminal;
             if (result.Sequence <= job.LastSequence) return StoreOutcome.InvalidSequence;
-            _events[result.EventId] = result; _jobs[result.JobId] = job with { State = result.Outcome, UpdatedAt = DateTimeOffset.UtcNow, LastSequence = result.Sequence, Result = result }; ActiveJobId = null; return StoreOutcome.Accepted;
+            _events[result.EventId] = result; _jobs[result.JobId] = job with { State = result.Outcome, UpdatedAt = DateTimeOffset.UtcNow, LastSequence = result.Sequence, Result = result };
+            if (_jobMappings.Remove(result.JobId, out var mappingId)) _activeMappings.Remove(mappingId);
+            ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault(); return StoreOutcome.Accepted;
         }
     }
     public (StoreOutcome Outcome, JobStatus? Status) Cancel(CancelRequest request)
@@ -90,11 +95,26 @@ public static class ControlApi
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
         api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });
-        api.MapPost("/backup/request", (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) =>
+        api.MapGet("/backup/targets/{source_agent_id:guid}/{backup_set_id:guid}", (Guid source_agent_id, Guid backup_set_id, BackupTargetResolver targets, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return Results.Ok(targets.List(source_agent_id, backup_set_id));
+        });
+        api.MapPost("/backup/request", async (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, BackupTargetResolver targets, IRepositoryEndpointProvider repositories, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested(); var invalid = Validate(request); if (invalid is not null) return invalid;
-            if (state.State != StorageState.Ready) return Problem(409, "STORAGE_BUSY", "Storage is not ready.");
-            var result = jobs.Admit(request, http.Request.Headers["Idempotency-Key"].ToString(), options.RepositoryEndpoint);
+            if (request.JobId == Guid.Empty || request.SourceAgentId == Guid.Empty || request.BackupSetId == Guid.Empty || request.TargetMappingId == Guid.Empty || request.RequestedAt == default)
+                return Problem(400, "INVALID_REQUEST", "Backup request IDs and timestamp must be valid.");
+            if (state.State is not StorageState.Ready and not StorageState.Busy) return Problem(409, "STORAGE_BUSY", "Storage is not ready.");
+            var resolution = targets.Resolve(request);
+            if (resolution.Target is null) return Problem(resolution.ErrorCode == "TARGET_NOT_FOUND" ? 404 : 409, resolution.ErrorCode ?? "TARGET_NOT_READY", resolution.Message ?? "Target is unavailable.");
+            Uri endpoint;
+            try { endpoint = await repositories.GetEndpointAsync(resolution.Target, ct); }
+            catch (Exception exception) when (exception is IOException or InvalidOperationException or TimeoutException)
+            {
+                return Problem(503, "REPOSITORY_SERVER_FAILED", exception.Message);
+            }
+            var result = jobs.Admit(request, http.Request.Headers["Idempotency-Key"].ToString(), endpoint, resolution.Target.DeviceId);
             if (result.Outcome == StoreOutcome.Conflict) return Problem(409, "JOB_CONFLICT", "Another backup is active or the idempotency key conflicts.");
             if (result.Outcome == StoreOutcome.Accepted) state.TransitionTo(StorageState.Busy, request.JobId.ToString());
             http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant(); return Results.Accepted(value: result.Admission);
@@ -103,7 +123,7 @@ public static class ControlApi
         api.MapPost("/backup/result", (BackupResult result, HttpContext http, StorageStateMachine state, BackupJobStore jobs, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested(); var invalid = Validate(result); if (invalid is not null) return invalid; var outcome = jobs.Complete(result);
-            if (outcome == StoreOutcome.Accepted && state.State == StorageState.Busy) state.TransitionTo(StorageState.Ready, result.Message);
+            if (outcome == StoreOutcome.Accepted && state.State == StorageState.Busy && !jobs.HasActiveJobs) state.TransitionTo(StorageState.Ready, result.Message);
             return EventResult(outcome, http);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/cancel", (CancelRequest request, HttpContext http, BackupJobStore jobs, CancellationToken ct) =>

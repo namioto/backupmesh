@@ -20,6 +20,38 @@ type Adapter struct {
 	Env    []string
 }
 
+func (a Adapter) EnsureRepository(ctx context.Context, req engine.BackupRequest) error {
+	binary := a.Binary
+	if binary == "" {
+		binary = "restic"
+	}
+	if err := a.run(ctx, binary, req, "snapshots", "--json"); err == nil {
+		return nil
+	}
+	if err := a.run(ctx, binary, req, "init", "--repository-version", "2"); err != nil {
+		// Another target runner may have initialized the repository concurrently.
+		if verifyErr := a.run(ctx, binary, req, "snapshots", "--json"); verifyErr != nil {
+			return fmt.Errorf("initialize restic repository: %w", err)
+		}
+	}
+	return nil
+}
+
+func (a Adapter) run(ctx context.Context, binary string, req engine.BackupRequest, args ...string) error {
+	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.Env = BuildEnv(cmd.Environ(), a.Env, req)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	message := strings.TrimSpace(string(output))
+	if len(message) > 4096 {
+		message = message[:4096]
+	}
+	message = strings.ReplaceAll(message, req.Repository, "[repository]")
+	return fmt.Errorf("restic %s failed: %w: %s", args[0], err, message)
+}
+
 func (a Adapter) Backup(ctx context.Context, req engine.BackupRequest, progress func(engine.Progress)) (engine.Result, error) {
 	binary := a.Binary
 	if binary == "" {

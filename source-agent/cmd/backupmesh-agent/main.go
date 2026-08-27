@@ -76,37 +76,64 @@ func run(args []string) error {
 		if status.State != "ready" {
 			return fmt.Errorf("storage is not ready (state %q)", status.State)
 		}
-		jobID, err := controlapi.UUIDv4()
+		targets, err := api.ListBackupTargets(ctx, cfg.Agent.ID, set.ID)
 		if err != nil {
-			return fmt.Errorf("create job ID: %w", err)
+			return fmt.Errorf("list backup targets: %w", err)
 		}
-		requestKey, err := controlapi.UUIDv4()
-		if err != nil {
-			return fmt.Errorf("create idempotency key: %w", err)
+		readyTargets := make([]controlapi.BackupTargetAvailability, 0, len(targets))
+		for _, target := range targets {
+			if target.State == "READY" {
+				readyTargets = append(readyTargets, target)
+			}
 		}
-		admission, err := api.RequestBackup(ctx, requestKey, controlapi.BackupRequest{JobID: jobID, SourceAgentID: cfg.Agent.ID, RequestedAt: time.Now().UTC(), Repository: set.Name})
-		if err != nil {
-			return fmt.Errorf("request backup admission: %w", err)
-		}
-		if admission.State != "ACCEPTED" || admission.JobID != jobID {
-			return fmt.Errorf("storage returned an invalid backup admission")
+		if len(readyTargets) == 0 {
+			return fmt.Errorf("no mapped backup target is ready")
 		}
 		if err := runHooks(ctx, set.Hooks.Before); err != nil {
-			eventID, idErr := controlapi.UUIDv4()
-			if idErr != nil {
-				return fmt.Errorf("before hook failed and result event ID creation failed: %w", idErr)
-			}
-			report := controlapi.BackupResult{EventID: eventID, JobID: jobID, Sequence: 1, CompletedAt: time.Now().UTC(), Outcome: "FAILED", ErrorCode: "BEFORE_HOOK_FAILED", Message: "before hook failed"}
-			if reportErr := api.ReportResult(ctx, eventID, report); reportErr != nil {
-				return fmt.Errorf("before hook failed and result reporting failed: %w", reportErr)
-			}
 			return fmt.Errorf("before hook: %w", err)
 		}
-		backupCtx, cancelBackup := context.WithCancel(ctx)
-		defer cancelBackup()
-		var sequence int64
-		var reportErr error
-		result, backupErr := (restic.Adapter{Binary: *resticBinary}).Backup(backupCtx, engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}, func(p engine.Progress) {
+		for _, target := range readyTargets {
+			if err := runBackupTarget(ctx, api, cfg, set, target, *resticBinary); err != nil {
+				return fmt.Errorf("backup target %s (%s): %w", target.DeviceName, target.DestinationFolder, err)
+			}
+		}
+		if err := runHooks(ctx, set.Hooks.After); err != nil {
+			return fmt.Errorf("after hook: %w", err)
+		}
+		fmt.Printf("backup complete on %d target(s)\n", len(readyTargets))
+		return nil
+	default:
+		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, target controlapi.BackupTargetAvailability, resticBinary string) error {
+	jobID, err := controlapi.UUIDv4()
+	if err != nil {
+		return fmt.Errorf("create job ID: %w", err)
+	}
+	requestKey, err := controlapi.UUIDv4()
+	if err != nil {
+		return fmt.Errorf("create idempotency key: %w", err)
+	}
+	admission, err := api.RequestBackup(ctx, requestKey, controlapi.BackupRequest{JobID: jobID, SourceAgentID: cfg.Agent.ID, BackupSetID: set.ID, TargetMappingID: target.MappingID, RequestedAt: time.Now().UTC()})
+	if err != nil {
+		return fmt.Errorf("request backup admission: %w", err)
+	}
+	if admission.State != "ACCEPTED" || admission.JobID != jobID || admission.TargetMappingID != target.MappingID {
+		return fmt.Errorf("storage returned an invalid backup admission")
+	}
+
+	backupCtx, cancelBackup := context.WithCancel(ctx)
+	defer cancelBackup()
+	adapter := restic.Adapter{Binary: resticBinary}
+	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
+	var sequence int64
+	var reportErr error
+	var result engine.Result
+	backupErr := adapter.EnsureRepository(backupCtx, backupRequest)
+	if backupErr == nil {
+		result, backupErr = adapter.Backup(backupCtx, backupRequest, func(p engine.Progress) {
 			sequence++
 			eventID, idErr := controlapi.UUIDv4()
 			if idErr != nil {
@@ -119,44 +146,39 @@ func run(args []string) error {
 				cancelBackup()
 				return
 			}
-			fmt.Printf("progress %.1f%% (%d/%d bytes)\n", p.Percent*100, p.BytesDone, p.TotalBytes)
+			fmt.Printf("%s progress %.1f%% (%d/%d bytes)\n", target.DeviceName, p.Percent*100, p.BytesDone, p.TotalBytes)
 		})
-		if reportErr != nil {
-			backupErr = fmt.Errorf("report backup progress: %w", reportErr)
-		}
-		sequence++
-		resultEventID, idErr := controlapi.UUIDv4()
-		if idErr != nil {
-			return fmt.Errorf("create result event ID: %w", idErr)
-		}
-		apiResult := controlapi.BackupResult{EventID: resultEventID, JobID: jobID, Sequence: sequence, CompletedAt: time.Now().UTC()}
-		if backupErr == nil {
-			apiResult.Outcome, apiResult.SnapshotID, apiResult.BytesAdded = "SUCCEEDED", result.SnapshotID, result.DataAdded
-		} else if errors.Is(backupErr, context.Canceled) {
-			apiResult.Outcome, apiResult.ErrorCode, apiResult.Message = "CANCELLED", "CANCELLED", "backup was cancelled"
-		} else {
-			apiResult.Outcome, apiResult.ErrorCode, apiResult.Message = "FAILED", "BACKUP_ENGINE_FAILED", "backup engine failed"
-		}
-		reportCtx := ctx
-		var stopReport context.CancelFunc = func() {}
-		if ctx.Err() != nil {
-			reportCtx, stopReport = context.WithTimeout(context.Background(), 5*time.Second)
-		}
-		defer stopReport()
-		if err := api.ReportResult(reportCtx, resultEventID, apiResult); err != nil {
-			return fmt.Errorf("report backup result: %w", err)
-		}
-		if backupErr != nil {
-			return backupErr
-		}
-		if err := runHooks(ctx, set.Hooks.After); err != nil {
-			return fmt.Errorf("after hook: %w", err)
-		}
-		fmt.Printf("backup complete: snapshot %s\n", result.SnapshotID)
-		return nil
-	default:
-		return fmt.Errorf("unknown command %q", args[0])
 	}
+	if reportErr != nil {
+		backupErr = fmt.Errorf("report backup progress: %w", reportErr)
+	}
+	sequence++
+	resultEventID, idErr := controlapi.UUIDv4()
+	if idErr != nil {
+		return fmt.Errorf("create result event ID: %w", idErr)
+	}
+	apiResult := controlapi.BackupResult{EventID: resultEventID, JobID: jobID, Sequence: sequence, CompletedAt: time.Now().UTC()}
+	if backupErr == nil {
+		apiResult.Outcome, apiResult.SnapshotID, apiResult.BytesAdded = "SUCCEEDED", result.SnapshotID, result.DataAdded
+	} else if errors.Is(backupErr, context.Canceled) {
+		apiResult.Outcome, apiResult.ErrorCode, apiResult.Message = "CANCELLED", "CANCELLED", "backup was cancelled"
+	} else {
+		apiResult.Outcome, apiResult.ErrorCode, apiResult.Message = "FAILED", "BACKUP_ENGINE_FAILED", "backup engine failed"
+	}
+	reportCtx := ctx
+	var stopReport context.CancelFunc = func() {}
+	if ctx.Err() != nil {
+		reportCtx, stopReport = context.WithTimeout(context.Background(), 5*time.Second)
+	}
+	defer stopReport()
+	if err := api.ReportResult(reportCtx, resultEventID, apiResult); err != nil {
+		return fmt.Errorf("report backup result: %w", err)
+	}
+	if backupErr != nil {
+		return backupErr
+	}
+	fmt.Printf("%s backup complete: snapshot %s\n", target.DeviceName, result.SnapshotID)
+	return nil
 }
 
 func publishCatalog(ctx context.Context, api controlapi.Client, cfg config.Config) error {

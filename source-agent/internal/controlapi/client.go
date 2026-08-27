@@ -24,36 +24,48 @@ type Client struct {
 }
 
 type StorageStatus struct {
-	AgentID     string             `json:"agent_id"`
-	State       string             `json:"state"`
-	ObservedAt  time.Time          `json:"observed_at"`
-	Storage     *StorageDescriptor `json:"storage"`
-	ActiveJobID *string            `json:"active_job_id"`
-	Message     string             `json:"message,omitempty"`
+	AgentID     string            `json:"agent_id"`
+	State       string            `json:"state"`
+	ObservedAt  time.Time         `json:"observed_at"`
+	Storage     []StoragePresence `json:"storage"`
+	ActiveJobID *string           `json:"active_job_id"`
+	Message     string            `json:"message,omitempty"`
 }
 
-type StorageDescriptor struct {
-	StorageID          string `json:"storage_id"`
-	Label              string `json:"label"`
-	CapacityBytes      int64  `json:"capacity_bytes"`
-	AvailableBytes     int64  `json:"available_bytes"`
-	Filesystem         string `json:"filesystem"`
-	RepositoryEndpoint string `json:"repository_endpoint"`
+type StoragePresence struct {
+	DeviceID    string `json:"deviceId"`
+	DisplayName string `json:"displayName"`
+	Connected   bool   `json:"connected"`
+	Ready       bool   `json:"ready"`
+	CurrentRoot string `json:"currentRoot"`
 }
 
 type BackupRequest struct {
-	JobID         string    `json:"job_id"`
-	SourceAgentID string    `json:"source_agent_id"`
-	RequestedAt   time.Time `json:"requested_at"`
-	Repository    string    `json:"repository"`
-	SnapshotTags  []string  `json:"snapshot_tags,omitempty"`
+	JobID           string    `json:"job_id"`
+	SourceAgentID   string    `json:"source_agent_id"`
+	BackupSetID     string    `json:"backup_set_id"`
+	TargetMappingID string    `json:"target_mapping_id"`
+	RequestedAt     time.Time `json:"requested_at"`
+	SnapshotTags    []string  `json:"snapshot_tags,omitempty"`
 }
 
 type BackupAdmission struct {
 	JobID              string    `json:"job_id"`
+	TargetMappingID    string    `json:"target_mapping_id"`
+	DeviceID           string    `json:"device_id"`
 	State              string    `json:"state"`
 	AcceptedAt         time.Time `json:"accepted_at"`
 	RepositoryEndpoint string    `json:"repository_endpoint"`
+}
+
+type BackupTargetAvailability struct {
+	MappingID         string `json:"mappingId"`
+	DeviceID          string `json:"deviceId"`
+	BackupSetID       string `json:"backupSetId"`
+	DeviceName        string `json:"deviceName"`
+	DestinationFolder string `json:"destinationFolder"`
+	State             string `json:"state"`
+	Reason            string `json:"reason,omitempty"`
 }
 
 type BackupProgress struct {
@@ -107,6 +119,13 @@ func (c Client) GetStorageStatus(ctx context.Context) (StorageStatus, error) {
 func (c Client) RequestBackup(ctx context.Context, key string, in BackupRequest) (BackupAdmission, error) {
 	var out BackupAdmission
 	err := c.do(ctx, http.MethodPost, "/backup/request", key, in, http.StatusAccepted, &out)
+	return out, err
+}
+
+func (c Client) ListBackupTargets(ctx context.Context, sourceAgentID, backupSetID string) ([]BackupTargetAvailability, error) {
+	var out []BackupTargetAvailability
+	path := "/backup/targets/" + url.PathEscape(sourceAgentID) + "/" + url.PathEscape(backupSetID)
+	err := c.do(ctx, http.MethodGet, path, "", nil, http.StatusOK, &out)
 	return out, err
 }
 

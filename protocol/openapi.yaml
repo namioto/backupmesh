@@ -96,6 +96,23 @@ paths:
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
+  /backup/targets/{source_agent_id}/{backup_set_id}:
+    get:
+      tags: [Backup]
+      operationId: listBackupTargets
+      summary: List mapped storage targets for one Source Backup Set
+      parameters:
+        - {name: source_agent_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: backup_set_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Mapped targets and their current readiness
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BackupTargetAvailability'}
+        default: {$ref: '#/components/responses/Error'}
   /backup/progress:
     post:
       tags: [Backup]
@@ -390,7 +407,7 @@ components:
       enum: [REQUESTED, ACCEPTED, RUNNING, CANCEL_REQUESTED, CANCELLED, SUCCEEDED, FAILED]
     ErrorCode:
       type: string
-      enum: [INVALID_REQUEST, UNAUTHENTICATED, UNAUTHORIZED, NOT_FOUND, STORAGE_UNAVAILABLE, STORAGE_BUSY, STORAGE_MISMATCH, JOB_CONFLICT, IDEMPOTENCY_CONFLICT, REPLAY_CONFLICT, STALE_REQUEST, RATE_LIMITED, INTERNAL_ERROR]
+      enum: [INVALID_REQUEST, INVALID_CONFIGURATION, UNAUTHENTICATED, UNAUTHORIZED, NOT_FOUND, TARGET_NOT_FOUND, TARGET_NOT_READY, STORAGE_UNAVAILABLE, STORAGE_BUSY, STORAGE_MISMATCH, JOB_CONFLICT, IDEMPOTENCY_CONFLICT, REPLAY_CONFLICT, REPOSITORY_SERVER_FAILED, STALE_REQUEST, RATE_LIMITED, INTERNAL_ERROR]
     StorageStatus:
       type: object
       additionalProperties: false
@@ -400,9 +417,8 @@ components:
         state: {$ref: '#/components/schemas/StorageState'}
         observed_at: {type: string, format: date-time}
         storage:
-          oneOf:
-            - {$ref: '#/components/schemas/StorageDescriptor'}
-            - {type: 'null'}
+          type: array
+          items: {$ref: '#/components/schemas/RegisteredDevicePresence'}
         active_job_id:
           oneOf:
             - {type: string, format: uuid}
@@ -422,12 +438,13 @@ components:
     BackupRequest:
       type: object
       additionalProperties: false
-      required: [job_id, source_agent_id, requested_at, repository]
+      required: [job_id, source_agent_id, backup_set_id, target_mapping_id, requested_at]
       properties:
         job_id: {type: string, format: uuid}
         source_agent_id: {type: string, format: uuid}
+        backup_set_id: {type: string, format: uuid}
+        target_mapping_id: {type: string, format: uuid}
         requested_at: {type: string, format: date-time}
-        repository: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'}
         snapshot_tags:
           type: array
           maxItems: 32
@@ -436,12 +453,26 @@ components:
     BackupAdmission:
       type: object
       additionalProperties: false
-      required: [job_id, state, accepted_at, repository_endpoint]
+      required: [job_id, target_mapping_id, device_id, state, accepted_at, repository_endpoint]
       properties:
         job_id: {type: string, format: uuid}
+        target_mapping_id: {type: string, format: uuid}
+        device_id: {type: string, format: uuid}
         state: {type: string, enum: [ACCEPTED]}
         accepted_at: {type: string, format: date-time}
         repository_endpoint: {type: string, format: uri, maxLength: 2048}
+    BackupTargetAvailability:
+      type: object
+      additionalProperties: false
+      required: [mappingId, deviceId, backupSetId, deviceName, destinationFolder, state]
+      properties:
+        mappingId: {type: string, format: uuid}
+        deviceId: {type: string, format: uuid}
+        backupSetId: {type: string, format: uuid}
+        deviceName: {type: string, minLength: 1, maxLength: 256}
+        destinationFolder: {type: string, minLength: 1, maxLength: 4096}
+        state: {type: string, enum: [READY, WAITING, OFFLINE]}
+        reason: {type: [string, 'null'], maxLength: 1024}
     BackupProgress:
       type: object
       additionalProperties: false

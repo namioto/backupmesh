@@ -35,6 +35,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool _paused;
     private long _configurationRevision;
     private readonly bool _demoMode;
+    private readonly bool _persistLocalState;
 
     public ObservableCollection<SourceAgentViewModel> Sources { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
@@ -57,6 +58,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null)
     {
         _demoMode = demoMode;
+        _persistLocalState = loadLocalState;
         _catalogClient = catalogClient ?? new SourceCatalogClient();
         _configurationClient = configurationClient ?? new StorageConfigurationClient();
         AddMappingCommand = new RelayCommand(AddMapping);
@@ -263,8 +265,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var document = await _configurationClient.UpdateAsync(_configurationRevision, topology, _shutdown.Token);
             _configurationRevision = document.Revision;
-            _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups));
-            ConfigureStartup(StartWithWindows);
+            if (_persistLocalState)
+            {
+                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups));
+                ConfigureStartup(StartWithWindows);
+            }
             FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
             AddActivity("Configuration saved to Storage Service.");
         }

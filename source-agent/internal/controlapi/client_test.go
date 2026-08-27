@@ -50,12 +50,26 @@ func TestRequestBackupHeadersAndSnakeCaseBody(t *testing.T) {
 			t.Error("camelCase field was sent")
 		}
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_id":"job-1","state":"ACCEPTED","accepted_at":"2026-08-28T01:02:03Z","repository_endpoint":"rest:http://storage/repo"}`))
+		_, _ = w.Write([]byte(`{"job_id":"job-1","target_mapping_id":"mapping-1","device_id":"device-1","state":"ACCEPTED","accepted_at":"2026-08-28T01:02:03Z","repository_endpoint":"rest:http://storage/repo"}`))
 	}))
 	defer srv.Close()
-	admission, err := (Client{BaseURL: srv.URL, Now: func() time.Time { return now }}).RequestBackup(context.Background(), "0123456789abcdef", BackupRequest{JobID: "job-1", SourceAgentID: "source-1", RequestedAt: now, Repository: "home"})
+	admission, err := (Client{BaseURL: srv.URL, Now: func() time.Time { return now }}).RequestBackup(context.Background(), "0123456789abcdef", BackupRequest{JobID: "job-1", SourceAgentID: "source-1", BackupSetID: "set-1", TargetMappingID: "mapping-1", RequestedAt: now})
 	if err != nil || admission.State != "ACCEPTED" {
 		t.Fatalf("admission = %#v, err = %v", admission, err)
+	}
+}
+
+func TestListBackupTargets(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/backup/targets/source-1/set-1" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{"mappingId":"mapping-1","deviceId":"device-1","backupSetId":"set-1","deviceName":"USB","destinationFolder":"D:\\backup","state":"READY"}]`))
+	}))
+	defer srv.Close()
+	targets, err := (Client{BaseURL: srv.URL}).ListBackupTargets(context.Background(), "source-1", "set-1")
+	if err != nil || len(targets) != 1 || targets[0].State != "READY" {
+		t.Fatalf("targets = %#v, err = %v", targets, err)
 	}
 }
 

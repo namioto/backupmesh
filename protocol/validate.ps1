@@ -7,6 +7,7 @@ $requiredFragments = @(
     'openapi: 3.1.0',
     '  /storage/status:',
     '  /backup/request:',
+    '  /backup/targets/{source_agent_id}/{backup_set_id}:',
     '  /backup/progress:',
     '  /backup/result:',
     '  /backup/cancel:',
@@ -36,8 +37,8 @@ foreach ($reference in $references) {
 
 $operationIds = [regex]::Matches($text, '(?m)^      operationId: (?<id>[A-Za-z][A-Za-z0-9]+)$') |
     ForEach-Object { $_.Groups['id'].Value }
-if ($operationIds.Count -ne 12) {
-    throw "Expected 12 operations, found $($operationIds.Count)."
+if ($operationIds.Count -ne 13) {
+    throw "Expected 13 operations, found $($operationIds.Count)."
 }
 if (($operationIds | Sort-Object -Unique).Count -ne $operationIds.Count) {
     throw 'Duplicate operationId found.'

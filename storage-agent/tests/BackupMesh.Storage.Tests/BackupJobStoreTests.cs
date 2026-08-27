@@ -5,12 +5,13 @@ namespace BackupMesh.Storage.Tests;
 public sealed class BackupJobStoreTests
 {
     [Fact]
-    public void Admission_IsSingleActiveAndIdempotent()
+    public void Admission_IsPerMappingAndIdempotent()
     {
         var store = new BackupJobStore(); var request = Request(Guid.NewGuid()); var endpoint = new Uri("https://localhost/repo");
         Assert.Equal(StoreOutcome.Accepted, store.Admit(request, "abcdefghijklmnop", endpoint).Outcome);
         Assert.Equal(StoreOutcome.Replayed, store.Admit(request, "abcdefghijklmnop", endpoint).Outcome);
-        Assert.Equal(StoreOutcome.Conflict, store.Admit(Request(Guid.NewGuid()), "different-key-1234", endpoint).Outcome);
+        Assert.Equal(StoreOutcome.Conflict, store.Admit(Request(Guid.NewGuid(), request.TargetMappingId), "different-key-1234", endpoint).Outcome);
+        Assert.Equal(StoreOutcome.Accepted, store.Admit(Request(Guid.NewGuid()), "another-target-12", endpoint).Outcome);
     }
     [Fact]
     public void ProgressIsMonotonicAndResultIsTerminal()
@@ -22,5 +23,5 @@ public sealed class BackupJobStoreTests
         Assert.Equal(StoreOutcome.Accepted, store.Complete(result)); Assert.Equal("SUCCEEDED", store.Get(id)!.State); Assert.Null(store.ActiveJobId);
         Assert.Equal(StoreOutcome.Terminal, store.Progress(progress with { EventId = Guid.NewGuid(), Sequence = 3 }));
     }
-    private static BackupRequest Request(Guid id) => new(id, Guid.NewGuid(), DateTimeOffset.UtcNow, "home-main", ["daily"]);
+    private static BackupRequest Request(Guid id, Guid? mappingId = null) => new(id, Guid.NewGuid(), Guid.NewGuid(), mappingId ?? Guid.NewGuid(), DateTimeOffset.UtcNow, ["daily"]);
 }
