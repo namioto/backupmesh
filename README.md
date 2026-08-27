@@ -68,6 +68,16 @@ The Windows tray app keeps removable backup storage understandable without turni
 
 ![BackupMesh Storage Agent mapping multiple Sources to removable storage](docs/images/storage-agent-mappings.jpg)
 
+### Try the current Windows build
+
+From PowerShell in the repository, build a self-contained test package:
+
+```powershell
+pwsh -NoProfile -File scripts/build-windows-test-package.ps1
+```
+
+Then run `artifacts\BackupMesh-Storage-win-x64\Start-BackupMesh.ps1`. The launcher starts the local Storage Service, waits until it is ready, and opens the tray app. Closing the tray app also stops the test service. Configuration is kept under `%LOCALAPPDATA%\BackupMesh`.
+
 ## Project status
 
 BackupMesh is in the early implementation stage. The first release focuses on:

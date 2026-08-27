@@ -29,3 +29,5 @@ secrets/
 artifacts/
 coverage/
 TestResults/
+.tmp/
+.e2e/

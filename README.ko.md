@@ -68,6 +68,16 @@ Windows 트레이 앱에서 물리 저장장치를 등록하고, 연동된 Sourc
 
 ![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
 
+### 현재 Windows 빌드 사용해 보기
+
+저장소의 PowerShell에서 self-contained 테스트 패키지를 만듭니다.
+
+```powershell
+pwsh -NoProfile -File scripts/build-windows-test-package.ps1
+```
+
+그다음 `artifacts\BackupMesh-Storage-win-x64\Start-BackupMesh.ps1`을 실행합니다. 런처가 로컬 Storage Service의 준비를 기다린 뒤 트레이 앱을 열며, 트레이 앱을 종료하면 테스트 서비스도 함께 종료합니다. 설정은 `%LOCALAPPDATA%\BackupMesh`에 보관됩니다.
+
 ## 현재 상태
 
 BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.

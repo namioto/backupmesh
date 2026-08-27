@@ -24,7 +24,7 @@ public sealed class SourceCatalogClient : ISourceCatalogClient, IDisposable
 {
     private readonly HttpClient _client;
 
-    public SourceCatalogClient(string endpoint = "https://localhost:7443/api/v1/")
+    public SourceCatalogClient(string endpoint = "http://127.0.0.1:7444/api/v1/")
     {
         _client = new() { BaseAddress = new(endpoint, UriKind.Absolute), Timeout = TimeSpan.FromSeconds(5) };
     }
