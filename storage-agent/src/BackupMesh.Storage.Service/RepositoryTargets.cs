@@ -102,9 +102,15 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     }
 
     private Uri Endpoint(int port, string repositoryPath)
+        => BuildEndpoint(options.PublicHost, port, repositoryPath);
+
+    internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath)
     {
         var path = repositoryPath == "." ? "/" : "/" + string.Join('/', repositoryPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString)) + "/";
-        return new UriBuilder(Uri.UriSchemeHttp, options.PublicHost, port, path).Uri;
+        var endpoint = new UriBuilder(Uri.UriSchemeHttp, publicHost, port, path).Uri;
+        // restic distinguishes its REST backend from an ordinary HTTP URL with
+        // the `rest:` transport prefix.
+        return new Uri("rest:" + endpoint.AbsoluteUri);
     }
 
     private static async Task WaitUntilListeningAsync(Session session, CancellationToken cancellationToken)

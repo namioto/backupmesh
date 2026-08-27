@@ -1,10 +1,19 @@
 using System.Diagnostics;
 using BackupMesh.Storage.Core;
+using BackupMesh.Storage.Service;
 
 namespace BackupMesh.Storage.Tests;
 
 public sealed class RestServerLifecycleTests
 {
+    [Fact]
+    public void RepositoryEndpoint_UsesResticRestBackendPrefixAndEscapesPath()
+    {
+        var endpoint = RepositoryServerManager.BuildEndpoint("storage.local", 18000, "team files\\documents");
+
+        Assert.Equal("rest:http://storage.local:18000/team%20files/documents/", endpoint.OriginalString);
+    }
+
     [Fact]
     public async Task Start_UsesArgumentListAndNoShell_ThenStops()
     {
