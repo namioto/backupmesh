@@ -16,6 +16,7 @@ public sealed record AppNotification(string Title, string Message, bool IsError 
 
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const int NewDeviceArrivalDelayMinutes = 30;
     private readonly ConfigurationStore _store = new();
     private readonly IDeviceInventory _deviceInventory = new WindowsDeviceInventory();
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -83,7 +84,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
     public bool AutomaticBackups { get; set; } = true;
-    public int GracePeriodMinutes { get; set; } = 30;
 
     public void StartDeviceMonitoring()
     {
@@ -161,7 +161,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         StartWithWindows = state.StartWithWindows;
         NotifyOnDeviceArrival = state.NotifyOnDeviceArrival;
         AutomaticBackups = state.AutomaticBackups;
-        GracePeriodMinutes = state.GracePeriodMinutes;
 
         foreach (var device in state.Topology.Devices) Devices.Add(new(device));
         foreach (var group in state.Topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
@@ -221,7 +220,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (!_demoMode)
         {
-            _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, GracePeriodMinutes));
+            _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups));
             ConfigureStartup(StartWithWindows);
         }
         FooterStatus = _demoMode ? "Demo configuration validated (not persisted)." : $"Saved at {DateTime.Now:t}.";
@@ -308,7 +307,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "That device is already registered.";
             return;
         }
-        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, GracePeriodMinutes);
+        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
         var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true };
         Devices.Add(registered);
         SelectedDevice = registered;
@@ -458,7 +457,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
     }
 }
 
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int GracePeriodMinutes = 30);
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true);
 
 internal sealed class ConfigurationStore
 {

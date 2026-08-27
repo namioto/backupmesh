@@ -104,7 +104,6 @@
                     <CheckBox Content="Start BackupMesh when I sign in" IsChecked="{Binding StartWithWindows}" Margin="4,8"/>
                     <CheckBox Content="Show a Windows notification when a registered device is connected" IsChecked="{Binding NotifyOnDeviceArrival}" Margin="4,8"/>
                     <CheckBox Content="Automatically start eligible backups after the grace period" IsChecked="{Binding AutomaticBackups}" Margin="4,8"/>
-                    <DockPanel Margin="4,12"><TextBlock Text="Default arrival delay for newly registered devices" Width="320" VerticalAlignment="Center"/><TextBox Text="{Binding GracePeriodMinutes}" Width="90"/><TextBlock Text="minutes" VerticalAlignment="Center"/></DockPanel>
                     <Separator Margin="0,18"/>
                     <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Local fixed drives and removable storage are both supported." TextWrapping="Wrap" Foreground="#526276"/>
