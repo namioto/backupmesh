@@ -62,6 +62,12 @@ Linux 홈서버                         Windows PC
 4. BackupMesh가 저장장치를 검증하고 정책에 따라 백업합니다.
 5. 완료 상태를 확인하고 저장장치를 안전하게 분리합니다.
 
+## Windows Storage Agent
+
+Windows 트레이 앱에서 물리 저장장치를 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
+
+![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
+
 ## 현재 상태
 
 BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.

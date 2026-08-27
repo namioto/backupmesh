@@ -62,6 +62,12 @@ Linux home server                    Windows PC
 4. BackupMesh verifies the storage and runs the backup according to policy.
 5. Confirm completion and safely eject the drive.
 
+## Storage Agent for Windows
+
+The Windows tray app keeps removable backup storage understandable without turning it into an always-on server. Register a physical device, review synchronized Source Agents and their Backup Sets, then map each Backup Set to a device and a relative repository path. The mapping model supports multiple Sources per device and multiple devices per Source.
+
+![BackupMesh Storage Agent mapping multiple Sources to removable storage](docs/images/storage-agent-mappings.jpg)
+
 ## Project status
 
 BackupMesh is in the early implementation stage. The first release focuses on:

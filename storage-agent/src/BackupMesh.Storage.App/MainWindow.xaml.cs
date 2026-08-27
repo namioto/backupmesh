@@ -5,10 +5,11 @@ namespace BackupMesh.Storage.App;
 
 public partial class MainWindow : Window
 {
-    public MainWindowViewModel ViewModel { get; } = new();
+    public MainWindowViewModel ViewModel { get; }
 
-    public MainWindow()
+    public MainWindow(bool demoMode = false)
     {
+        ViewModel = new MainWindowViewModel(demoMode);
         InitializeComponent();
         DataContext = ViewModel;
     }

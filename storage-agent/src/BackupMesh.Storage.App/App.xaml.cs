@@ -13,7 +13,8 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _window = new MainWindow();
+        var demoMode = e.Args.Any(argument => argument.Equals("--demo", StringComparison.OrdinalIgnoreCase));
+        _window = new MainWindow(demoMode);
         _window.Closing += (_, args) => { args.Cancel = true; _window.Hide(); };
 
         var menu = new Forms.ContextMenuStrip();

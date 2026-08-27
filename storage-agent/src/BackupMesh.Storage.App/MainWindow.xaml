@@ -38,9 +38,16 @@
                 <Grid Margin="16">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
                     <GroupBox Header="Paired Source Agents" Padding="10" Margin="0,0,10,0">
-                        <TreeView ItemsSource="{Binding Sources}" SelectedItemChanged="OnSourceSelectionChanged">
-                            <TreeView.ItemTemplate><HierarchicalDataTemplate ItemsSource="{Binding BackupSets}"><TextBlock Text="{Binding DisplayName}"/></HierarchicalDataTemplate></TreeView.ItemTemplate>
-                        </TreeView>
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <TreeView ItemsSource="{Binding Sources}" SelectedItemChanged="OnSourceSelectionChanged">
+                                <TreeView.ItemTemplate><HierarchicalDataTemplate ItemsSource="{Binding BackupSets}"><TextBlock Text="{Binding DisplayName}"/></HierarchicalDataTemplate></TreeView.ItemTemplate>
+                            </TreeView>
+                            <StackPanel Grid.Row="1" Margin="4,12,4,4">
+                                <Button Content="Pair Source Agent" IsEnabled="False" HorizontalAlignment="Left" ToolTip="Pairing UI will be enabled when certificate enrollment is connected."/>
+                                <TextBlock Text="Backup sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
+                            </StackPanel>
+                        </Grid>
                     </GroupBox>
                     <GroupBox Grid.Column="1" Header="Backup targets" Padding="10">
                         <Grid>
@@ -50,16 +57,20 @@
                                     <DataGridTextColumn Header="Source / Backup set" Binding="{Binding BackupSetName}" Width="2*"/>
                                     <DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="*"/>
                                     <DataGridTextColumn Header="Repository path" Binding="{Binding RepositoryPath}" Width="2*"/>
-                                    <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" Width="Auto"/>
+                                    <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
-                                <ComboBox Width="220" ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName"/>
-                                <ComboBox Width="190" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName"/>
-                                <TextBox Width="220" Text="{Binding NewRepositoryPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Relative path on the selected device"/>
-                                <Button Content="Add mapping" Command="{Binding AddMappingCommand}"/>
-                                <Button Content="Remove selected" Command="{Binding RemoveMappingCommand}"/>
-                            </StackPanel>
+                            <Grid Grid.Row="1" Margin="0,12,0,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0"><TextBlock Text="Backup set" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="Device" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock Text="Repository path" Margin="6,0" Foreground="#607086"/><TextBox Text="{Binding NewRepositoryPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Relative path on the selected device"/></StackPanel>
+                                <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Remove selected" Command="{Binding RemoveMappingCommand}"/>
+                                    <Button Content="Add mapping" Command="{Binding AddMappingCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </GroupBox>
                 </Grid>

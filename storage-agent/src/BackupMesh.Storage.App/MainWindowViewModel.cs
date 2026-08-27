@@ -26,6 +26,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
     private bool _paused;
+    private readonly bool _demoMode;
 
     public ObservableCollection<SourceAgentViewModel> Sources { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
@@ -44,8 +45,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(bool demoMode = false)
     {
+        _demoMode = demoMode;
         AddMappingCommand = new RelayCommand(AddMapping);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
@@ -54,6 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SaveCommand = new RelayCommand(Save);
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         Load();
+        if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
         RefreshDrives();
     }
 
@@ -118,6 +121,28 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Activity.Add("Storage Agent UI started.");
     }
 
+    private void LoadDemoSources()
+    {
+        var home = new SourceAgentViewModel(Guid.Parse("c60280da-a03c-4887-a600-577def417af6"), "Home Server");
+        AddDemoSet(home, new(Guid.Parse("7d750726-97ab-4f81-9f09-f06c34f524d1"), home.Id, home.DisplayName, "Photos", ["/srv/photos", "/srv/videos"]));
+        AddDemoSet(home, new(Guid.Parse("e10a4df5-0f71-438d-93f0-34e587357f00"), home.Id, home.DisplayName, "Documents", ["/home/park/Documents"]));
+        Sources.Add(home);
+
+        var workstation = new SourceAgentViewModel(Guid.Parse("0cdf358f-4b92-4bb0-b852-460520508952"), "Studio Workstation");
+        AddDemoSet(workstation, new(Guid.Parse("bb452fc9-f616-4810-a649-3c37775d43d4"), workstation.Id, workstation.DisplayName, "Projects", ["D:/Projects"]));
+        Sources.Add(workstation);
+        SelectedBackupSet = BackupSets.FirstOrDefault();
+        AddActivity("Demo Source catalog loaded for UX validation.");
+        NotifyCounts();
+    }
+
+    private void AddDemoSet(SourceAgentViewModel source, SourceBackupSet model)
+    {
+        var backupSet = new BackupSetViewModel(model);
+        source.BackupSets.Add(backupSet);
+        BackupSets.Add(backupSet);
+    }
+
     private void Save()
     {
         var topology = new StorageAgentConfiguration(
@@ -131,9 +156,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             NotificationRequested?.Invoke(this, new("Configuration not saved", errors[0], true));
             return;
         }
-        _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, GracePeriodMinutes));
-        ConfigureStartup(StartWithWindows);
-        FooterStatus = $"Saved at {DateTime.Now:t}.";
+        if (!_demoMode)
+        {
+            _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, GracePeriodMinutes));
+            ConfigureStartup(StartWithWindows);
+        }
+        FooterStatus = _demoMode ? "Demo configuration validated (not persisted)." : $"Saved at {DateTime.Now:t}.";
         AddActivity("Configuration saved.");
     }
 
@@ -176,8 +204,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "That device is already registered.";
             return;
         }
-        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.DisplayName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-        Devices.Add(new(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true });
+        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true };
+        Devices.Add(registered);
+        SelectedDevice = registered;
         AddActivity($"Registered device {model.DisplayName}.");
         NotifyCounts();
     }
