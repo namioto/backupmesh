@@ -31,6 +31,26 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public void PackagedStartupCommandLaunchesTheServiceAndTrayLauncher()
+    {
+        var package = Path.Combine(Path.GetTempPath(), "backupmesh-startup-" + Guid.NewGuid());
+        var app = Path.Combine(package, "App");
+        Directory.CreateDirectory(app);
+        File.WriteAllText(Path.Combine(package, "Start-BackupMesh.ps1"), "# test launcher");
+        try
+        {
+            var command = MainWindowViewModel.BuildStartupCommand(app, Path.Combine(app, "BackupMesh.Storage.App.exe"));
+
+            Assert.Contains("Start-BackupMesh.ps1", command);
+            Assert.Contains("-WindowStyle Hidden", command);
+        }
+        finally
+        {
+            Directory.Delete(package, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ServiceConfigurationReplacesLocalTopology()
     {
         var device = new RegisteredDevice(Guid.NewGuid(), "volume:test", "Service device", "TEST", "X:\\", DateTimeOffset.UtcNow, null);

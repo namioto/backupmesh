@@ -475,8 +475,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
         if (key is null) return;
-        if (enabled) key.SetValue("BackupMesh.Storage.Agent", $"\"{Environment.ProcessPath}\"");
+        if (enabled) key.SetValue("BackupMesh.Storage.Agent", BuildStartupCommand(AppContext.BaseDirectory, Environment.ProcessPath));
         else key.DeleteValue("BackupMesh.Storage.Agent", throwOnMissingValue: false);
+    }
+
+    internal static string BuildStartupCommand(string appDirectory, string? processPath)
+    {
+        var launcher = Path.GetFullPath(Path.Combine(appDirectory, "..", "Start-BackupMesh.ps1"));
+        if (File.Exists(launcher))
+        {
+            var windowsPowerShell = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+            return $"\"{windowsPowerShell}\" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"{launcher}\"";
+        }
+        return $"\"{processPath ?? Path.Combine(appDirectory, "BackupMesh.Storage.App.exe")}\"";
     }
 
     public void Dispose()
