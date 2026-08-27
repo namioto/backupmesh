@@ -2,10 +2,12 @@
 bin/
 *.test
 coverage.out
+.gocache/
 
 # .NET
 **/bin/
 **/obj/
+.dotnet/
 *.user
 *.suo
 

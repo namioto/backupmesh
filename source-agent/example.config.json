@@ -1,0 +1,21 @@
+{
+  "agent": {
+    "id": "f91436ac-0ca9-4bcb-b0d0-42bc7181f611",
+    "name": "Example source"
+  },
+  "storage": {
+    "controlEndpoint": "https://storage.example:7443",
+    "repositoryPasswordFile": "/run/secrets/restic-password"
+  },
+  "uploadLimitBps": 10485760,
+  "backupSets": [
+    {
+      "name": "documents",
+      "paths": ["/home/example/Documents"],
+      "exclude": ["**/.cache/**"],
+      "hooks": {
+        "before": [["/usr/local/bin/prepare-backup", "documents"]]
+      }
+    }
+  ]
+}

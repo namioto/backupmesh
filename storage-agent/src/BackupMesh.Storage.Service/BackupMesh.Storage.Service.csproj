@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\BackupMesh.Storage.Core\BackupMesh.Storage.Core.csproj" />
+  </ItemGroup>
+</Project>

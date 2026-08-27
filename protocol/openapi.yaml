@@ -1,0 +1,401 @@
+openapi: 3.1.0
+info:
+  title: BackupMesh Control API
+  version: 1.0.0
+  description: |
+    The language-neutral control-plane contract between a Source Agent and a
+    Storage Agent. All operations require mutually authenticated TLS. A peer
+    MUST additionally authorize the authenticated certificate identity for the
+    requested agent and operation; possession of a trusted certificate alone is
+    not authorization.
+servers:
+  - url: https://{storage_agent}/api/v1
+    variables:
+      storage_agent:
+        default: backupmesh-storage.local:7443
+security:
+  - mutualTLS: []
+tags:
+  - name: Storage
+  - name: Backup
+paths:
+  /storage/status:
+    get:
+      tags: [Storage]
+      operationId: getStorageStatus
+      summary: Read the Storage Agent and attached storage state
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Current status
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageStatus'
+              examples:
+                ready:
+                  value:
+                    agent_id: 70b07bb4-7c93-4f3a-8715-78f5cd8e8a65
+                    state: ready
+                    observed_at: '2026-08-28T02:15:04.238Z'
+                    storage:
+                      storage_id: 34edec25-10e3-4652-aa2c-56cc65090044
+                      label: Offsite A
+                      capacity_bytes: 4000787030016
+                      available_bytes: 3123456789012
+                      filesystem: NTFS
+                      repository_endpoint: https://backupmesh-storage.local:8000/repo
+                    active_job_id: null
+        default:
+          $ref: '#/components/responses/Error'
+  /backup/request:
+    post:
+      tags: [Backup]
+      operationId: requestBackup
+      summary: Request admission of a new backup job
+      description: |
+        This operation is idempotent for the same authenticated Source Agent and
+        Idempotency-Key. Reuse with a different body MUST return 409 IDEMPOTENCY_CONFLICT.
+        Servers MUST retain completed key outcomes for at least 24 hours.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackupRequest'
+            examples:
+              daily:
+                value:
+                  job_id: 177142fa-cf88-45a0-b3b3-6272ae19150a
+                  source_agent_id: f91436ac-0ca9-4bcb-b0d0-42bc7181f611
+                  requested_at: '2026-08-28T02:16:00Z'
+                  repository: home-main
+                  snapshot_tags: [daily, laptop]
+      responses:
+        '202':
+          description: Job admitted (or the original response replayed)
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupAdmission'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+  /backup/progress:
+    post:
+      tags: [Backup]
+      operationId: reportBackupProgress
+      summary: Report monotonic job progress
+      description: |
+        sequence starts at 1 and MUST increase for a job. Duplicate reports with
+        the same event_id and body are accepted; an event_id reused with another
+        body returns 409 REPLAY_CONFLICT. Reports for terminal jobs are rejected.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackupProgress'
+      responses:
+        '204':
+          description: Progress recorded
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+        default:
+          $ref: '#/components/responses/Error'
+  /backup/result:
+    post:
+      tags: [Backup]
+      operationId: reportBackupResult
+      summary: Record a terminal job result
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackupResult'
+      responses:
+        '204':
+          description: Result recorded
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+        default:
+          $ref: '#/components/responses/Error'
+  /backup/cancel:
+    post:
+      tags: [Backup]
+      operationId: cancelBackup
+      summary: Request cancellation of a backup
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '202':
+          description: Cancellation request accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        default:
+          $ref: '#/components/responses/Error'
+  /backup/status/{job_id}:
+    get:
+      tags: [Backup]
+      operationId: getBackupStatus
+      summary: Read a job's current state
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Current job state
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    mutualTLS:
+      type: mutualTLS
+      description: TLS 1.3 mTLS using a paired, non-expired agent certificate.
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: true
+      description: UUID v4 generated once by the caller and preserved in logs.
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Opaque caller-generated key scoped to authenticated identity and operation.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._~-]+$'
+    SentAt:
+      name: X-BackupMesh-Sent-At
+      in: header
+      required: true
+      description: RFC 3339 UTC timestamp. Receivers reject messages outside a 5-minute clock-skew window.
+      schema:
+        type: string
+        format: date-time
+  headers:
+    RequestId:
+      description: The caller request identifier.
+      schema:
+        type: string
+        format: uuid
+    IdempotencyReplayed:
+      description: True when returning the stored outcome of a prior identical request.
+      schema:
+        type: boolean
+  responses:
+    Error:
+      description: Request failed
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            busy:
+              value:
+                type: https://backupmesh.dev/problems/storage-busy
+                title: Storage is busy
+                status: 409
+                code: STORAGE_BUSY
+                detail: Another backup is currently active.
+                request_id: e7f20f18-5fa5-48f6-984b-47e218ca18db
+                occurred_at: '2026-08-28T02:18:21Z'
+                retryable: true
+  schemas:
+    StorageState:
+      type: string
+      enum: [offline, discovered, verifying, waiting, ready, busy, error]
+    JobState:
+      type: string
+      enum: [REQUESTED, ACCEPTED, RUNNING, CANCEL_REQUESTED, CANCELLED, SUCCEEDED, FAILED]
+    ErrorCode:
+      type: string
+      enum: [INVALID_REQUEST, UNAUTHENTICATED, UNAUTHORIZED, NOT_FOUND, STORAGE_UNAVAILABLE, STORAGE_BUSY, STORAGE_MISMATCH, JOB_CONFLICT, IDEMPOTENCY_CONFLICT, REPLAY_CONFLICT, STALE_REQUEST, RATE_LIMITED, INTERNAL_ERROR]
+    StorageStatus:
+      type: object
+      additionalProperties: false
+      required: [agent_id, state, observed_at, storage, active_job_id]
+      properties:
+        agent_id: {type: string, format: uuid}
+        state: {$ref: '#/components/schemas/StorageState'}
+        observed_at: {type: string, format: date-time}
+        storage:
+          oneOf:
+            - {$ref: '#/components/schemas/StorageDescriptor'}
+            - {type: 'null'}
+        active_job_id:
+          oneOf:
+            - {type: string, format: uuid}
+            - {type: 'null'}
+        message: {type: string, maxLength: 512}
+    StorageDescriptor:
+      type: object
+      additionalProperties: false
+      required: [storage_id, label, capacity_bytes, available_bytes, filesystem, repository_endpoint]
+      properties:
+        storage_id: {type: string, format: uuid}
+        label: {type: string, minLength: 1, maxLength: 128}
+        capacity_bytes: {type: integer, format: int64, minimum: 0}
+        available_bytes: {type: integer, format: int64, minimum: 0}
+        filesystem: {type: string, minLength: 1, maxLength: 32}
+        repository_endpoint: {type: string, format: uri, maxLength: 2048}
+    BackupRequest:
+      type: object
+      additionalProperties: false
+      required: [job_id, source_agent_id, requested_at, repository]
+      properties:
+        job_id: {type: string, format: uuid}
+        source_agent_id: {type: string, format: uuid}
+        requested_at: {type: string, format: date-time}
+        repository: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'}
+        snapshot_tags:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 64}
+    BackupAdmission:
+      type: object
+      additionalProperties: false
+      required: [job_id, state, accepted_at, repository_endpoint]
+      properties:
+        job_id: {type: string, format: uuid}
+        state: {type: string, enum: [ACCEPTED]}
+        accepted_at: {type: string, format: date-time}
+        repository_endpoint: {type: string, format: uri, maxLength: 2048}
+    BackupProgress:
+      type: object
+      additionalProperties: false
+      required: [event_id, job_id, sequence, reported_at, phase, bytes_done, files_done]
+      properties:
+        event_id: {type: string, format: uuid}
+        job_id: {type: string, format: uuid}
+        sequence: {type: integer, format: int64, minimum: 1}
+        reported_at: {type: string, format: date-time}
+        phase: {type: string, enum: [SCANNING, UPLOADING, FINALIZING]}
+        bytes_done: {type: integer, format: int64, minimum: 0}
+        bytes_total: {type: integer, format: int64, minimum: 0}
+        files_done: {type: integer, format: int64, minimum: 0}
+        files_total: {type: integer, format: int64, minimum: 0}
+        message: {type: string, maxLength: 512}
+    BackupResult:
+      type: object
+      additionalProperties: false
+      required: [event_id, job_id, sequence, completed_at, outcome]
+      properties:
+        event_id: {type: string, format: uuid}
+        job_id: {type: string, format: uuid}
+        sequence: {type: integer, format: int64, minimum: 1}
+        completed_at: {type: string, format: date-time}
+        outcome: {type: string, enum: [SUCCEEDED, FAILED, CANCELLED]}
+        snapshot_id: {type: string, minLength: 1, maxLength: 128}
+        bytes_added: {type: integer, format: int64, minimum: 0}
+        error_code: {type: string, maxLength: 64, pattern: '^[A-Z][A-Z0-9_]*$'}
+        message: {type: string, maxLength: 2048}
+    CancelRequest:
+      type: object
+      additionalProperties: false
+      required: [job_id, requested_at]
+      properties:
+        job_id: {type: string, format: uuid}
+        requested_at: {type: string, format: date-time}
+        reason: {type: string, maxLength: 512}
+    JobStatus:
+      type: object
+      additionalProperties: false
+      required: [job_id, state, updated_at]
+      properties:
+        job_id: {type: string, format: uuid}
+        state: {$ref: '#/components/schemas/JobState'}
+        updated_at: {type: string, format: date-time}
+        last_sequence: {type: integer, format: int64, minimum: 0}
+        progress:
+          oneOf:
+            - {$ref: '#/components/schemas/BackupProgress'}
+            - {type: 'null'}
+        result:
+          oneOf:
+            - {$ref: '#/components/schemas/BackupResult'}
+            - {type: 'null'}
+    Error:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, detail, request_id, occurred_at, retryable]
+      properties:
+        type: {type: string, format: uri, maxLength: 2048}
+        title: {type: string, minLength: 1, maxLength: 128}
+        status: {type: integer, minimum: 400, maximum: 599}
+        code: {$ref: '#/components/schemas/ErrorCode'}
+        detail: {type: string, minLength: 1, maxLength: 2048}
+        request_id: {type: string, format: uuid}
+        occurred_at: {type: string, format: date-time}
+        retryable: {type: boolean}
+        retry_after_seconds: {type: integer, minimum: 1, maximum: 86400}
