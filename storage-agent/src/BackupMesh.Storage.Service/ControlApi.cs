@@ -16,22 +16,6 @@ public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_
 public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
 
-public sealed class SourceCatalogStore
-{
-    private readonly object _gate = new();
-    private readonly Dictionary<Guid, SourceCatalog> _catalogs = [];
-
-    public void Upsert(SourceCatalog catalog)
-    {
-        lock (_gate) _catalogs[catalog.SourceAgentId] = catalog;
-    }
-
-    public IReadOnlyList<SourceCatalog> List()
-    {
-        lock (_gate) return _catalogs.Values.OrderBy(catalog => catalog.SourceAgentName, StringComparer.OrdinalIgnoreCase).ToArray();
-    }
-}
-
 public sealed class BackupJobStore
 {
     private readonly object _gate = new();

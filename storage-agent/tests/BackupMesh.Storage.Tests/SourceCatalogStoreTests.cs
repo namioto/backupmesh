@@ -7,7 +7,7 @@ public sealed class SourceCatalogStoreTests
     [Fact]
     public void UpsertReplacesOnlyThePublishingSource()
     {
-        var store = new SourceCatalogStore();
+        var store = new SourceCatalogStore(new SourceCatalogOptions { PersistencePath = string.Empty });
         var firstId = Guid.NewGuid();
         var secondId = Guid.NewGuid();
         store.Upsert(Catalog(firstId, "Zulu", "Photos"));
@@ -18,6 +18,52 @@ public sealed class SourceCatalogStoreTests
         Assert.Equal(2, catalogs.Count);
         Assert.Equal("Alpha", catalogs[0].SourceAgentName);
         Assert.Equal("Documents", catalogs.Single(item => item.SourceAgentId == firstId).BackupSets.Single().Name);
+    }
+
+    [Fact]
+    public void CatalogsSurviveStoreRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-catalog-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "catalogs.json");
+
+        try
+        {
+            var sourceId = Guid.NewGuid();
+            var options = new SourceCatalogOptions { PersistencePath = path };
+            new SourceCatalogStore(options).Upsert(Catalog(sourceId, "Home Server", "Photos"));
+
+            var restored = new SourceCatalogStore(options).List();
+
+            Assert.Single(restored);
+            Assert.Equal(sourceId, restored[0].SourceAgentId);
+            Assert.Equal("Photos", restored[0].BackupSets.Single().Name);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void CorruptCatalogFileStopsStartupInsteadOfSilentlyLosingMappings()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-catalog-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "catalogs.json");
+
+        try
+        {
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(path, "not-json");
+
+            var error = Assert.Throws<InvalidDataException>(() =>
+                new SourceCatalogStore(new SourceCatalogOptions { PersistencePath = path }));
+
+            Assert.Contains(path, error.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
     }
 
     private static SourceCatalog Catalog(Guid id, string name, string setName) =>
