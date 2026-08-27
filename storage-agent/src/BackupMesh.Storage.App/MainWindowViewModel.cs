@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using BackupMesh.Storage.Core;
 using Microsoft.Win32;
+using Forms = System.Windows.Forms;
 
 namespace BackupMesh.Storage.App;
 
@@ -26,7 +27,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private DeviceViewModel? _selectedDevice;
     private AvailableDriveViewModel? _selectedAvailableDrive;
     private MappingViewModel? _selectedMapping;
-    private string _newRepositoryPath = "backupmesh/repository";
+    private string _newDestinationFolder = string.Empty;
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
     private bool _paused;
@@ -43,6 +44,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public event EventHandler<string>? StatusChanged;
 
     public ICommand AddMappingCommand { get; }
+    public ICommand BrowseDestinationCommand { get; }
     public ICommand RemoveMappingCommand { get; }
     public ICommand RefreshDrivesCommand { get; }
     public ICommand RegisterDeviceCommand { get; }
@@ -54,6 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _demoMode = demoMode;
         _catalogClient = catalogClient ?? new SourceCatalogClient();
         AddMappingCommand = new RelayCommand(AddMapping);
+        BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
@@ -76,7 +79,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
-    public string NewRepositoryPath { get => _newRepositoryPath; set => Set(ref _newRepositoryPath, value); }
+    public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
     public bool AutomaticBackups { get; set; } = true;
@@ -232,12 +235,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "Choose a backup set and a device first.";
             return;
         }
-        if (!BackupTopologyValidator.IsSafeRelativeRepositoryPath(NewRepositoryPath))
+        var repositoryPath = RelativeDestinationPath(SelectedDevice, NewDestinationFolder);
+        if (repositoryPath is null)
         {
-            FooterStatus = "Repository path must be a safe relative path.";
+            FooterStatus = "Choose a destination folder inside the selected device.";
             return;
         }
-        var candidate = new BackupTargetMapping(Guid.NewGuid(), SelectedBackupSet.Id, SelectedDevice.Id, NewRepositoryPath.Trim(), true);
+        var candidate = new BackupTargetMapping(Guid.NewGuid(), SelectedBackupSet.Id, SelectedDevice.Id, repositoryPath, true);
         var all = Mappings.Select(mapping => mapping.ToModel()).Append(candidate).ToArray();
         var topology = new StorageAgentConfiguration(Devices.Select(device => device.ToModel()).ToArray(), BackupSets.Select(set => set.Model).ToArray(), all);
         var errors = BackupTopologyValidator.Validate(topology);
@@ -245,6 +249,46 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Mappings.Add(new(candidate, SelectedBackupSet, SelectedDevice));
         NotifyCounts();
         FooterStatus = "Mapping added. Save settings to persist it.";
+    }
+
+    private void BrowseDestination()
+    {
+        if (SelectedDevice is null)
+        {
+            FooterStatus = "Choose a device first.";
+            return;
+        }
+
+        var root = SelectedDevice.CurrentRoot ?? SelectedDevice.LastKnownRoot;
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        {
+            FooterStatus = "The selected device is not currently available.";
+            return;
+        }
+
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "Choose or create the folder that will contain this backup repository.",
+            InitialDirectory = root,
+            SelectedPath = root,
+            ShowNewFolderButton = true
+        };
+        if (dialog.ShowDialog() == Forms.DialogResult.OK) NewDestinationFolder = dialog.SelectedPath;
+    }
+
+    private static string? RelativeDestinationPath(DeviceViewModel device, string destination)
+    {
+        var root = device.CurrentRoot ?? device.LastKnownRoot;
+        if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(destination)) return null;
+        try
+        {
+            var relative = Path.GetRelativePath(Path.GetFullPath(root), Path.GetFullPath(destination));
+            return BackupTopologyValidator.IsSafeRelativeRepositoryPath(relative) ? relative : null;
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     private void RemoveMapping()
@@ -264,7 +308,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "That device is already registered.";
             return;
         }
-        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, GracePeriodMinutes);
         var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true };
         Devices.Add(registered);
         SelectedDevice = registered;
@@ -303,7 +347,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 AddActivity($"Registered device connected: {device.DisplayName}.");
-                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", $"{device.DisplayName} is ready. Eligible backups will start after {GracePeriodMinutes} minutes."));
+                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", $"{device.DisplayName} is ready. Eligible backups will start after {device.ArrivalDelayMinutes} minutes."));
             }
         }
         _connectedRoots.Clear();
@@ -373,7 +417,7 @@ public sealed class DeviceViewModel : ObservableObject
     private bool _isConnected;
     private string? _currentRoot;
     private DateTimeOffset? _lastSeenAt;
-    public DeviceViewModel(RegisteredDevice model) { Id = model.Id; StableId = model.StableId; DisplayName = model.DisplayName; VolumeLabel = model.VolumeLabel; LastKnownRoot = model.LastKnownRoot; RegisteredAt = model.RegisteredAt; _lastSeenAt = model.LastSeenAt; }
+    public DeviceViewModel(RegisteredDevice model) { Id = model.Id; StableId = model.StableId; DisplayName = model.DisplayName; VolumeLabel = model.VolumeLabel; LastKnownRoot = model.LastKnownRoot; RegisteredAt = model.RegisteredAt; _lastSeenAt = model.LastSeenAt; ArrivalDelayMinutes = model.ArrivalDelayMinutes; }
     public Guid Id { get; }
     public string StableId { get; }
     public string DisplayName { get; }
@@ -385,7 +429,8 @@ public sealed class DeviceViewModel : ObservableObject
     public string? CurrentRoot { get => _currentRoot; set => Set(ref _currentRoot, value); }
     public string Status => IsConnected ? "Connected" : "Offline";
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
-    public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt);
+    public int ArrivalDelayMinutes { get; set; }
+    public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt, ArrivalDelayMinutes);
 }
 
 public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device)
@@ -396,6 +441,7 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     public string BackupSetName => BackupSet.DisplayName;
     public string DeviceName => Device.DisplayName;
     public string RepositoryPath { get; } = model.RepositoryPath;
+    public string DestinationFolder => Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath);
     public bool Enabled { get; } = model.Enabled;
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }

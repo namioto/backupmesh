@@ -35,24 +35,21 @@ public sealed class WindowsDeviceInventory : IDeviceInventory
         using var disks = searcher.Get();
         foreach (ManagementObject disk in disks)
         {
-            var interfaceType = Text(disk["InterfaceType"]);
-            var mediaType = Text(disk["MediaType"]);
-            if (!interfaceType.Equals("USB", StringComparison.OrdinalIgnoreCase) &&
-                !mediaType.Contains("Removable", StringComparison.OrdinalIgnoreCase)) continue;
-
             var volumes = GetVolumes(disk)
                 .Where(volume => volume.TotalBytes > 64L * 1024 * 1024)
-                .OrderByDescending(volume => volume.TotalBytes)
                 .ToArray();
             if (volumes.Length == 0) continue;
-            var dataVolume = volumes[0];
             var serial = Text(disk["SerialNumber"]).Trim();
             var pnpId = Text(disk["PNPDeviceID"]).Trim();
             var deviceId = Text(disk["DeviceID"]).Trim();
-            var stableId = !string.IsNullOrWhiteSpace(serial) ? $"serial:{serial}" : !string.IsNullOrWhiteSpace(pnpId) ? $"pnp:{pnpId}" : $"device:{deviceId}";
+            var physicalId = !string.IsNullOrWhiteSpace(serial) ? $"serial:{serial}" : !string.IsNullOrWhiteSpace(pnpId) ? $"pnp:{pnpId}" : $"device:{deviceId}";
             var model = Text(disk["Model"]).Trim();
-            var name = string.IsNullOrWhiteSpace(model) ? dataVolume.VolumeLabel : model;
-            devices.Add(new(stableId, dataVolume.Root, dataVolume.VolumeLabel, dataVolume.AvailableBytes, dataVolume.TotalBytes, name, volumes.Length));
+            foreach (var volume in volumes)
+            {
+                var stableId = $"{physicalId}|volume:{volume.VolumeLabel}:{volume.TotalBytes}";
+                var name = string.IsNullOrWhiteSpace(model) ? volume.VolumeLabel : model;
+                devices.Add(new(stableId, volume.Root, volume.VolumeLabel, volume.AvailableBytes, volume.TotalBytes, name, volumes.Length));
+            }
         }
         return devices.OrderBy(device => device.HardwareName).ToArray();
     }
@@ -78,7 +75,7 @@ public sealed class WindowsDeviceInventory : IDeviceInventory
     }
 
     private static IReadOnlyList<AvailableDriveViewModel> FallbackVolumes() => DriveInfo.GetDrives()
-        .Where(drive => drive.DriveType == DriveType.Removable && drive.IsReady && drive.TotalSize > 64L * 1024 * 1024)
+        .Where(drive => (drive.DriveType is DriveType.Fixed or DriveType.Removable) && drive.IsReady && drive.TotalSize > 64L * 1024 * 1024)
         .Select(AvailableDriveViewModel.FromDrive)
         .OrderBy(device => device.Root)
         .ToArray();

@@ -56,7 +56,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Source / Backup set" Binding="{Binding BackupSetName}" Width="2*"/>
                                     <DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="*"/>
-                                    <DataGridTextColumn Header="Repository path" Binding="{Binding RepositoryPath}" Width="2*"/>
+                                    <DataGridTextColumn Header="Destination folder" Binding="{Binding DestinationFolder}" Width="2*"/>
                                     <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -65,7 +65,7 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0"><TextBlock Text="Backup set" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName"/></StackPanel>
                                 <StackPanel Grid.Column="1"><TextBlock Text="Device" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName"/></StackPanel>
-                                <StackPanel Grid.Column="2"><TextBlock Text="Repository path" Margin="6,0" Foreground="#607086"/><TextBox Text="{Binding NewRepositoryPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Relative path on the selected device"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock Text="Destination folder" Margin="6,0" Foreground="#607086"/><DockPanel><Button Content="Browse…" Command="{Binding BrowseDestinationCommand}" DockPanel.Dock="Right" Margin="6,0,0,0"/><TextBox Text="{Binding NewDestinationFolder, UpdateSourceTrigger=PropertyChanged}" ToolTip="Folder on the selected device"/></DockPanel></StackPanel>
                                 <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Remove selected" Command="{Binding RemoveMappingCommand}"/>
                                     <Button Content="Add mapping" Command="{Binding AddMappingCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
@@ -93,6 +93,7 @@
                         <Button Content="Refresh drives" Command="{Binding RefreshDrivesCommand}"/>
                         <Button Content="Register selected device" Command="{Binding RegisterDeviceCommand}"/>
                         <Button Content="Forget device" Command="{Binding ForgetDeviceCommand}"/>
+                        <TextBlock Text="Arrival delay" Margin="18,0,6,0" VerticalAlignment="Center"/><TextBox Text="{Binding SelectedDevice.ArrivalDelayMinutes}" Width="55"/><TextBlock Text="minutes" VerticalAlignment="Center" Margin="5,0"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -103,10 +104,10 @@
                     <CheckBox Content="Start BackupMesh when I sign in" IsChecked="{Binding StartWithWindows}" Margin="4,8"/>
                     <CheckBox Content="Show a Windows notification when a registered device is connected" IsChecked="{Binding NotifyOnDeviceArrival}" Margin="4,8"/>
                     <CheckBox Content="Automatically start eligible backups after the grace period" IsChecked="{Binding AutomaticBackups}" Margin="4,8"/>
-                    <DockPanel Margin="4,12"><TextBlock Text="Grace period after device arrival" Width="260" VerticalAlignment="Center"/><TextBox Text="{Binding GracePeriodMinutes}" Width="90"/><TextBlock Text="minutes" VerticalAlignment="Center"/></DockPanel>
+                    <DockPanel Margin="4,12"><TextBlock Text="Default arrival delay for newly registered devices" Width="320" VerticalAlignment="Center"/><TextBox Text="{Binding GracePeriodMinutes}" Width="90"/><TextBlock Text="minutes" VerticalAlignment="Center"/></DockPanel>
                     <Separator Margin="0,18"/>
                     <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Each mapping stores one Source backup set in a relative repository path on its selected device. Multiple mappings may target the same device, but enabled mappings cannot share the exact same repository path." TextWrapping="Wrap" Foreground="#526276"/>
+                    <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Local fixed drives and removable storage are both supported." TextWrapping="Wrap" Foreground="#526276"/>
                     <Button Content="Save settings" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,18,0,0"/>
                 </StackPanel>
             </TabItem>

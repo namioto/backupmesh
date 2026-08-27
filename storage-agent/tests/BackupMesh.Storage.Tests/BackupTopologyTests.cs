@@ -45,6 +45,17 @@ public sealed class BackupTopologyTests
         Assert.Contains(BackupTopologyValidator.Validate(topology), error => error.Contains("same device path", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1441)]
+    public void RejectsInvalidPerDeviceArrivalDelay(int minutes)
+    {
+        var device = Device("Archive") with { ArrivalDelayMinutes = minutes };
+
+        Assert.Contains(BackupTopologyValidator.Validate(new([device], [], [])),
+            error => error.Contains("arrival delay", StringComparison.Ordinal));
+    }
+
     private static RegisteredDevice Device(string name) => new(Guid.NewGuid(), Guid.NewGuid().ToString(), name, name, "E:\\", DateTimeOffset.UtcNow, null);
     private static SourceBackupSet Set(string name) => new(Guid.NewGuid(), Guid.NewGuid(), "Source", name, ["/data"]);
 }

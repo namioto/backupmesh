@@ -7,7 +7,8 @@ public sealed record RegisteredDevice(
     string? VolumeLabel,
     string? LastKnownRoot,
     DateTimeOffset RegisteredAt,
-    DateTimeOffset? LastSeenAt);
+    DateTimeOffset? LastSeenAt,
+    int ArrivalDelayMinutes = 30);
 
 public sealed record SourceBackupSet(
     Guid Id,
@@ -45,6 +46,9 @@ public static class BackupTopologyValidator
             if (!backupSetIds.Contains(mapping.BackupSetId)) errors.Add($"Mapping {mapping.Id} references an unknown backup set.");
             if (!IsSafeRelativeRepositoryPath(mapping.RepositoryPath)) errors.Add($"Mapping {mapping.Id} has an unsafe repository path.");
         }
+
+        foreach (var device in configuration.Devices)
+            if (device.ArrivalDelayMinutes is < 0 or > 1440) errors.Add($"Device {device.Id} has an invalid arrival delay.");
 
         var duplicates = configuration.Mappings
             .Where(mapping => mapping.Enabled)
