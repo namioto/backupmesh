@@ -33,6 +33,10 @@ public sealed class BackupTopologyTests
         Assert.False(BackupTopologyValidator.IsSafeRelativeRepositoryPath(path));
 
     [Fact]
+    public void AllowsTheSelectedDeviceRootAsDestination() =>
+        Assert.True(BackupTopologyValidator.IsSafeRelativeRepositoryPath("."));
+
+    [Fact]
     public void RejectsTwoEnabledMappingsForTheSameDevicePath()
     {
         var device = Device("Archive");

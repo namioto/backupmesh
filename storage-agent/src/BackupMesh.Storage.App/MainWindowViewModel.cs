@@ -441,7 +441,7 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     public string BackupSetName => BackupSet.DisplayName;
     public string DeviceName => Device.DisplayName;
     public string RepositoryPath { get; } = model.RepositoryPath;
-    public string DestinationFolder => Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath);
+    public string DestinationFolder => Path.GetFullPath(Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath));
     public bool Enabled { get; } = model.Enabled;
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
