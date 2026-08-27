@@ -14,6 +14,8 @@ $requiredFragments = @(
     '  /source/catalog:',
     '  /source/catalogs:',
     '  /storage/configuration:',
+    '  /storage/devices/status:',
+    '  /storage/volumes:',
     '    mutualTLS:',
     '      type: mutualTLS'
 )
@@ -34,8 +36,8 @@ foreach ($reference in $references) {
 
 $operationIds = [regex]::Matches($text, '(?m)^      operationId: (?<id>[A-Za-z][A-Za-z0-9]+)$') |
     ForEach-Object { $_.Groups['id'].Value }
-if ($operationIds.Count -ne 10) {
-    throw "Expected 10 operations, found $($operationIds.Count)."
+if ($operationIds.Count -ne 12) {
+    throw "Expected 12 operations, found $($operationIds.Count)."
 }
 if (($operationIds | Sort-Object -Unique).Count -ne $operationIds.Count) {
     throw 'Duplicate operationId found.'

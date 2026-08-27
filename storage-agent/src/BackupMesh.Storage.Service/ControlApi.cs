@@ -87,7 +87,9 @@ public static class ControlApi
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapGroup("/api/v1");
-        api.MapGet("/storage/status", (StorageStateMachine state, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = (object?)null, active_job_id = jobs.ActiveJobId, message = state.Detail }); });
+        api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
+        api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
+        api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });
         api.MapPost("/backup/request", (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested(); var invalid = Validate(request); if (invalid is not null) return invalid;

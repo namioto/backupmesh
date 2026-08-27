@@ -283,6 +283,34 @@ paths:
               schema: {$ref: '#/components/schemas/StorageConfigurationDocument'}
         '409': {$ref: '#/components/responses/Error'}
         default: {$ref: '#/components/responses/Error'}
+  /storage/devices/status:
+    get:
+      tags: [Storage]
+      operationId: listStorageDeviceStatus
+      summary: List connection and arrival-delay state for registered storage
+      responses:
+        '200':
+          description: Registered device presence
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/RegisteredDevicePresence'}
+        default: {$ref: '#/components/responses/Error'}
+  /storage/volumes:
+    get:
+      tags: [Storage]
+      operationId: listStorageVolumes
+      summary: List fixed and removable Windows volumes available for registration
+      responses:
+        '200':
+          description: Currently available storage volumes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/StorageVolumeInfo'}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     mutualTLS:
@@ -535,6 +563,32 @@ components:
         registeredAt: {type: string, format: date-time}
         lastSeenAt: {type: [string, 'null'], format: date-time}
         arrivalDelayMinutes: {type: integer, minimum: 0, maximum: 1440}
+    RegisteredDevicePresence:
+      type: object
+      additionalProperties: false
+      required: [deviceId, stableId, displayName, connected, ready]
+      properties:
+        deviceId: {type: string, format: uuid}
+        stableId: {type: string, minLength: 1, maxLength: 1024}
+        displayName: {type: string, minLength: 1, maxLength: 256}
+        connected: {type: boolean}
+        ready: {type: boolean}
+        currentRoot: {type: [string, 'null'], maxLength: 4096}
+        connectedAt: {type: [string, 'null'], format: date-time}
+        eligibleAt: {type: [string, 'null'], format: date-time}
+        reason: {type: [string, 'null'], maxLength: 1024}
+    StorageVolumeInfo:
+      type: object
+      additionalProperties: false
+      required: [stableId, root, volumeLabel, availableBytes, totalBytes, hardwareName, volumeCount]
+      properties:
+        stableId: {type: string, minLength: 1, maxLength: 1024}
+        root: {type: string, minLength: 1, maxLength: 4096}
+        volumeLabel: {type: string, maxLength: 256}
+        availableBytes: {type: integer, format: int64, minimum: 0}
+        totalBytes: {type: integer, format: int64, minimum: 1}
+        hardwareName: {type: string, minLength: 1, maxLength: 256}
+        volumeCount: {type: integer, minimum: 1}
     ConfiguredBackupSet:
       type: object
       additionalProperties: false

@@ -9,7 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BackupMesh.Storage.Core\BackupMesh.Storage.Core.csproj" />
-    <PackageReference Include="System.Management" Version="9.0.0" />
     <Content Include="Assets\backupmesh-tray.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\backupmesh-tray.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
