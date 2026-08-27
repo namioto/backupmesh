@@ -1,0 +1,29 @@
+# Go
+bin/
+*.test
+coverage.out
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# IDE and OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.json
+secrets/
+
+# Build and test output
+artifacts/
+coverage/
+TestResults/
