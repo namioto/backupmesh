@@ -6,6 +6,31 @@ namespace BackupMesh.Storage.Tests;
 public sealed class StorageConfigurationViewModelTests
 {
     [Fact]
+    public void RefreshDrivesPreservesTheUsersSelectedDevice()
+    {
+        var first = new AvailableDriveViewModel("disk:first", "C:\\", "FIRST", 1, 2, "First disk", 1);
+        var second = new AvailableDriveViewModel("disk:second", "D:\\", "SECOND", 1, 2, "Second disk", 1);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, deviceInventory: new FakeDeviceInventory([first, second]));
+        viewModel.RefreshDrivesCommand.Execute(null);
+        viewModel.SelectedAvailableDrive = second;
+
+        viewModel.RefreshDrivesCommand.Execute(null);
+
+        Assert.Equal(second.StableId, viewModel.SelectedAvailableDrive?.StableId);
+    }
+
+    [Fact]
+    public void RelativeDestinationFolderIsAcceptedInsideTheSelectedDevice()
+    {
+        var model = new RegisteredDevice(Guid.NewGuid(), "disk:usb", "USB disk", "USB", "D:\\", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var device = new DeviceViewModel(model) { CurrentRoot = "D:\\", IsConnected = true };
+
+        var result = MainWindowViewModel.RelativeDestinationPath(device, "BackupMesh\\Documents");
+
+        Assert.Equal("BackupMesh\\Documents", result);
+    }
+
+    [Fact]
     public async Task ServiceConfigurationReplacesLocalTopology()
     {
         var device = new RegisteredDevice(Guid.NewGuid(), "volume:test", "Service device", "TEST", "X:\\", DateTimeOffset.UtcNow, null);
@@ -41,5 +66,10 @@ public sealed class StorageConfigurationViewModelTests
             Document = new(expectedRevision + 1, DateTimeOffset.UtcNow, configuration);
             return Task.FromResult(Document);
         }
+    }
+
+    private sealed class FakeDeviceInventory(IReadOnlyList<AvailableDriveViewModel> drives) : IDeviceInventory
+    {
+        public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => drives;
     }
 }

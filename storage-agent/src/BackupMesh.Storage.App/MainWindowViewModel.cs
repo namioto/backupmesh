@@ -18,7 +18,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
     private const int NewDeviceArrivalDelayMinutes = 30;
     private readonly ConfigurationStore _store = new();
-    private readonly IDeviceInventory _deviceInventory = new WindowsDeviceInventory();
+    private readonly IDeviceInventory _deviceInventory;
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _catalogTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly ISourceCatalogClient _catalogClient;
@@ -55,12 +55,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
         _catalogClient = catalogClient ?? new SourceCatalogClient();
         _configurationClient = configurationClient ?? new StorageConfigurationClient();
+        _deviceInventory = deviceInventory ?? new WindowsDeviceInventory();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
@@ -369,12 +370,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (dialog.ShowDialog() == Forms.DialogResult.OK) NewDestinationFolder = dialog.SelectedPath;
     }
 
-    private static string? RelativeDestinationPath(DeviceViewModel device, string destination)
+    internal static string? RelativeDestinationPath(DeviceViewModel device, string destination)
     {
         var root = device.CurrentRoot ?? device.LastKnownRoot;
         if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(destination)) return null;
         try
         {
+            if (!Path.IsPathRooted(destination))
+            {
+                return BackupTopologyValidator.IsSafeRelativeRepositoryPath(destination)
+                    ? destination.Replace('/', Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar)
+                    : null;
+            }
             var relative = Path.GetRelativePath(Path.GetFullPath(root), Path.GetFullPath(destination));
             return BackupTopologyValidator.IsSafeRelativeRepositoryPath(relative) ? relative : null;
         }
@@ -424,10 +431,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshDrives()
     {
+        var selectedStableId = SelectedAvailableDrive?.StableId;
         var drives = _deviceInventory.GetStorageDevices();
         AvailableDrives.Clear();
         foreach (var drive in drives) AvailableDrives.Add(drive);
-        SelectedAvailableDrive = AvailableDrives.FirstOrDefault();
+        SelectedAvailableDrive = AvailableDrives.FirstOrDefault(drive => string.Equals(drive.StableId, selectedStableId, StringComparison.OrdinalIgnoreCase))
+            ?? AvailableDrives.FirstOrDefault();
 
         var nowConnected = drives.Select(drive => drive.Root).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var device in Devices)

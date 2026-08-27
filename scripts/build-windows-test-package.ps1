@@ -19,7 +19,7 @@ if (-not (Test-Path (Join-Path $toolRoot 'restic.exe')) -or -not (Test-Path (Joi
 New-Item -ItemType Directory -Path (Join-Path $outputRoot 'App') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $outputRoot 'Service') -Force | Out-Null
 
-$common = @('--configuration', 'Release', '--runtime', $Runtime, '--self-contained', 'true', '-p:PublishSingleFile=true', '-p:DebugType=None')
+$common = @('--configuration', 'Release', '--runtime', $Runtime, '--self-contained', 'true', '-p:DebugType=None')
 & dotnet publish (Join-Path $repoRoot 'storage-agent\src\BackupMesh.Storage.App\BackupMesh.Storage.App.csproj') @common --output (Join-Path $outputRoot 'App')
 if ($LASTEXITCODE -ne 0) { throw 'Storage App publish failed.' }
 & dotnet publish (Join-Path $repoRoot 'storage-agent\src\BackupMesh.Storage.Service\BackupMesh.Storage.Service.csproj') @common --output (Join-Path $outputRoot 'Service')
