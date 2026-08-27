@@ -35,3 +35,11 @@ func TestFindBackupSet(t *testing.T) {
 		t.Fatalf("FindBackupSet() = %#v, %v", set, ok)
 	}
 }
+
+func TestValidateRejectsRelativeResticCacheDirectory(t *testing.T) {
+	c := validConfig()
+	c.Storage.ResticCacheDirectory = "relative/cache"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "resticCacheDirectory") {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}

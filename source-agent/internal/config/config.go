@@ -25,6 +25,7 @@ type Agent struct {
 type Storage struct {
 	ControlEndpoint        string `json:"controlEndpoint"`
 	RepositoryPasswordFile string `json:"repositoryPasswordFile"`
+	ResticCacheDirectory   string `json:"resticCacheDirectory,omitempty"`
 }
 
 type BackupSet struct {
@@ -74,6 +75,9 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Storage.RepositoryPasswordFile) == "" {
 		problems = append(problems, errors.New("storage.repositoryPasswordFile is required"))
+	}
+	if strings.TrimSpace(c.Storage.ResticCacheDirectory) != "" && !filepath.IsAbs(c.Storage.ResticCacheDirectory) {
+		problems = append(problems, errors.New("storage.resticCacheDirectory must be an absolute path"))
 	}
 	if c.UploadLimitBPS < 0 {
 		problems = append(problems, errors.New("uploadLimitBps cannot be negative"))

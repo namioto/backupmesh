@@ -5,7 +5,8 @@
   },
   "storage": {
     "controlEndpoint": "https://storage.example:7443",
-    "repositoryPasswordFile": "/run/secrets/restic-password"
+    "repositoryPasswordFile": "/run/secrets/restic-password",
+    "resticCacheDirectory": "/var/cache/backupmesh/restic"
   },
   "uploadLimitBps": 10485760,
   "backupSets": [

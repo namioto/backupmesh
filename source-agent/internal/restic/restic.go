@@ -65,6 +65,9 @@ func BuildEnv(base, extra []string, req engine.BackupRequest) []string {
 	if req.PasswordFile != "" {
 		env = append(env, "RESTIC_PASSWORD_FILE="+req.PasswordFile)
 	}
+	if req.CacheDirectory != "" {
+		env = append(env, "RESTIC_CACHE_DIR="+req.CacheDirectory)
+	}
 	return env
 }
 

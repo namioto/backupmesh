@@ -2,11 +2,12 @@
 
 BackupMesh distributions may bundle the following independent executables. They are not covered by the BackupMesh Apache License 2.0.
 
-The exact bundled versions must be recorded in each release's manifest. Until the first release is assembled, no version is designated here.
+The pinned versions and archive checksums are recorded in [`tools/third-party-tools.json`](tools/third-party-tools.json).
 
 ## restic
 
 - Project: [restic](https://github.com/restic/restic)
+- Bundled version: 0.19.1
 - Purpose: Phase 1 backup engine, executed by the Source Agent
 - License: BSD 2-Clause License
 - Modifications: None planned; official release binaries will be distributed unchanged
@@ -15,6 +16,7 @@ The exact bundled versions must be recorded in each release's manifest. Until th
 ## rest-server
 
 - Project: [rest-server](https://github.com/restic/rest-server)
+- Bundled version: 0.14.0
 - Purpose: Phase 1 REST backend, managed by the Storage Agent
 - License: BSD 2-Clause License
 - Modifications: None planned; official release binaries will be distributed unchanged

@@ -8,6 +8,7 @@ import (
 type BackupRequest struct {
 	Repository     string
 	PasswordFile   string
+	CacheDirectory string
 	Paths          []string
 	Includes       []string
 	Excludes       []string

@@ -106,7 +106,7 @@ func run(args []string) error {
 		defer cancelBackup()
 		var sequence int64
 		var reportErr error
-		result, backupErr := (restic.Adapter{Binary: *resticBinary}).Backup(backupCtx, engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}, func(p engine.Progress) {
+		result, backupErr := (restic.Adapter{Binary: *resticBinary}).Backup(backupCtx, engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}, func(p engine.Progress) {
 			sequence++
 			eventID, idErr := controlapi.UUIDv4()
 			if idErr != nil {
