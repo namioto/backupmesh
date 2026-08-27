@@ -1,74 +1,76 @@
 # BackupMesh
 
-**필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
+[한국어](README.ko.md) | **English**
 
-BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 있어도, 저장장치가 사용 가능한 순간을 감지해 백업을 자동으로 시작하는 오케스트레이터입니다.
+**Plug in your backup storage. BackupMesh takes it from there.**
 
-예를 들어 평소에는 안전하게 분리해 둔 외장 HDD를 Windows PC에 연결하면 BackupMesh가 저장장치를 확인하고, 등록된 Linux 서버의 데이터를 자동으로 백업합니다. 매번 명령을 실행하거나 네트워크 드라이브를 직접 연결할 필요가 없습니다.
+BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
+
+For example, keep an external HDD safely disconnected most of the time. When you attach it to a Windows PC, BackupMesh verifies the drive and automatically backs up your Linux server. There is no backup command to remember and no network drive to mount by hand.
 
 ```text
-외장 HDD 연결
+External HDD connected
     ↓
-저장장치 식별 및 안전 대기
+Storage identified and verified
     ↓
-등록된 Source와 정책 확인
+Registered source and policy checked
     ↓
-자동 백업
+Backup started automatically
     ↓
-완료 확인 후 안전 제거
+Completion confirmed and drive safely ejected
 ```
 
-## 왜 BackupMesh인가요?
+## Why BackupMesh?
 
-### 오프라인 백업을 번거롭지 않게
+### Offline backups without the routine
 
-백업 저장장치를 항상 연결해 두면 랜섬웨어, 실수, 장비 장애의 영향을 함께 받을 수 있습니다. 하지만 매번 직접 연결하고 백업 명령을 실행하는 방식은 결국 잊히기 쉽습니다. BackupMesh는 저장장치를 평소 분리해 두는 안전성과 자동 백업의 편리함을 함께 제공합니다.
+A permanently connected backup drive can be exposed to ransomware, mistakes, and failures affecting the host. A manually disconnected drive is safer, but manual backup routines are easy to postpone or forget. BackupMesh combines the resilience of offline storage with the convenience of automatic backups.
 
-### 저장장치를 알아보고 시작합니다
+### It recognizes the storage before it starts
 
-드라이브 문자나 폴더가 존재한다는 이유만으로 백업하지 않습니다. 등록된 저장장치의 identity를 검증하고, 준비 상태와 여유 공간, 정책을 확인한 뒤 백업을 시작합니다.
+BackupMesh does not start merely because a drive letter or directory exists. It verifies the registered storage identity, then checks readiness, free space, and policy before allowing a backup to run.
 
-### Source와 Storage가 다른 컴퓨터여도 괜찮습니다
+### Your source and storage can live on different computers
 
-항상 켜져 있는 홈서버, Linux 장비, 데스크톱의 외장 HDD처럼 데이터와 저장장치가 떨어져 있는 환경을 하나의 백업 흐름으로 연결합니다.
+Connect an always-on home server or Linux machine to an external drive attached to your desktop. BackupMesh coordinates them as one backup workflow.
 
-### 백업 상태를 한눈에 확인합니다
+### Know exactly what your backup is doing
 
-Storage Agent에서 진행률, 처리한 파일과 데이터 크기, 예상 완료 시간, 마지막 성공 시각을 확인할 수 있습니다. 저장장치를 언제 제거해도 되는지 추측할 필요가 없습니다.
+The Storage Agent shows progress, processed files and bytes, estimated completion time, and the latest successful backup. You do not have to guess whether the drive is safe to remove.
 
-### 기존 백업을 지키는 방향으로 설계합니다
+### Designed to protect existing recovery points
 
-Source Agent의 평상시 권한을 백업 생성에 필요한 범위로 제한하고, 삭제와 유지보수 권한을 분리하는 것을 기본 원칙으로 삼습니다. 전송 데이터와 저장된 백업은 암호화하며 Agent 간 통신은 상호 인증합니다.
+BackupMesh is designed to limit the Source Agent's normal permissions to creating backups, with deletion and maintenance privileges kept separate. Backup data is encrypted, and communication between Agents is mutually authenticated.
 
-### 백업 엔진에 갇히지 않습니다
+### Not locked to one backup engine
 
-초기 버전은 검증된 Restic을 활용하지만, BackupMesh의 핵심은 특정 백업 포맷이 아니라 저장장치의 가용성, 정책, 실행 상태를 연결하는 오케스트레이션입니다. 향후 다른 Storage Provider와 Backup Engine으로 확장할 수 있도록 설계합니다.
+The first version builds on the proven Restic ecosystem. BackupMesh itself is an orchestration layer for storage availability, policy, execution, and observability—not a dependency on one repository format. Its architecture leaves room for additional Storage Providers and Backup Engines.
 
-## 첫 번째 사용 시나리오
+## First reference scenario
 
 ```text
-Linux 홈서버                         Windows PC
+Linux home server                    Windows PC
 ┌────────────────┐                 ┌────────────────────┐
 │ Source Agent   │ ─── backup ───▶ │ Storage Agent      │
-│ 사진·문서·데이터 │                 │ 외장 HDD 감지 및 관리 │
+│ Photos & data  │                 │ External HDD       │
 └────────────────┘                 └────────────────────┘
 ```
 
-1. Linux 서버에 Source Agent를 설치하고 백업할 경로를 등록합니다.
-2. Windows PC에 Storage Agent를 설치하고 사용할 외장 HDD를 등록합니다.
-3. 외장 HDD를 연결합니다.
-4. BackupMesh가 저장장치를 검증하고 정책에 따라 백업합니다.
-5. 완료 상태를 확인하고 저장장치를 안전하게 분리합니다.
+1. Install the Source Agent on a Linux server and register the paths to protect.
+2. Install the Storage Agent on a Windows PC and register an external HDD.
+3. Connect the HDD.
+4. BackupMesh verifies the storage and runs the backup according to policy.
+5. Confirm completion and safely eject the drive.
 
-## 현재 상태
+## Project status
 
-BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.
+BackupMesh is in the early implementation stage. The first release focuses on:
 
-- Linux용 Go Source Agent
-- Windows용 .NET Storage Agent
-- Restic 및 rest-server 기반 암호화 백업
-- 지정된 외장 저장장치의 연결 감지와 identity 검증
-- 지연 실행, 진행률 표시, 안전 제거
-- Agent 간 인증된 Control API
+- A Go Source Agent for Linux
+- A .NET Storage Agent for Windows
+- Encrypted backups through Restic and rest-server
+- Connection detection and identity verification for a designated removable drive
+- Delayed execution, progress reporting, and safe ejection
+- An authenticated Control API between Agents
 
-> BackupMesh는 아직 중요한 데이터의 유일한 백업 수단으로 사용할 준비가 되지 않았습니다.
+> BackupMesh is not yet ready to be the only backup solution for important data.
