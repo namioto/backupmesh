@@ -9,7 +9,10 @@ public partial class MainWindow : Window
 
     public MainWindow(bool demoMode = false, string? serviceEndpoint = null)
     {
-        ViewModel = new MainWindowViewModel(demoMode, serviceEndpoint is null ? null : new SourceCatalogClient(serviceEndpoint));
+        ViewModel = new MainWindowViewModel(
+            demoMode,
+            serviceEndpoint is null ? null : new SourceCatalogClient(serviceEndpoint),
+            configurationClient: serviceEndpoint is null ? null : new StorageConfigurationClient(serviceEndpoint));
         InitializeComponent();
         DataContext = ViewModel;
     }

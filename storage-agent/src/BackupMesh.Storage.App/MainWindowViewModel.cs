@@ -22,6 +22,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _catalogTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly ISourceCatalogClient _catalogClient;
+    private readonly IStorageConfigurationClient _configurationClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
@@ -32,6 +33,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
     private bool _paused;
+    private long _configurationRevision;
     private readonly bool _demoMode;
 
     public ObservableCollection<SourceAgentViewModel> Sources { get; } = [];
@@ -52,17 +54,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null)
     {
         _demoMode = demoMode;
         _catalogClient = catalogClient ?? new SourceCatalogClient();
+        _configurationClient = configurationClient ?? new StorageConfigurationClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
-        SaveCommand = new RelayCommand(Save);
+        SaveCommand = new RelayCommand(() => _ = SaveAsync());
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
         if (loadLocalState) Load();
@@ -91,8 +94,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (!_demoMode)
         {
             _catalogTimer.Start();
-            _ = RefreshCatalogsAsync();
+            _ = InitializeServiceStateAsync();
         }
+    }
+
+    private async Task InitializeServiceStateAsync()
+    {
+        await RefreshConfigurationAsync();
+        await RefreshCatalogsAsync();
     }
 
     private async Task RefreshCatalogsAsync()
@@ -115,6 +124,31 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public Task RefreshCatalogsOnceAsync() => RefreshCatalogsAsync();
+
+    public async Task RefreshConfigurationAsync()
+    {
+        if (_demoMode) return;
+        try
+        {
+            var document = await _configurationClient.GetAsync(_shutdown.Token);
+            ApplyTopology(document.Configuration);
+            _configurationRevision = document.Revision;
+            FooterStatus = $"Loaded Storage Service configuration revision {document.Revision}.";
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException)
+        {
+            FooterStatus = "Storage Service is unavailable; configuration changes cannot be saved.";
+        }
+        catch (TaskCanceledException)
+        {
+            FooterStatus = "Storage Service configuration request timed out.";
+        }
+        catch (InvalidDataException exception)
+        {
+            FooterStatus = exception.Message;
+        }
+    }
 
     private void ApplyCatalogs(IReadOnlyList<SourceCatalogDto> catalogs)
     {
@@ -205,7 +239,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         BackupSets.Add(backupSet);
     }
 
-    private void Save()
+    public async Task SaveAsync()
     {
         var topology = new StorageAgentConfiguration(
             Devices.Select(device => device.ToModel()).ToArray(),
@@ -218,13 +252,68 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             NotificationRequested?.Invoke(this, new("Configuration not saved", errors[0], true));
             return;
         }
-        if (!_demoMode)
+        if (_demoMode)
         {
+            FooterStatus = "Demo configuration validated (not persisted).";
+            AddActivity("Configuration validated.");
+            return;
+        }
+
+        try
+        {
+            var document = await _configurationClient.UpdateAsync(_configurationRevision, topology, _shutdown.Token);
+            _configurationRevision = document.Revision;
             _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups));
             ConfigureStartup(StartWithWindows);
+            FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
+            AddActivity("Configuration saved to Storage Service.");
         }
-        FooterStatus = _demoMode ? "Demo configuration validated (not persisted)." : $"Saved at {DateTime.Now:t}.";
-        AddActivity("Configuration saved.");
+        catch (StorageConfigurationConflictException)
+        {
+            FooterStatus = "Configuration changed elsewhere. Reloading before you save again.";
+            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+            await RefreshConfigurationAsync();
+        }
+        catch (HttpRequestException)
+        {
+            FooterStatus = "Storage Service is unavailable; configuration was not saved.";
+            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+        }
+        catch (TaskCanceledException)
+        {
+            FooterStatus = "Storage Service configuration save timed out.";
+            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+        }
+    }
+
+    private void ApplyTopology(StorageAgentConfiguration topology)
+    {
+        Devices.Clear();
+        BackupSets.Clear();
+        Sources.Clear();
+        Mappings.Clear();
+        foreach (var device in topology.Devices) Devices.Add(new(device));
+        foreach (var group in topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
+        {
+            var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
+            foreach (var model in group)
+            {
+                var backupSet = new BackupSetViewModel(model);
+                BackupSets.Add(backupSet);
+                source.BackupSets.Add(backupSet);
+            }
+            Sources.Add(source);
+        }
+        foreach (var mapping in topology.Mappings)
+        {
+            var backupSet = BackupSets.FirstOrDefault(set => set.Id == mapping.BackupSetId);
+            var device = Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
+            if (backupSet is not null && device is not null) Mappings.Add(new(mapping, backupSet, device));
+        }
+        SelectedBackupSet = BackupSets.FirstOrDefault();
+        SelectedDevice = Devices.FirstOrDefault();
+        RefreshDrives();
+        NotifyCounts();
     }
 
     private void AddMapping()
@@ -382,6 +471,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _deviceTimer.Stop();
         _catalogTimer.Stop();
         if (_catalogClient is IDisposable disposable) disposable.Dispose();
+        if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
         _shutdown.Dispose();
     }
 }
