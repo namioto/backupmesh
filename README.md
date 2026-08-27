@@ -74,3 +74,9 @@ BackupMesh is in the early implementation stage. The first release focuses on:
 - An authenticated Control API between Agents
 
 > BackupMesh is not yet ready to be the only backup solution for important data.
+
+## License
+
+BackupMesh is licensed under the [Apache License 2.0](LICENSE).
+
+Distributions may bundle `restic` and `rest-server`, which remain independently licensed under the BSD 2-Clause License. See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for details.

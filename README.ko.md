@@ -74,3 +74,9 @@ BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구�
 - Agent 간 인증된 Control API
 
 > BackupMesh는 아직 중요한 데이터의 유일한 백업 수단으로 사용할 준비가 되지 않았습니다.
+
+## 라이선스
+
+BackupMesh는 [Apache License 2.0](LICENSE)으로 배포됩니다.
+
+배포판에는 BSD 2-Clause License가 독립적으로 적용되는 `restic`과 `rest-server`가 포함될 수 있습니다. 자세한 내용은 [외부 소프트웨어 고지](THIRD_PARTY_NOTICES.md)를 참고하세요.
