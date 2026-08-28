@@ -29,8 +29,11 @@ public sealed class MutualTlsCertificateValidatorTests
             var server = Task.Run(async () =>
             {
                 using var connection = await listener.AcceptTcpClientAsync();
-                using var stream = new SslStream(connection.GetStream(), false, (_, certificate, _, _) => certificate is not null);
-                await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = serverCertificate, ClientCertificateRequired = true, EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
+                using var stream = new SslStream(connection.GetStream(), false, (_, certificate, _, _) => ValidateClient(certificate, authority));
+                var policy = new X509ChainPolicy { TrustMode = X509ChainTrustMode.CustomRootTrust, RevocationMode = X509RevocationMode.NoCheck };
+                policy.CustomTrustStore.Add(authority);
+                policy.ApplicationPolicy.Add(new Oid("1.3.6.1.5.5.7.3.2"));
+                await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = serverCertificate, ClientCertificateRequired = true, CertificateChainPolicy = policy, EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
             });
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, port);
@@ -63,7 +66,8 @@ public sealed class MutualTlsCertificateValidatorTests
             using var certificate = X509Certificate2.CreateFromPem(first.CertificatePem);
             using var authority = X509Certificate2.CreateFromPem(first.AuthorityPem);
             Assert.Equal(agentId.ToString("D"), certificate.GetNameInfo(X509NameType.SimpleName, false));
-            Assert.Equal(certificate.Subject, certificate.Issuer);
+            Assert.Equal(authority.Subject, certificate.Issuer);
+            Assert.True(MutualTlsCertificateValidator.Validate(certificate, authority));
             Assert.DoesNotContain("PRIVATE KEY", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(path)), StringComparison.Ordinal);
 
             var second = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = path }).Issue(Guid.NewGuid());

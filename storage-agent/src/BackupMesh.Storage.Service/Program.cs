@@ -23,10 +23,8 @@ if (mutualTls.Enabled)
     {
         https.ServerCertificate = serverCertificate;
         https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-        // Application authentication binds the presented certificate identity to
-        // the per-Source pairing credential. Avoid Windows custom-chain failures
-        // during the TLS callback; the certificate is still mandatory here.
-        https.ClientCertificateValidation = (_, _, _) => true;
+        https.ClientCertificateValidation = (certificate, _, _) =>
+            MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
         https.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
     })));
 }

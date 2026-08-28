@@ -26,7 +26,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
             request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.2") }, true));
             request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
             var expires = DateTimeOffset.UtcNow.AddYears(1);
-            using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), expires);
+            using var certificate = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-5), expires, CreatePositiveSerialNumber());
             return new(certificate.ExportCertificatePem(), key.ExportPkcs8PrivateKeyPem(), authority.ExportCertificatePem(), expires);
         }
     }
