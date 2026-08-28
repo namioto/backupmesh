@@ -107,6 +107,7 @@
                         <Button Content="Refresh drives" Command="{Binding RefreshDrivesCommand}"/>
                         <Button Content="Register selected device" Command="{Binding RegisterDeviceCommand}"/>
                         <Button Content="Forget device" Command="{Binding ForgetDeviceCommand}"/>
+                        <Button Content="Safely remove" Command="{Binding EjectDeviceCommand}"/>
                         <TextBlock Text="Arrival delay" Margin="18,0,6,0" VerticalAlignment="Center"/><TextBox Text="{Binding SelectedDevice.ArrivalDelayMinutes}" Width="55"/><TextBlock Text="minutes" VerticalAlignment="Center" Margin="5,0"/>
                     </StackPanel>
                 </Grid>

@@ -13,6 +13,6 @@ public sealed class WindowsDeviceInventory : IDeviceInventory
 
     public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => _inventory.GetVolumes()
         .Select(volume => new AvailableDriveViewModel(volume.StableId, volume.Root, volume.VolumeLabel,
-            volume.AvailableBytes, volume.TotalBytes, volume.HardwareName, volume.VolumeCount))
+            volume.AvailableBytes, volume.TotalBytes, volume.HardwareName, volume.VolumeCount, volume.CanEject))
         .ToArray();
 }

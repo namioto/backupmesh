@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Management;
 using System.Runtime.Versioning;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace BackupMesh.Storage.Core;
 
-public sealed record StorageVolumeInfo(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount);
+public sealed record StorageVolumeInfo(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false, string? DeviceInstanceId = null);
 
 public interface IStorageVolumeInventory
 {
@@ -24,7 +26,7 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
     private static IReadOnlyList<StorageVolumeInfo> QueryPhysicalDisks()
     {
         var devices = new List<StorageVolumeInfo>();
-        using var searcher = new ManagementObjectSearcher("SELECT DeviceID, Model, SerialNumber, PNPDeviceID FROM Win32_DiskDrive");
+        using var searcher = new ManagementObjectSearcher("SELECT DeviceID, Model, SerialNumber, PNPDeviceID, InterfaceType, MediaType FROM Win32_DiskDrive");
         using var disks = searcher.Get();
         foreach (ManagementObject disk in disks)
         {
@@ -37,11 +39,13 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
                 var deviceId = Text(disk["DeviceID"]).Trim();
                 var physicalId = !string.IsNullOrWhiteSpace(serial) ? $"serial:{serial}" : !string.IsNullOrWhiteSpace(pnpId) ? $"pnp:{pnpId}" : $"device:{deviceId}";
                 var model = Text(disk["Model"]).Trim();
+                var canEject = Text(disk["InterfaceType"]).Equals("USB", StringComparison.OrdinalIgnoreCase)
+                    || Text(disk["MediaType"]).Contains("removable", StringComparison.OrdinalIgnoreCase);
                 foreach (var volume in volumes)
                 {
                     var stableId = $"{physicalId}|volume:{volume.VolumeLabel}:{volume.TotalBytes}";
                     var name = string.IsNullOrWhiteSpace(model) ? volume.VolumeLabel : model;
-                    devices.Add(new(stableId, volume.Root, volume.VolumeLabel, volume.AvailableBytes, volume.TotalBytes, name, volumes.Length));
+                    devices.Add(new(stableId, volume.Root, volume.VolumeLabel, volume.AvailableBytes, volume.TotalBytes, name, volumes.Length, canEject, canEject ? pnpId : null));
                 }
             }
         }
@@ -76,4 +80,29 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
 
     private static string Text(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
     private sealed record DetectedVolume(string Root, string VolumeLabel, long AvailableBytes, long TotalBytes);
+}
+
+public sealed record StorageEjectResult(bool Succeeded, string Message);
+public interface IStorageDeviceEjector { StorageEjectResult Eject(StorageVolumeInfo volume); }
+
+public sealed class WindowsStorageDeviceEjector : IStorageDeviceEjector
+{
+    public StorageEjectResult Eject(StorageVolumeInfo volume)
+    {
+        if (!OperatingSystem.IsWindows() || !volume.CanEject || string.IsNullOrWhiteSpace(volume.DeviceInstanceId))
+            return new(false, "This storage device does not support safe removal.");
+        var locate = CM_Locate_DevNodeW(out var device, volume.DeviceInstanceId, 0);
+        if (locate != 0) return new(false, $"Windows could not locate the storage device (code {locate}).");
+        var vetoName = new StringBuilder(260);
+        var result = CM_Request_Device_EjectW(device, out var veto, vetoName, vetoName.Capacity, 0);
+        if (result == 0) return new(true, "Windows accepted the safe-removal request.");
+        var detail = vetoName.Length == 0 ? veto.ToString() : vetoName.ToString();
+        return new(false, $"Windows refused safe removal ({detail}, code {result}).");
+    }
+
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
+    private static extern int CM_Locate_DevNodeW(out uint deviceInstance, string deviceId, int flags);
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
+    private static extern int CM_Request_Device_EjectW(uint deviceInstance, out PnpVetoType vetoType, StringBuilder vetoName, int nameLength, int flags);
+    private enum PnpVetoType { Unknown, LegacyDevice, PendingClose, WindowsApp, WindowsService, OutstandingOpen, Device, Driver, IllegalDeviceRequest, InsufficientPower, NonDisableable, LegacyDriver }
 }

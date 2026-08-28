@@ -20,6 +20,20 @@ tags:
   - name: Backup
   - name: Source
 paths:
+  /storage/devices/{device_id}/eject:
+    post:
+      tags: [Storage]
+      operationId: ejectStorageDevice
+      summary: Request safe removal of a registered removable storage device
+      parameters:
+        - {name: device_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      responses:
+        '202': {description: Windows accepted the safe-removal request}
+        '409': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
   /storage/status:
     get:
       tags: [Storage]

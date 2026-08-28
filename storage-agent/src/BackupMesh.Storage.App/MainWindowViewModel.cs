@@ -25,6 +25,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ISourceCatalogClient _catalogClient;
     private readonly IStorageConfigurationClient _configurationClient;
     private readonly IBackupJobClient _jobClient;
+    private readonly IStorageDeviceClient _storageDeviceClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
@@ -59,8 +60,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
+    public ICommand EjectDeviceCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
@@ -68,6 +70,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _configurationClient = configurationClient ?? new StorageConfigurationClient();
         _deviceInventory = deviceInventory ?? new WindowsDeviceInventory();
         _jobClient = jobClient ?? new BackupJobClient();
+        _storageDeviceClient = storageDeviceClient ?? new StorageDeviceClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
@@ -76,6 +79,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
+        EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
@@ -144,6 +148,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (HttpRequestException) { FooterStatus = "The cancellation request could not reach Storage Service."; }
         catch (TaskCanceledException) { FooterStatus = "The cancellation request timed out."; }
+    }
+
+    private async Task EjectSelectedDeviceAsync()
+    {
+        if (SelectedDevice is not { IsConnected: true, CanEject: true } device) { FooterStatus = "Select a connected removable device first."; return; }
+        try
+        {
+            await _storageDeviceClient.EjectAsync(device.Id, _shutdown.Token);
+            FooterStatus = $"Safe-removal requested for {device.DisplayName}.";
+            AddActivity(FooterStatus);
+        }
+        catch (HttpRequestException exception) { FooterStatus = $"Safe removal was refused: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = "Safe-removal request timed out."; }
     }
 
     private async Task RefreshCatalogsAsync()
@@ -483,6 +500,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var match = drives.FirstOrDefault(drive => string.Equals(drive.StableId, device.StableId, StringComparison.OrdinalIgnoreCase));
             var wasConnected = device.IsConnected;
             device.IsConnected = match is not null;
+            device.CanEject = match?.CanEject == true;
             device.CurrentRoot = match?.Root;
             if (!wasConnected && match is not null)
             {
@@ -542,6 +560,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (_catalogClient is IDisposable disposable) disposable.Dispose();
         if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
         if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
+        if (_storageDeviceClient is IDisposable storageDeviceDisposable) storageDeviceDisposable.Dispose();
         _shutdown.Dispose();
     }
 }
@@ -574,6 +593,7 @@ public sealed class BackupSetViewModel : ObservableObject
 public sealed class DeviceViewModel : ObservableObject
 {
     private bool _isConnected;
+    private bool _canEject;
     private string? _currentRoot;
     private DateTimeOffset? _lastSeenAt;
     public DeviceViewModel(RegisteredDevice model) { Id = model.Id; StableId = model.StableId; DisplayName = model.DisplayName; VolumeLabel = model.VolumeLabel; LastKnownRoot = model.LastKnownRoot; RegisteredAt = model.RegisteredAt; _lastSeenAt = model.LastSeenAt; ArrivalDelayMinutes = model.ArrivalDelayMinutes; }
@@ -585,6 +605,7 @@ public sealed class DeviceViewModel : ObservableObject
     public DateTimeOffset RegisteredAt { get; }
     public DateTimeOffset? LastSeenAt { get => _lastSeenAt; set { Set(ref _lastSeenAt, value); OnPropertyChanged(nameof(LastSeenDisplay)); } }
     public bool IsConnected { get => _isConnected; set { Set(ref _isConnected, value); OnPropertyChanged(nameof(Status)); } }
+    public bool CanEject { get => _canEject; set => Set(ref _canEject, value); }
     public string? CurrentRoot { get => _currentRoot; set => Set(ref _currentRoot, value); }
     public string Status => IsConnected ? "Connected" : "Offline";
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
@@ -605,7 +626,7 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 
-public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount)
+public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
 {
     public string DisplayName => $"{HardwareName} — {VolumeLabel} ({Root}), {AvailableBytes / 1_073_741_824d:0.0} GB free";
     public static AvailableDriveViewModel FromDrive(DriveInfo drive)

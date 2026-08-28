@@ -14,6 +14,16 @@ public sealed class WindowsStorageVolumeInventoryTests
 
         Assert.NotEmpty(volumes);
         Assert.Contains(volumes, volume => string.Equals(volume.Root, systemRoot, StringComparison.OrdinalIgnoreCase));
+        Assert.False(volumes.Single(volume => string.Equals(volume.Root, systemRoot, StringComparison.OrdinalIgnoreCase)).CanEject);
         Assert.All(volumes, volume => Assert.False(string.IsNullOrWhiteSpace(volume.StableId)));
+    }
+
+    [Fact]
+    public void EjectorRejectsFixedStorageWithoutCallingWindowsRemoval()
+    {
+        var fixedVolume = new StorageVolumeInfo("fixed", "C:\\", "System", 1, 2, "Fixed", 1);
+        var result = new WindowsStorageDeviceEjector().Eject(fixedVolume);
+        Assert.False(result.Succeeded);
+        Assert.Contains("does not support", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

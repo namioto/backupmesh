@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IRepositoryEndpointProvider>(sp => sp.GetRequiredS
 builder.Services.AddSingleton<RequiredControlHeadersFilter>();
 builder.Services.AddSingleton<ControlApiAuthenticationFilter>();
 builder.Services.AddSingleton<IStorageVolumeInventory, WindowsStorageVolumeInventory>();
+builder.Services.AddSingleton<IStorageDeviceEjector, WindowsStorageDeviceEjector>();
 builder.Services.AddSingleton<IProcessFactory, SystemProcessFactory>();
 builder.Services.AddSingleton<IRestServerLifecycle, RestServerLifecycle>();
 builder.Services.AddHostedService<StorageMonitorService>();

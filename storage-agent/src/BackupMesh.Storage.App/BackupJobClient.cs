@@ -64,3 +64,20 @@ public sealed class BackupJobViewModel(BackupJobDto model)
     public string Result => model.Result?.SnapshotId is { Length: > 0 } snapshot ? $"{model.Result.Outcome} · {snapshot[..Math.Min(8, snapshot.Length)]}" : model.Result?.Outcome ?? "—";
     public bool CanCancel => State is "ACCEPTED" or "RUNNING";
 }
+
+public interface IStorageDeviceClient { Task EjectAsync(Guid deviceId, CancellationToken cancellationToken); }
+public sealed class StorageDeviceClient : IStorageDeviceClient, IDisposable
+{
+    private readonly HttpClient _client;
+    public StorageDeviceClient(string endpoint = "http://127.0.0.1:7444/api/v1/") => _client = new() { BaseAddress = new(endpoint), Timeout = TimeSpan.FromSeconds(10) };
+    public async Task EjectAsync(Guid deviceId, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"storage/devices/{deviceId}/eject");
+        request.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        request.Headers.Add("X-BackupMesh-Sent-At", DateTimeOffset.UtcNow.ToString("O"));
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+    public void Dispose() => _client.Dispose();
+}
