@@ -30,6 +30,10 @@ try {
     $app.WaitForExit()
 }
 finally {
-    if (-not $service.HasExited) { Stop-Process -Id $service.Id }
+    if (-not $service.HasExited) {
+        try { Invoke-RestMethod -Method Post 'http://127.0.0.1:7444/api/v1/service/shutdown' -TimeoutSec 2 | Out-Null }
+        catch { Stop-Process -Id $service.Id -Force -ErrorAction SilentlyContinue }
+    }
+    if (-not $service.WaitForExit(10000)) { Stop-Process -Id $service.Id -Force -ErrorAction SilentlyContinue }
     $service.WaitForExit()
 }

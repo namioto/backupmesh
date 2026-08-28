@@ -20,6 +20,17 @@ tags:
   - name: Backup
   - name: Source
 paths:
+  /service/shutdown:
+    post:
+      tags: [Storage]
+      operationId: shutdownStorageService
+      summary: Gracefully stop the local Storage Service
+      description: Available only over the loopback endpoint so the test launcher can stop repository child processes cleanly.
+      security: []
+      responses:
+        '202': {description: Shutdown scheduled}
+        '403': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
   /pairing/credential:
     post:
       tags: [Source]

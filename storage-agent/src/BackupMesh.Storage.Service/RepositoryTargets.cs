@@ -83,10 +83,11 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         Session session;
         lock (_gate)
         {
-            if (_sessions.TryGetValue(target.DeviceId, out session!) && !session.Process.HasExited)
-                return Endpoint(session, target.RepositoryPath);
+            if (_sessions.TryGetValue(target.MappingId, out session!) && !session.Process.HasExited)
+                return Endpoint(session);
             var port = options.BasePort + _sessions.Count;
-            var credential = options.NoAuthentication ? null : CreateCredential(target.DeviceId, options.CredentialDirectory);
+            Directory.CreateDirectory(target.DestinationFolder);
+            var credential = options.NoAuthentication ? null : CreateCredential(target.MappingId, options.CredentialDirectory);
             var startInfo = new ProcessStartInfo
             {
                 FileName = options.ExecutablePath,
@@ -94,20 +95,20 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
                 CreateNoWindow = true
             };
             startInfo.ArgumentList.Add("--path");
-            startInfo.ArgumentList.Add(target.DeviceRoot);
+            startInfo.ArgumentList.Add(target.DestinationFolder);
             startInfo.ArgumentList.Add("--listen");
             startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
             if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
             else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
-            session = new(port, target.DeviceRoot, processFactory.Start(startInfo), credential);
-            _sessions[target.DeviceId] = session;
+            session = new(port, target.DestinationFolder, processFactory.Start(startInfo), credential);
+            _sessions[target.MappingId] = session;
         }
         await WaitUntilListeningAsync(session, cancellationToken);
-        return Endpoint(session, target.RepositoryPath);
+        return Endpoint(session);
     }
 
-    private Uri Endpoint(Session session, string repositoryPath)
-        => BuildEndpoint(options.PublicHost, session.Port, repositoryPath, session.Credential?.Username, session.Credential?.Password);
+    private Uri Endpoint(Session session)
+        => BuildEndpoint(options.PublicHost, session.Port, ".", session.Credential?.Username, session.Credential?.Password);
 
     internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null)
     {

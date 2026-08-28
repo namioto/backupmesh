@@ -253,6 +253,13 @@ public static class ControlApi
                 issued_at = DateTimeOffset.UtcNow
             });
         });
+        api.MapPost("/service/shutdown", (HttpContext http, IHostApplicationLifetime lifetime, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Service shutdown is available only from the local tray app.");
+            _ = Task.Run(async () => { await Task.Delay(100); lifetime.StopApplication(); }, CancellationToken.None);
+            return Results.Accepted();
+        });
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
         api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });
