@@ -68,6 +68,8 @@ Windows 트레이 앱에서 물리 저장장치를 등록하고, 연동된 Sourc
 
 Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 생성된 `backupmesh-pairing.json` 번들을 저장합니다. 안전하게 Source 장치로 옮긴 뒤 `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`을 실행합니다. 이 명령은 Source ID와 TLS 경로를 갱신하고, 해당 Source에 결속된 토큰·클라이언트 인증서·개인 키·Storage Agent CA와 원격 Control API 주소를 설치하며 Linux에서는 소유자 전용 권한으로 보호합니다. 적용 후 전송용 번들은 삭제하세요. Source마다 독립된 신원과 credential이 발급됩니다.
 
+Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/restic-password`를 생성합니다. 이 암호를 잃으면 snapshot을 복원할 수 없으므로 별도의 안전한 위치에 복구 사본을 보관하세요.
+
 ![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
 
 ### 현재 Windows 빌드 사용해 보기

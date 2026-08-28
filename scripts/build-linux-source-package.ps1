@@ -34,4 +34,21 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.timer') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'licenses\restic-BSD-2-Clause.txt') -Destination $outputRoot -Force
+$requiredPackageFiles = @(
+    'backupmesh-agent'
+    'restic'
+    'backupmesh.json.example'
+    'install.sh'
+    'backupmesh-source-watch.service'
+    'backupmesh-source@.service'
+    'backupmesh-source@.timer'
+    'LICENSE'
+    'restic-BSD-2-Clause.txt'
+)
+foreach ($relativePath in $requiredPackageFiles) {
+    $packageFile = Join-Path $outputRoot $relativePath
+    if (-not (Test-Path -LiteralPath $packageFile -PathType Leaf)) {
+        throw "Linux package validation failed; missing $relativePath"
+    }
+}
 Write-Host "Linux Source Agent package: $outputRoot"

@@ -9,7 +9,7 @@
     "tlsCaFile": "/run/secrets/backupmesh-storage-ca.pem",
     "tlsCertificateFile": "/run/secrets/backupmesh-source.crt",
     "tlsKeyFile": "/run/secrets/backupmesh-source.key",
-    "repositoryPasswordFile": "/run/secrets/restic-password",
+    "repositoryPasswordFile": "/etc/backupmesh/restic-password",
     "resticCacheDirectory": "/var/cache/backupmesh/restic"
   },
   "uploadLimitBps": 10485760,

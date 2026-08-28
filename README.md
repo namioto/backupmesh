@@ -68,6 +68,8 @@ The Windows tray app keeps removable backup storage understandable without turni
 
 To pair a Source, choose **Pair Source Agent** in the tray app and save the generated `backupmesh-pairing.json` bundle. Transfer it securely, then run `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`. This installs the identity-bound token, client certificate, private key, Storage Agent authority and remote Control API address, updates the Source ID and TLS paths, and protects the files with owner-only permissions on Linux. Delete the transfer bundle after applying it. Each Source receives an independent identity and credential.
 
+The Linux installer creates `/etc/backupmesh/restic-password` for repository encryption. Store a protected recovery copy: BackupMesh cannot restore snapshots if this password is lost.
+
 ![BackupMesh Storage Agent mapping multiple Sources to removable storage](docs/images/storage-agent-mappings.jpg)
 
 ### Try the current Windows build
