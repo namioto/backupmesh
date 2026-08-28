@@ -27,6 +27,9 @@ type Storage struct {
 	RepositoryPasswordFile  string `json:"repositoryPasswordFile"`
 	ResticCacheDirectory    string `json:"resticCacheDirectory,omitempty"`
 	AuthenticationTokenFile string `json:"authenticationTokenFile,omitempty"`
+	TLSCAFile               string `json:"tlsCaFile,omitempty"`
+	TLSCertificateFile      string `json:"tlsCertificateFile,omitempty"`
+	TLSKeyFile              string `json:"tlsKeyFile,omitempty"`
 }
 
 type BackupSet struct {
@@ -82,6 +85,19 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Storage.AuthenticationTokenFile) != "" && !filepath.IsAbs(c.Storage.AuthenticationTokenFile) {
 		problems = append(problems, errors.New("storage.authenticationTokenFile must be an absolute path"))
+	}
+	tlsFiles := []string{c.Storage.TLSCAFile, c.Storage.TLSCertificateFile, c.Storage.TLSKeyFile}
+	tlsCount := 0
+	for _, path := range tlsFiles {
+		if strings.TrimSpace(path) != "" {
+			tlsCount++
+			if !filepath.IsAbs(path) {
+				problems = append(problems, errors.New("storage TLS file paths must be absolute"))
+			}
+		}
+	}
+	if tlsCount != 0 && tlsCount != len(tlsFiles) {
+		problems = append(problems, errors.New("storage tlsCaFile, tlsCertificateFile, and tlsKeyFile must be configured together"))
 	}
 	if c.UploadLimitBPS < 0 {
 		problems = append(problems, errors.New("uploadLimitBps cannot be negative"))

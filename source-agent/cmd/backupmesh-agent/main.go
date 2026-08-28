@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -53,11 +54,15 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	httpClient, err := loadMTLSClient(cfg.Storage)
+	if err != nil {
+		return err
+	}
 	switch args[0] {
 	case "sync":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, HTTPClient: httpClient}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -70,7 +75,7 @@ func run(args []string) error {
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, HTTPClient: httpClient}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -111,6 +116,13 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func loadMTLSClient(storage config.Storage) (*http.Client, error) {
+	if strings.TrimSpace(storage.TLSCAFile) == "" {
+		return nil, nil
+	}
+	return controlapi.NewMTLSHTTPClient(storage.TLSCAFile, storage.TLSCertificateFile, storage.TLSKeyFile)
 }
 
 func runBackupTargets(targets []controlapi.BackupTargetAvailability, runTarget func(controlapi.BackupTargetAvailability) error) error {

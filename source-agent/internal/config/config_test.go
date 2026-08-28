@@ -51,3 +51,16 @@ func TestValidateRejectsRelativeAuthenticationTokenFile(t *testing.T) {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
+
+func TestValidateRequiresCompleteAbsoluteMTLSConfiguration(t *testing.T) {
+	c := validConfig()
+	c.Storage.TLSCAFile = "/etc/backupmesh/ca.pem"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "configured together") {
+		t.Fatalf("Validate() partial mTLS error = %v", err)
+	}
+	c.Storage.TLSCertificateFile = "/etc/backupmesh/source.crt"
+	c.Storage.TLSKeyFile = "relative.key"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("Validate() relative mTLS error = %v", err)
+	}
+}
