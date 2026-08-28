@@ -182,5 +182,25 @@ public sealed class BackupJobStoreTests
             if (Directory.Exists(directory)) Directory.Delete(directory, true);
         }
     }
+    [Fact]
+    public void StaleJobIsReleasedAfterRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-stale-job-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "jobs.json");
+        try
+        {
+            var request = Request(Guid.NewGuid());
+            var persistent = new BackupJobStore(new() { PersistencePath = path, RecoveryTimeout = TimeSpan.FromHours(2) });
+            Assert.Equal(StoreOutcome.Accepted, persistent.Admit(request, "stale-job-key-01", new Uri("https://localhost/repo")).Outcome);
+
+            var recovered = new BackupJobStore(new() { PersistencePath = path, RecoveryTimeout = TimeSpan.Zero });
+
+            Assert.False(recovered.HasActiveJobs);
+            Assert.Equal("FAILED", recovered.Get(request.JobId)!.State);
+            Assert.Equal("RECOVERY_TIMEOUT", recovered.Get(request.JobId)!.Result!.ErrorCode);
+            Assert.Equal(StoreOutcome.Accepted, recovered.Admit(Request(Guid.NewGuid(), request.TargetMappingId), "replacement-key-1", new Uri("https://localhost/repo")).Outcome);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
     private static BackupRequest Request(Guid id, Guid? mappingId = null) => new(id, Guid.NewGuid(), Guid.NewGuid(), mappingId ?? Guid.NewGuid(), DateTimeOffset.UtcNow, ["daily"]);
 }

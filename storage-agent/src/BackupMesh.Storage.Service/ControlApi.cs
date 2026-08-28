@@ -39,7 +39,11 @@ public sealed record BackupCommandCompletionRequest([property: JsonPropertyName(
 public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
 public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
-public sealed class BackupJobOptions { public string? PersistencePath { get; set; } }
+public sealed class BackupJobOptions
+{
+    public string? PersistencePath { get; set; }
+    public TimeSpan RecoveryTimeout { get; set; } = TimeSpan.FromHours(2);
+}
 
 public sealed class BackupJobStore
 {
@@ -57,17 +61,35 @@ public sealed class BackupJobStore
     public BackupJobStore(BackupJobOptions? options = null)
     {
         _persistencePath = options is null ? null : ResolvePath(options.PersistencePath);
+        var recoveryTimeout = options?.RecoveryTimeout ?? TimeSpan.FromHours(2);
+        var recovered = false;
         foreach (var entry in Load(_persistencePath))
         {
-            _jobs[entry.Status.JobId] = entry.Status;
+            var status = entry.Status;
+            if (!Terminal(status.State) && recoveryTimeout >= TimeSpan.Zero && status.UpdatedAt <= DateTimeOffset.UtcNow.Subtract(recoveryTimeout))
+            {
+                var now = DateTimeOffset.UtcNow;
+                status = status with
+                {
+                    State = status.State == "CANCEL_REQUESTED" ? "CANCELLED" : "FAILED",
+                    UpdatedAt = now,
+                    LastSequence = status.LastSequence + 1,
+                    Result = new(Guid.NewGuid(), status.JobId, status.LastSequence + 1, now,
+                        status.State == "CANCEL_REQUESTED" ? "CANCELLED" : "FAILED", null, null,
+                        "RECOVERY_TIMEOUT", "The Storage Agent released this stale job after restart.")
+                };
+                recovered = true;
+            }
+            _jobs[entry.Status.JobId] = status;
             _jobSources[entry.Status.JobId] = entry.SourceAgentId;
-            if (!Terminal(entry.Status.State))
+            if (!Terminal(status.State))
             {
                 _jobMappings[entry.Status.JobId] = entry.MappingId;
                 _activeMappings[entry.MappingId] = entry.Status.JobId;
             }
         }
         ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault();
+        if (recovered) Persist();
     }
     public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default)
     {
