@@ -5,6 +5,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $serviceName = 'BackupMeshStorageAgent'
 $firewallRuleName = 'BackupMesh Storage Agent (mTLS)'
+$repositoryFirewallRuleName = 'BackupMesh Storage Agent (repositories)'
 $packageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $serviceRoot = Join-Path $packageRoot 'Service'
 $serviceExe = Join-Path $serviceRoot 'BackupMesh.Storage.Service.exe'
@@ -39,8 +40,10 @@ Start-Service -Name $serviceName
 
 Remove-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName $firewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 7443 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
+Remove-NetFirewallRule -DisplayName $repositoryFirewallRuleName -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName $repositoryFirewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 18000-18099 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
 
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $trayCommand = "`"$(Join-Path $packageRoot 'App\BackupMesh.Storage.App.exe')`""
 New-ItemProperty -Path $runKey -Name 'BackupMesh Storage Agent' -Value $trayCommand -PropertyType String -Force | Out-Null
-Write-Host 'BackupMesh Storage Agent is installed and running. The tray app will start at sign-in; mTLS port 7443 is open to the local subnet on Private and Domain networks.'
+Write-Host 'BackupMesh Storage Agent is installed and running. The tray app will start at sign-in; Control and repository ports are open to the local subnet on Private and Domain networks.'

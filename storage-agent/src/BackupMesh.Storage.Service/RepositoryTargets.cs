@@ -61,8 +61,8 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
 public sealed class RepositoryServerOptions
 {
     public string ExecutablePath { get; set; } = "rest-server.exe";
-    public string ListenHost { get; set; } = "127.0.0.1";
-    public string PublicHost { get; set; } = "127.0.0.1";
+    public string ListenHost { get; set; } = "0.0.0.0";
+    public string PublicHost { get; set; } = string.Empty;
     public int BasePort { get; set; } = 18000;
     public bool NoAuthentication { get; set; }
     public string? CredentialDirectory { get; set; }
@@ -108,7 +108,10 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     }
 
     private Uri Endpoint(Session session)
-        => BuildEndpoint(options.PublicHost, session.Port, ".", session.Credential?.Username, session.Credential?.Password);
+        => BuildEndpoint(ResolvePublicHost(options.PublicHost), session.Port, ".", session.Credential?.Username, session.Credential?.Password);
+
+    internal static string ResolvePublicHost(string? configuredHost)
+        => string.IsNullOrWhiteSpace(configuredHost) ? Environment.MachineName : configuredHost.Trim();
 
     internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null)
     {

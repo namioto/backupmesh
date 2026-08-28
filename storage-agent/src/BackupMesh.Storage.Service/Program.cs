@@ -7,6 +7,9 @@ var builder = WebApplication.CreateBuilder(args);
 var pairingCertificateOptions = builder.Configuration.GetSection("PairingCertificate").Get<PairingCertificateOptions>() ?? new();
 var pairingCertificateAuthority = new PairingCertificateAuthority(pairingCertificateOptions);
 var mutualTls = builder.Configuration.GetSection("MutualTls").Get<MutualTlsOptions>() ?? new();
+var repositoryServer = builder.Configuration.GetSection("RepositoryServer").Get<RepositoryServerOptions>() ?? new();
+if (string.IsNullOrWhiteSpace(repositoryServer.PublicHost))
+    repositoryServer.PublicHost = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
 if (mutualTls.Enabled)
 {
     var serverCertificate = string.IsNullOrWhiteSpace(mutualTls.ServerCertificatePath)
@@ -35,7 +38,6 @@ builder.Services.Configure<RestServerOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<ControlApiOptions>(builder.Configuration.GetSection("ControlApi"));
 builder.Services.Configure<SourceCatalogOptions>(builder.Configuration.GetSection("SourceCatalog"));
 builder.Services.Configure<StorageConfigurationOptions>(builder.Configuration.GetSection("StorageConfiguration"));
-builder.Services.Configure<RepositoryServerOptions>(builder.Configuration.GetSection("RepositoryServer"));
 builder.Services.Configure<BackupJobOptions>(builder.Configuration.GetSection("BackupJob"));
 builder.Services.Configure<PairingOptions>(builder.Configuration.GetSection("Pairing"));
 builder.Services.Configure<PairingCertificateOptions>(builder.Configuration.GetSection("PairingCertificate"));
@@ -45,7 +47,7 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControlApiOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SourceCatalogOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageConfigurationOptions>>().Value);
-builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryServerOptions>>().Value);
+builder.Services.AddSingleton(repositoryServer);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupJobOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingCertificateOptions>>().Value);

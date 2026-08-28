@@ -65,6 +65,13 @@ public sealed class RestServerLifecycleTests
     }
 
     [Fact]
+    public void RepositoryPublicHostDefaultsToTheWindowsComputerName()
+    {
+        Assert.Equal(Environment.MachineName, RepositoryServerManager.ResolvePublicHost(null));
+        Assert.Equal("storage.example", RepositoryServerManager.ResolvePublicHost(" storage.example "));
+    }
+
+    [Fact]
     public void RepositoryCredentialCreatesShaPasswordFileWithoutPlaintextSecret()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-credential-test-{Guid.NewGuid():N}");
