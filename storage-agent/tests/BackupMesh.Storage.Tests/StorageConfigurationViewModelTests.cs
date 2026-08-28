@@ -5,6 +5,18 @@ namespace BackupMesh.Storage.Tests;
 
 public sealed class StorageConfigurationViewModelTests
 {
+    [Fact]
+    public void SafeRemovalWithoutSelectedRemovableDeviceDoesNotCallService()
+    {
+        var client = new FakeStorageDeviceClient();
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, storageDeviceClient: client);
+
+        viewModel.EjectDeviceCommand.Execute(null);
+
+        Assert.Equal(0, client.CallCount);
+        Assert.Contains("connected removable device", viewModel.FooterStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(0, "connected and ready")]
     [InlineData(15, "15-minute arrival delay")]
@@ -122,4 +134,10 @@ public sealed class StorageConfigurationViewModelTests
         public Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) => Task.FromResult(jobs);
         public Task CancelAsync(Guid jobId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
+}
+
+file sealed class FakeStorageDeviceClient : IStorageDeviceClient
+{
+    public int CallCount { get; private set; }
+    public Task EjectAsync(Guid deviceId, CancellationToken cancellationToken) { CallCount++; return Task.CompletedTask; }
 }
