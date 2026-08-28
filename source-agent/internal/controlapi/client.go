@@ -22,6 +22,7 @@ type Client struct {
 	HTTPClient *http.Client
 	Now        func() time.Time
 	AuthToken  string
+	AgentID    string
 }
 
 type StorageStatus struct {
@@ -179,6 +180,9 @@ func (c Client) do(ctx context.Context, method, path, key string, body any, expe
 	req.Header.Set("X-Request-ID", requestID)
 	if c.AuthToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
+	if c.AgentID != "" {
+		req.Header.Set("X-BackupMesh-Agent-ID", c.AgentID)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

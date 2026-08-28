@@ -27,8 +27,9 @@ public sealed class BackupJobStoreTests
 
             Assert.True(credential.Length >= 43);
             Assert.DoesNotContain(credential, persisted, StringComparison.Ordinal);
-            Assert.True(new PairingCredentialStore(options).Matches(credential));
-            Assert.False(new PairingCredentialStore(options).Matches(credential + "x"));
+            var agentId = Guid.NewGuid();
+            Assert.True(new PairingCredentialStore(options).Authorize(credential, agentId));
+            Assert.False(new PairingCredentialStore(options).Authorize(credential + "x", agentId));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
@@ -39,8 +40,19 @@ public sealed class BackupJobStoreTests
         var store = new PairingCredentialStore(new PairingOptions { CredentialHashPath = string.Empty });
         var first = store.Issue();
         var second = store.Issue();
-        Assert.True(store.Matches(first));
-        Assert.True(store.Matches(second));
+        Assert.True(store.Authorize(first, Guid.NewGuid()));
+        Assert.True(store.Authorize(second, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PairingCredentialCannotImpersonateAnotherSourceAfterBinding()
+    {
+        var store = new PairingCredentialStore(new PairingOptions { CredentialHashPath = string.Empty });
+        var credential = store.Issue();
+        var owner = Guid.NewGuid();
+        Assert.True(store.Authorize(credential, owner));
+        Assert.False(store.Authorize(credential, Guid.NewGuid()));
+        Assert.True(store.Authorize(credential, owner));
     }
 
     [Fact]
@@ -64,6 +76,15 @@ public sealed class BackupJobStoreTests
         Assert.Equal(StoreOutcome.Replayed, store.Admit(request, "abcdefghijklmnop", endpoint).Outcome);
         Assert.Equal(StoreOutcome.Conflict, store.Admit(Request(Guid.NewGuid(), request.TargetMappingId), "different-key-1234", endpoint).Outcome);
         Assert.Equal(StoreOutcome.Accepted, store.Admit(Request(Guid.NewGuid()), "another-target-12", endpoint).Outcome);
+    }
+    [Fact]
+    public void JobOwnershipIsBoundToAdmittedSource()
+    {
+        var store = new BackupJobStore();
+        var request = Request(Guid.NewGuid());
+        store.Admit(request, "ownership-key-001", new Uri("https://localhost/repo"));
+        Assert.True(store.IsOwnedBy(request.JobId, request.SourceAgentId));
+        Assert.False(store.IsOwnedBy(request.JobId, Guid.NewGuid()));
     }
     [Fact]
     public void ProgressIsMonotonicAndResultIsTerminal()

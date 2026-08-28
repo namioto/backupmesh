@@ -62,7 +62,7 @@ func run(args []string) error {
 	case "sync":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, HTTPClient: httpClient}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, AgentID: cfg.Agent.ID, HTTPClient: httpClient}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -75,7 +75,7 @@ func run(args []string) error {
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, HTTPClient: httpClient}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, AgentID: cfg.Agent.ID, HTTPClient: httpClient}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}

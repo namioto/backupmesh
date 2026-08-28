@@ -45,6 +45,7 @@ public sealed class BackupJobStore
     private readonly Dictionary<Guid, object> _events = [];
     private readonly Dictionary<Guid, Guid> _jobMappings = [];
     private readonly Dictionary<Guid, Guid> _activeMappings = [];
+    private readonly Dictionary<Guid, Guid> _jobSources = [];
     private readonly string? _persistencePath;
     public Guid? ActiveJobId { get; private set; }
     public bool HasActiveJobs { get { lock (_gate) return _activeMappings.Count > 0; } }
@@ -54,6 +55,7 @@ public sealed class BackupJobStore
         foreach (var entry in Load(_persistencePath))
         {
             _jobs[entry.Status.JobId] = entry.Status;
+            _jobSources[entry.Status.JobId] = entry.SourceAgentId;
             if (!Terminal(entry.Status.State))
             {
                 _jobMappings[entry.Status.JobId] = entry.MappingId;
@@ -71,6 +73,7 @@ public sealed class BackupJobStore
             if (_activeMappings.ContainsKey(request.TargetMappingId) || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
             var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint);
             _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
+            _jobSources[request.JobId] = request.SourceAgentId;
             Persist();
             return (StoreOutcome.Accepted, admission);
         }
@@ -110,13 +113,14 @@ public sealed class BackupJobStore
     }
     public JobStatus? Get(Guid id) { lock (_gate) return _jobs.GetValueOrDefault(id); }
     public IReadOnlyList<JobStatus> List() { lock (_gate) return _jobs.Values.OrderByDescending(job => job.UpdatedAt).ToArray(); }
+    public bool IsOwnedBy(Guid jobId, Guid sourceAgentId) { lock (_gate) return _jobSources.GetValueOrDefault(jobId) == sourceAgentId; }
     private static bool Terminal(string state) => state is "CANCELLED" or "SUCCEEDED" or "FAILED";
     private void Persist()
     {
         if (_persistencePath is null) return;
         var directory = Path.GetDirectoryName(_persistencePath) ?? throw new InvalidOperationException("The backup job persistence path must include a directory.");
         Directory.CreateDirectory(directory);
-        var entries = _jobs.Values.Select(status => new PersistedJob(status, _jobMappings.GetValueOrDefault(status.JobId))).ToArray();
+        var entries = _jobs.Values.Select(status => new PersistedJob(status, _jobMappings.GetValueOrDefault(status.JobId), _jobSources.GetValueOrDefault(status.JobId))).ToArray();
         var temporary = $"{_persistencePath}.{Guid.NewGuid():N}.tmp";
         try { File.WriteAllText(temporary, JsonSerializer.Serialize(entries, JsonOptions)); File.Move(temporary, _persistencePath, true); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
@@ -128,7 +132,7 @@ public sealed class BackupJobStore
         catch (Exception exception) when (exception is IOException or JsonException) { throw new InvalidDataException($"Could not load backup jobs from '{path}'.", exception); }
     }
     private static string? ResolvePath(string? path) => path == string.Empty ? null : !string.IsNullOrWhiteSpace(path) ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "backup-jobs.json");
-    private sealed record PersistedJob(JobStatus Status, Guid MappingId);
+    private sealed record PersistedJob(JobStatus Status, Guid MappingId, Guid SourceAgentId);
 }
 
 public sealed class RequiredControlHeadersFilter : IEndpointFilter
@@ -147,30 +151,32 @@ public sealed class PairingCredentialStore
 {
     private readonly object _gate = new();
     private readonly string? _path;
-    private readonly List<byte[]> _hashes = [];
+    private readonly List<CredentialEntry> _credentials = [];
     public PairingCredentialStore(PairingOptions? pairing = null, ControlApiOptions? control = null)
     {
         _path = pairing is null ? null : ResolvePath(pairing.CredentialHashPath);
         if (_path is not null && File.Exists(_path))
-            _hashes.AddRange(File.ReadAllLines(_path).Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => Convert.FromHexString(line.Trim())));
+            _credentials.AddRange(File.ReadAllLines(_path).Where(line => !string.IsNullOrWhiteSpace(line)).Select(Parse));
         else if (!string.IsNullOrWhiteSpace(control?.AuthenticationToken) && control.AuthenticationToken.Length >= 32)
-            _hashes.Add(SHA256.HashData(Encoding.UTF8.GetBytes(control.AuthenticationToken)));
+            _credentials.Add(new(SHA256.HashData(Encoding.UTF8.GetBytes(control.AuthenticationToken)), null));
     }
     public string Issue()
     {
         var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        lock (_gate) { _hashes.Add(SHA256.HashData(Encoding.UTF8.GetBytes(credential))); Persist(); }
+        lock (_gate) { _credentials.Add(new(SHA256.HashData(Encoding.UTF8.GetBytes(credential)), null)); Persist(); }
         return credential;
     }
-    public bool Matches(string supplied)
+    public bool Authorize(string supplied, Guid agentId)
     {
         if (string.IsNullOrEmpty(supplied)) return false;
         var candidate = SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
         lock (_gate)
         {
-            var matched = false;
-            foreach (var hash in _hashes) matched |= CryptographicOperations.FixedTimeEquals(hash, candidate);
-            return matched;
+            CredentialEntry? matched = null;
+            foreach (var entry in _credentials) if (CryptographicOperations.FixedTimeEquals(entry.Hash, candidate)) matched = entry;
+            if (matched is null || (matched.AgentId is not null && matched.AgentId != agentId)) return false;
+            if (matched.AgentId is null) { matched.AgentId = agentId; Persist(); }
+            return true;
         }
     }
     private void Persist()
@@ -178,10 +184,16 @@ public sealed class PairingCredentialStore
         if (_path is null) return;
         Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? throw new InvalidOperationException("Pairing credential path must include a directory."));
         var temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
-        try { File.WriteAllLines(temporary, _hashes.Select(Convert.ToHexString)); File.Move(temporary, _path, true); }
+        try { File.WriteAllLines(temporary, _credentials.Select(entry => $"{Convert.ToHexString(entry.Hash)}|{entry.AgentId}")); File.Move(temporary, _path, true); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
     private static string? ResolvePath(string? path) => path == string.Empty ? null : !string.IsNullOrWhiteSpace(path) ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "pairing-credential.sha256");
+    private static CredentialEntry Parse(string line)
+    {
+        var parts = line.Trim().Split('|', 2);
+        return new(Convert.FromHexString(parts[0]), parts.Length == 2 && Guid.TryParse(parts[1], out var id) ? id : null);
+    }
+    private sealed class CredentialEntry(byte[] hash, Guid? agentId) { public byte[] Hash { get; } = hash; public Guid? AgentId { get; set; } = agentId; }
 }
 
 public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials) : IEndpointFilter
@@ -190,12 +202,20 @@ public sealed class ControlApiAuthenticationFilter(PairingCredentialStore creden
     {
         if (context.HttpContext.Connection.RemoteIpAddress is { } remote && System.Net.IPAddress.IsLoopback(remote))
             return await next(context);
-        if (context.HttpContext.Connection.ClientCertificate is not null)
+        if (!Guid.TryParse(context.HttpContext.Request.Headers["X-BackupMesh-Agent-ID"], out var agentId))
+            return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid Source Agent identity header is required.");
+        if (context.HttpContext.Connection.ClientCertificate is { } certificate)
+        {
+            if (!Guid.TryParse(certificate.GetNameInfo(X509NameType.SimpleName, false), out var certificateAgentId) || certificateAgentId != agentId)
+                return Results.Problem(statusCode: 403, title: "FORBIDDEN", detail: "The client certificate identity does not match the Source Agent.");
+            context.HttpContext.Items["BackupMesh.AgentId"] = agentId;
             return await next(context);
+        }
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
         var supplied = authorization.StartsWith("Bearer ", StringComparison.Ordinal) ? authorization[7..] : string.Empty;
-        if (!credentials.Matches(supplied))
+        if (!credentials.Authorize(supplied, agentId))
             return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid BackupMesh authentication token is required.");
+        context.HttpContext.Items["BackupMesh.AgentId"] = agentId;
         return await next(context);
     }
 
@@ -233,14 +253,16 @@ public static class ControlApi
             var result = ejector.Eject(volume);
             return result.Succeeded ? Results.Accepted(value: result) : Problem(409, "EJECT_REFUSED", result.Message);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
-        api.MapGet("/backup/targets/{source_agent_id:guid}/{backup_set_id:guid}", (Guid source_agent_id, Guid backup_set_id, BackupTargetResolver targets, CancellationToken ct) =>
+        api.MapGet("/backup/targets/{source_agent_id:guid}/{backup_set_id:guid}", (Guid source_agent_id, Guid backup_set_id, HttpContext http, BackupTargetResolver targets, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
+            if (!AgentMatches(http, source_agent_id)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot access another Source.");
             return Results.Ok(targets.List(source_agent_id, backup_set_id));
         });
         api.MapPost("/backup/request", async (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, BackupTargetResolver targets, IRepositoryEndpointProvider repositories, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested(); var invalid = Validate(request); if (invalid is not null) return invalid;
+            if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot submit a backup for another Source.");
             if (request.JobId == Guid.Empty || request.SourceAgentId == Guid.Empty || request.BackupSetId == Guid.Empty || request.TargetMappingId == Guid.Empty || request.RequestedAt == default)
                 return Problem(400, "INVALID_REQUEST", "Backup request IDs and timestamp must be valid.");
             if (state.State is not StorageState.Ready and not StorageState.Busy) return Problem(409, "STORAGE_BUSY", "Storage is not ready.");
@@ -257,26 +279,27 @@ public static class ControlApi
             if (result.Outcome == StoreOutcome.Accepted) state.TransitionTo(StorageState.Busy, request.JobId.ToString());
             http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant(); return Results.Accepted(value: result.Admission);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
-        api.MapPost("/backup/progress", (BackupProgress progress, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var invalid = Validate(progress); return invalid ?? EventResult(jobs.Progress(progress), http); }).AddEndpointFilter<RequiredControlHeadersFilter>();
+        api.MapPost("/backup/progress", (BackupProgress progress, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, progress.JobId)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var invalid = Validate(progress); return invalid ?? EventResult(jobs.Progress(progress), http); }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/result", (BackupResult result, HttpContext http, StorageStateMachine state, BackupJobStore jobs, CancellationToken ct) =>
         {
-            ct.ThrowIfCancellationRequested(); var invalid = Validate(result); if (invalid is not null) return invalid; var outcome = jobs.Complete(result);
+            ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, result.JobId)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var invalid = Validate(result); if (invalid is not null) return invalid; var outcome = jobs.Complete(result);
             if (outcome == StoreOutcome.Accepted && state.State == StorageState.Busy && !jobs.HasActiveJobs) state.TransitionTo(StorageState.Ready, result.Message);
             return EventResult(outcome, http);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/cancel", (CancelRequest request, HttpContext http, BackupJobStore jobs, CancellationToken ct) =>
         {
-            ct.ThrowIfCancellationRequested(); var invalid = Validate(request); if (invalid is not null) return invalid; var result = jobs.Cancel(request);
+            ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, request.JobId)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var invalid = Validate(request); if (invalid is not null) return invalid; var result = jobs.Cancel(request);
             if (result.Outcome == StoreOutcome.NotFound) return Problem(404, "NOT_FOUND", "Backup job not found."); if (result.Outcome == StoreOutcome.Terminal) return Problem(409, "JOB_CONFLICT", "Backup job is terminal.");
             http.Response.Headers["Idempotency-Replayed"] = "false"; return Results.Accepted(value: result.Status);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
-        api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
-        api.MapGet("/backup/jobs", (BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(jobs.List()); });
+        api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, job_id)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
+        api.MapGet("/backup/jobs", (HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var list = jobs.List(); return Results.Ok(AuthenticatedAgent(http) is { } agentId ? list.Where(job => jobs.IsOwnedBy(job.JobId, agentId)) : list); });
         api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             var invalid = Validate(catalog);
             if (invalid is not null) return invalid;
+            if (!AgentMatches(http, catalog.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot publish another Source catalog.");
             if (catalog.SourceAgentId == Guid.Empty || catalog.UpdatedAt == default || catalog.BackupSets.Any(set => set.BackupSetId == Guid.Empty || set.SourcePaths.Any(string.IsNullOrWhiteSpace)) || catalog.BackupSets.Select(set => set.BackupSetId).Distinct().Count() != catalog.BackupSets.Length)
                 return Problem(400, "INVALID_REQUEST", "Catalog IDs, timestamps, Backup Set IDs, and source paths must be valid and unique.");
             var outcome = catalogs.Upsert(catalog);
@@ -311,6 +334,9 @@ public static class ControlApi
         if (outcome is StoreOutcome.Conflict or StoreOutcome.InvalidSequence or StoreOutcome.Terminal) return Problem(409, "REPLAY_CONFLICT", "Event conflicts with job state or sequence.");
         http.Response.Headers["Idempotency-Replayed"] = (outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant(); return Results.NoContent();
     }
+    private static bool AgentMatches(HttpContext http, Guid claimedAgentId) => !http.Items.TryGetValue("BackupMesh.AgentId", out var authenticated) || authenticated is Guid id && id == claimedAgentId;
+    private static Guid? AuthenticatedAgent(HttpContext http) => http.Items.TryGetValue("BackupMesh.AgentId", out var authenticated) && authenticated is Guid id ? id : null;
+    private static bool AgentCanAccessJob(HttpContext http, BackupJobStore jobs, Guid jobId) => AuthenticatedAgent(http) is not { } agentId || jobs.IsOwnedBy(jobId, agentId);
     private static IResult? Validate<T>(T request)
     {
         var errors = new List<ValidationResult>(); if (Validator.TryValidateObject(request!, new ValidationContext(request!), errors, true)) return null;

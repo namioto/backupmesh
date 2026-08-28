@@ -31,10 +31,13 @@ func TestClientSendsAuthenticationTokenOutsideTheRequestBody(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-token-with-at-least-32-characters" {
 			t.Errorf("authorization = %q", got)
 		}
+		if got := r.Header.Get("X-BackupMesh-Agent-ID"); got != "f91436ac-0ca9-4bcb-b0d0-42bc7181f611" {
+			t.Errorf("agent identity = %q", got)
+		}
 		_, _ = w.Write([]byte(`{"agent_id":"storage-1","state":"ready","observed_at":"2026-08-28T00:00:00Z","storage":[],"active_job_id":null}`))
 	}))
 	defer srv.Close()
-	_, err := (Client{BaseURL: srv.URL, AuthToken: "test-token-with-at-least-32-characters"}).GetStorageStatus(context.Background())
+	_, err := (Client{BaseURL: srv.URL, AuthToken: "test-token-with-at-least-32-characters", AgentID: "f91436ac-0ca9-4bcb-b0d0-42bc7181f611"}).GetStorageStatus(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
