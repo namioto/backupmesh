@@ -83,6 +83,7 @@ public sealed class RepositoryServerOptions
     public string PublicHost { get; set; } = string.Empty;
     public int BasePort { get; set; } = 18000;
     public bool NoAuthentication { get; set; }
+    public bool AppendOnly { get; set; } = true;
     public string? CredentialDirectory { get; set; }
 }
 
@@ -116,6 +117,7 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             startInfo.ArgumentList.Add(target.DestinationFolder);
             startInfo.ArgumentList.Add("--listen");
             startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
+            if (options.AppendOnly) startInfo.ArgumentList.Add("--append-only");
             if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
             else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
             IManagedProcess process;
