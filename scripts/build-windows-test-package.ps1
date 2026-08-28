@@ -28,6 +28,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Storage Service publish failed.' }
 Copy-Item (Join-Path $toolRoot 'rest-server.exe') (Join-Path $outputRoot 'Service\rest-server.exe') -Force
 Copy-Item (Join-Path $toolRoot 'restic.exe') (Join-Path $outputRoot 'Service\restic.exe') -Force
 Copy-Item (Join-Path $repoRoot 'packaging\windows\Start-BackupMesh.ps1') $outputRoot -Force
+Copy-Item (Join-Path $repoRoot 'packaging\windows\Install-BackupMesh.ps1') $outputRoot -Force
+Copy-Item (Join-Path $repoRoot 'packaging\windows\Uninstall-BackupMesh.ps1') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'LICENSE') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'licenses') (Join-Path $outputRoot 'licenses') -Recurse -Force

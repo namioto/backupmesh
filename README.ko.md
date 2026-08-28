@@ -78,6 +78,8 @@ pwsh -NoProfile -File scripts/build-windows-test-package.ps1
 
 그다음 `artifacts\BackupMesh-Storage-win-x64\Start-BackupMesh.ps1`을 실행합니다. 런처가 로컬 Storage Service의 준비를 기다린 뒤 트레이 앱을 열며, 트레이 앱을 종료하면 테스트 서비스도 함께 종료합니다. 설정은 `%LOCALAPPDATA%\BackupMesh`에 보관됩니다.
 
+상시 실행 형태로 설치하려면 관리자 권한 PowerShell에서 빌드된 패키지의 `Install-BackupMesh.ps1`을 실행합니다. Storage Agent가 자동 재시작되는 Windows 서비스로 등록되어 즉시 시작되고, 현재 사용자의 다음 로그인부터 트레이 앱도 자동 실행됩니다. `Uninstall-BackupMesh.ps1`은 설정과 repository를 보존하면서 서비스와 자동 시작 항목만 제거합니다.
+
 ## 현재 상태
 
 BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.

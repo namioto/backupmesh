@@ -2,6 +2,7 @@ using BackupMesh.Storage.Core;
 using BackupMesh.Storage.Service;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddWindowsService(options => options.ServiceName = "BackupMesh Storage Agent");
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.Configure<RestServerOptions>(builder.Configuration.GetSection("RestServer"));
 builder.Services.Configure<ControlApiOptions>(builder.Configuration.GetSection("ControlApi"));
