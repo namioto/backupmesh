@@ -92,7 +92,12 @@ public interface IRepositoryEndpointProvider
     Task<Uri> GetEndpointAsync(ResolvedBackupTarget target, CancellationToken cancellationToken);
 }
 
-public sealed class RepositoryServerManager(RepositoryServerOptions options, IProcessFactory processFactory) : IRepositoryEndpointProvider, IAsyncDisposable
+public interface IRepositorySessionController
+{
+    Task StopDeviceAsync(Guid deviceId, CancellationToken cancellationToken);
+}
+
+public sealed class RepositoryServerManager(RepositoryServerOptions options, IProcessFactory processFactory) : IRepositoryEndpointProvider, IRepositorySessionController, IAsyncDisposable
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Session> _sessions = [];
@@ -126,7 +131,7 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             {
                 throw new IOException($"Could not start rest-server for repository '{target.DestinationFolder}': {exception.Message}", exception);
             }
-            session = new(port, target.DestinationFolder, process, credential);
+            session = new(target.DeviceId, port, target.DestinationFolder, process, credential);
             _sessions[target.MappingId] = session;
         }
         await WaitUntilListeningAsync(session, cancellationToken);
@@ -225,15 +230,28 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     {
         Session[] sessions;
         lock (_gate) { sessions = _sessions.Values.ToArray(); _sessions.Clear(); }
-        foreach (var session in sessions)
+        foreach (var session in sessions) await StopSessionAsync(session, CancellationToken.None);
+    }
+
+    public async Task StopDeviceAsync(Guid deviceId, CancellationToken cancellationToken)
+    {
+        Session[] sessions;
+        lock (_gate)
         {
-            if (!session.Process.HasExited) session.Process.Kill();
-            await session.Process.WaitForExitAsync(CancellationToken.None);
-            await session.Process.DisposeAsync();
-            if (session.Credential is not null && File.Exists(session.Credential.FilePath)) File.Delete(session.Credential.FilePath);
+            sessions = _sessions.Where(pair => pair.Value.DeviceId == deviceId).Select(pair => pair.Value).ToArray();
+            foreach (var key in _sessions.Where(pair => pair.Value.DeviceId == deviceId).Select(pair => pair.Key).ToArray()) _sessions.Remove(key);
         }
+        foreach (var session in sessions) await StopSessionAsync(session, cancellationToken);
+    }
+
+    private static async Task StopSessionAsync(Session session, CancellationToken cancellationToken)
+    {
+        if (!session.Process.HasExited) session.Process.Kill();
+        await session.Process.WaitForExitAsync(cancellationToken);
+        await session.Process.DisposeAsync();
+        if (session.Credential is not null && File.Exists(session.Credential.FilePath)) File.Delete(session.Credential.FilePath);
     }
 
     internal sealed record RepositoryCredential(string Username, string Password, string FilePath);
-    private sealed record Session(int Port, string Root, IManagedProcess Process, RepositoryCredential? Credential);
+    private sealed record Session(Guid DeviceId, int Port, string Root, IManagedProcess Process, RepositoryCredential? Credential);
 }

@@ -63,6 +63,7 @@ builder.Services.AddSingleton<StoragePresenceStore>();
 builder.Services.AddSingleton<BackupTargetResolver>();
 builder.Services.AddSingleton<RepositoryServerManager>();
 builder.Services.AddSingleton<IRepositoryEndpointProvider>(sp => sp.GetRequiredService<RepositoryServerManager>());
+builder.Services.AddSingleton<IRepositorySessionController>(sp => sp.GetRequiredService<RepositoryServerManager>());
 builder.Services.AddSingleton<RequiredControlHeadersFilter>();
 builder.Services.AddSingleton<ControlApiAuthenticationFilter>();
 builder.Services.AddSingleton<IStorageVolumeInventory, WindowsStorageVolumeInventory>();

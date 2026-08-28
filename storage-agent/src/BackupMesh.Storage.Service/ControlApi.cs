@@ -290,7 +290,7 @@ public static class ControlApi
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
         api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });
-        api.MapPost("/storage/devices/{device_id:guid}/eject", (Guid device_id, StorageConfigurationStore configuration, IStorageVolumeInventory inventory, IStorageDeviceEjector ejector, BackupJobStore jobs, CancellationToken ct) =>
+        api.MapPost("/storage/devices/{device_id:guid}/eject", async (Guid device_id, StorageConfigurationStore configuration, IStorageVolumeInventory inventory, IStorageDeviceEjector ejector, BackupJobStore jobs, IRepositorySessionController repositories, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (jobs.HasActiveJobs) return Problem(409, "STORAGE_BUSY", "Safe removal is blocked while a backup job is active.");
@@ -298,6 +298,7 @@ public static class ControlApi
             if (device is null) return Problem(404, "NOT_FOUND", "Registered storage device not found.");
             var volume = inventory.GetVolumes().FirstOrDefault(item => string.Equals(item.StableId, device.StableId, StringComparison.OrdinalIgnoreCase));
             if (volume is null) return Problem(409, "TARGET_NOT_READY", "The registered storage device is not connected.");
+            await repositories.StopDeviceAsync(device_id, ct);
             var result = ejector.Eject(volume);
             return result.Succeeded ? Results.Accepted(value: result) : Problem(409, "EJECT_REFUSED", result.Message);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();

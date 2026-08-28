@@ -115,11 +115,59 @@ public sealed class RestServerLifecycleTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => lifecycle.StartAsync(CancellationToken.None));
     }
 
+    [Fact]
+    public async Task DeviceStopClosesEveryRepositorySessionForSafeRemoval()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-session-test-{Guid.NewGuid():N}");
+        var deviceId = Guid.NewGuid();
+        var factory = new ListeningFactory();
+        await using var manager = new RepositoryServerManager(new()
+        {
+            ExecutablePath = "rest-server.exe",
+            ListenHost = "127.0.0.1",
+            PublicHost = "localhost",
+            BasePort = FreeTcpPort(),
+            NoAuthentication = true
+        }, factory);
+        try
+        {
+            var target = new ResolvedBackupTarget(Guid.NewGuid(), deviceId, Guid.NewGuid(), Guid.NewGuid(), "Test disk", directory, "repository", Path.Combine(directory, "repository"));
+            await manager.GetEndpointAsync(target, CancellationToken.None);
+
+            await manager.StopDeviceAsync(deviceId, CancellationToken.None);
+
+            Assert.True(factory.Process.Killed);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     private sealed class FakeFactory : IProcessFactory
     {
         public ProcessStartInfo? Info { get; private set; }
         public FakeProcess Process { get; } = new();
         public IManagedProcess Start(ProcessStartInfo startInfo) { Info = startInfo; return Process; }
+    }
+
+    private sealed class ListeningFactory : IProcessFactory
+    {
+        public ListeningProcess Process { get; private set; } = null!;
+        public IManagedProcess Start(ProcessStartInfo startInfo)
+        {
+            var listenIndex = startInfo.ArgumentList.IndexOf("--listen");
+            var port = int.Parse(startInfo.ArgumentList[listenIndex + 1].Split(':')[1], System.Globalization.CultureInfo.InvariantCulture);
+            return Process = new ListeningProcess(port);
+        }
+    }
+
+    private sealed class ListeningProcess : IManagedProcess
+    {
+        private readonly TcpListener _listener;
+        public bool Killed { get; private set; }
+        public bool HasExited => Killed;
+        public ListeningProcess(int port) { _listener = new(IPAddress.Loopback, port); _listener.Start(); }
+        public void Kill() { Killed = true; _listener.Stop(); }
+        public Task WaitForExitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public ValueTask DisposeAsync() { _listener.Stop(); return ValueTask.CompletedTask; }
     }
 
     private static int FreeTcpPort()
