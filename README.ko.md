@@ -66,6 +66,8 @@ Linux 홈서버                         Windows PC
 
 Windows 트레이 앱에서 물리 저장장치를 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
 
+Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 생성된 `.token` 파일을 저장합니다. 이 파일을 Source 장치로 안전하게 옮겨 `storage.authenticationTokenFile`에 지정한 절대 경로에 저장한 뒤 전송용 복사본은 삭제합니다. 첫 인증 요청에서 credential이 해당 Source의 `agent.id`에 결속되므로 이후 다른 Source를 사칭할 수 없습니다. Source마다 독립된 credential이 발급됩니다.
+
 ![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
 
 ### 현재 Windows 빌드 사용해 보기
