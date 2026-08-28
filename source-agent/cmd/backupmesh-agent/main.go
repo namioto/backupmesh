@@ -150,10 +150,24 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
 	var sequence int64
 	var reportErr error
+	var lastCancellationCheck time.Time
 	var result engine.Result
 	backupErr := adapter.EnsureRepository(backupCtx, backupRequest)
 	if backupErr == nil {
 		result, backupErr = adapter.Backup(backupCtx, backupRequest, func(p engine.Progress) {
+			if lastCancellationCheck.IsZero() || time.Since(lastCancellationCheck) >= time.Second {
+				lastCancellationCheck = time.Now()
+				status, statusErr := api.GetBackupStatus(backupCtx, jobID)
+				if statusErr != nil {
+					reportErr = fmt.Errorf("check backup cancellation: %w", statusErr)
+					cancelBackup()
+					return
+				}
+				if status.State == "CANCEL_REQUESTED" {
+					cancelBackup()
+					return
+				}
+			}
 			sequence++
 			eventID, idErr := controlapi.UUIDv4()
 			if idErr != nil {

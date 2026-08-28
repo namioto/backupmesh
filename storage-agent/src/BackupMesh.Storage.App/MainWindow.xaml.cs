@@ -12,7 +12,8 @@ public partial class MainWindow : Window
         ViewModel = new MainWindowViewModel(
             demoMode,
             serviceEndpoint is null ? null : new SourceCatalogClient(serviceEndpoint),
-            configurationClient: serviceEndpoint is null ? null : new StorageConfigurationClient(serviceEndpoint));
+            configurationClient: serviceEndpoint is null ? null : new StorageConfigurationClient(serviceEndpoint),
+            jobClient: serviceEndpoint is null ? null : new BackupJobClient(serviceEndpoint));
         InitializeComponent();
         DataContext = ViewModel;
     }

@@ -218,6 +218,24 @@ paths:
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
+  /backup/jobs:
+    get:
+      tags: [Backup]
+      operationId: listBackupJobs
+      summary: List backup jobs newest first for Storage Agent monitoring
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Backup job history held by this Storage Service process
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobStatus'
+        default:
+          $ref: '#/components/responses/Error'
   /source/catalog:
     post:
       tags: [Source]

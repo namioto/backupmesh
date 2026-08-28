@@ -63,6 +63,20 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task BackupJobsExposeProgressAndResultInTheOverviewModel()
+    {
+        var job = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, new(50, 100, 2, 4), null);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+
+        await viewModel.RefreshJobsAsync();
+
+        var shown = Assert.Single(viewModel.Jobs);
+        Assert.Equal("RUNNING", shown.State);
+        Assert.Contains("50.0%", shown.Progress);
+        Assert.True(shown.CanCancel);
+    }
+
+    [Fact]
     public async Task SaveUsesTheRevisionLoadedFromService()
     {
         var client = new FakeConfigurationClient(new(4, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
@@ -91,5 +105,11 @@ public sealed class StorageConfigurationViewModelTests
     private sealed class FakeDeviceInventory(IReadOnlyList<AvailableDriveViewModel> drives) : IDeviceInventory
     {
         public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => drives;
+    }
+
+    private sealed class FakeJobClient(IReadOnlyList<BackupJobDto> jobs) : IBackupJobClient
+    {
+        public Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) => Task.FromResult(jobs);
+        public Task CancelAsync(Guid jobId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -93,6 +93,12 @@ type BackupResult struct {
 	Message     string    `json:"message,omitempty"`
 }
 
+type JobStatus struct {
+	JobID  string        `json:"job_id"`
+	State  string        `json:"state"`
+	Result *BackupResult `json:"result,omitempty"`
+}
+
 type SourceCatalogBackupSet struct {
 	BackupSetID string   `json:"backup_set_id"`
 	Name        string   `json:"name"`
@@ -127,6 +133,12 @@ func (c Client) ListBackupTargets(ctx context.Context, sourceAgentID, backupSetI
 	var out []BackupTargetAvailability
 	path := "/backup/targets/" + url.PathEscape(sourceAgentID) + "/" + url.PathEscape(backupSetID)
 	err := c.do(ctx, http.MethodGet, path, "", nil, http.StatusOK, &out)
+	return out, err
+}
+
+func (c Client) GetBackupStatus(ctx context.Context, jobID string) (JobStatus, error) {
+	var out JobStatus
+	err := c.do(ctx, http.MethodGet, "/backup/status/"+url.PathEscape(jobID), "", nil, http.StatusOK, &out)
 	return out, err
 }
 

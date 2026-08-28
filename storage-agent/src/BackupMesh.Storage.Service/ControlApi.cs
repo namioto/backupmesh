@@ -74,6 +74,7 @@ public sealed class BackupJobStore
         }
     }
     public JobStatus? Get(Guid id) { lock (_gate) return _jobs.GetValueOrDefault(id); }
+    public IReadOnlyList<JobStatus> List() { lock (_gate) return _jobs.Values.OrderByDescending(job => job.UpdatedAt).ToArray(); }
     private static bool Terminal(string state) => state is "CANCELLED" or "SUCCEEDED" or "FAILED";
 }
 
@@ -157,6 +158,7 @@ public static class ControlApi
             http.Response.Headers["Idempotency-Replayed"] = "false"; return Results.Accepted(value: result.Status);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
+        api.MapGet("/backup/jobs", (BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(jobs.List()); });
         api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();

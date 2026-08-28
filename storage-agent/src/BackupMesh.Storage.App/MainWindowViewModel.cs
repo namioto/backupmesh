@@ -21,14 +21,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IDeviceInventory _deviceInventory;
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _catalogTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    private readonly DispatcherTimer _jobTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly ISourceCatalogClient _catalogClient;
     private readonly IStorageConfigurationClient _configurationClient;
+    private readonly IBackupJobClient _jobClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
     private DeviceViewModel? _selectedDevice;
     private AvailableDriveViewModel? _selectedAvailableDrive;
     private MappingViewModel? _selectedMapping;
+    private BackupJobViewModel? _selectedJob;
     private string _newDestinationFolder = string.Empty;
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
@@ -43,6 +46,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<MappingViewModel> Mappings { get; } = [];
     public ObservableCollection<AvailableDriveViewModel> AvailableDrives { get; } = [];
     public ObservableCollection<string> Activity { get; } = [];
+    public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
 
     public event EventHandler<AppNotification>? NotificationRequested;
     public event EventHandler<string>? StatusChanged;
@@ -54,14 +58,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RegisterDeviceCommand { get; }
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
+    public ICommand CancelJobCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
         _catalogClient = catalogClient ?? new SourceCatalogClient();
         _configurationClient = configurationClient ?? new StorageConfigurationClient();
         _deviceInventory = deviceInventory ?? new WindowsDeviceInventory();
+        _jobClient = jobClient ?? new BackupJobClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
@@ -69,8 +75,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
+        CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
+        _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
         if (loadLocalState) Load();
         else Activity.Add("Storage Agent UI test state initialized.");
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
@@ -86,6 +94,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
+    public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
     public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
@@ -97,6 +106,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (!_demoMode)
         {
             _catalogTimer.Start();
+            _jobTimer.Start();
             _ = InitializeServiceStateAsync();
         }
     }
@@ -105,6 +115,35 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         await RefreshConfigurationAsync();
         await RefreshCatalogsAsync();
+        await RefreshJobsAsync();
+    }
+
+    public async Task RefreshJobsAsync()
+    {
+        try
+        {
+            var selectedId = SelectedJob?.JobId;
+            var jobs = await _jobClient.ListAsync(_shutdown.Token);
+            Jobs.Clear();
+            foreach (var job in jobs) Jobs.Add(new(job));
+            SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException) { }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task CancelSelectedJobAsync()
+    {
+        if (SelectedJob is not { CanCancel: true } job) { FooterStatus = "Select an active backup job first."; return; }
+        try
+        {
+            await _jobClient.CancelAsync(job.JobId, _shutdown.Token);
+            FooterStatus = "Cancellation requested. The Source Agent will stop at the next safe point.";
+            await RefreshJobsAsync();
+        }
+        catch (HttpRequestException) { FooterStatus = "The cancellation request could not reach Storage Service."; }
+        catch (TaskCanceledException) { FooterStatus = "The cancellation request timed out."; }
     }
 
     private async Task RefreshCatalogsAsync()
@@ -495,8 +534,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _shutdown.Cancel();
         _deviceTimer.Stop();
         _catalogTimer.Stop();
+        _jobTimer.Stop();
         if (_catalogClient is IDisposable disposable) disposable.Dispose();
         if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
+        if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
         _shutdown.Dispose();
     }
 }

@@ -87,6 +87,20 @@ func TestListBackupTargets(t *testing.T) {
 	}
 }
 
+func TestGetBackupStatusUsesEscapedJobPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/backup/status/job-1" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"job_id":"job-1","state":"CANCEL_REQUESTED"}`))
+	}))
+	defer srv.Close()
+	status, err := (Client{BaseURL: srv.URL}).GetBackupStatus(context.Background(), "job-1")
+	if err != nil || status.State != "CANCEL_REQUESTED" {
+		t.Fatalf("status = %#v, err = %v", status, err)
+	}
+}
+
 func TestReportEndpoints(t *testing.T) {
 	paths := []string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

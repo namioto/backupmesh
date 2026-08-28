@@ -15,6 +15,19 @@ public sealed class BackupJobStoreTests
     }
 
     [Fact]
+    public void JobListReturnsNewestStatusFirst()
+    {
+        var store = new BackupJobStore();
+        var first = Request(Guid.NewGuid());
+        var second = Request(Guid.NewGuid()) with { TargetMappingId = Guid.NewGuid() };
+        store.Admit(first, "first-job-key-0001", new Uri("rest:http://localhost/one"));
+        Thread.Sleep(2);
+        store.Admit(second, "second-job-key-001", new Uri("rest:http://localhost/two"));
+
+        Assert.Equal([second.JobId, first.JobId], store.List().Select(job => job.JobId));
+    }
+
+    [Fact]
     public void Admission_IsPerMappingAndIdempotent()
     {
         var store = new BackupJobStore(); var request = Request(Guid.NewGuid()); var endpoint = new Uri("https://localhost/repo");
