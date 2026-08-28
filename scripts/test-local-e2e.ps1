@@ -1,15 +1,18 @@
 [CmdletBinding()]
-param()
+param([switch]$RequireSecondDevice)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $artifactsRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts'))
-$workRoot = Join-Path $artifactsRoot ("local-e2e-" + [Guid]::NewGuid().ToString('N'))
+$runId = [Guid]::NewGuid().ToString('N')
+$workRoot = Join-Path $artifactsRoot ("local-e2e-" + $runId)
 $serviceExe = Join-Path $artifactsRoot 'BackupMesh-Storage-win-x64\Service\BackupMesh.Storage.Service.exe'
 $restServerExe = Join-Path $artifactsRoot 'BackupMesh-Storage-win-x64\Service\rest-server.exe'
 $resticExe = Join-Path $artifactsRoot 'tools\windows-x64\restic.exe'
 $sourceExe = Join-Path $workRoot 'backupmesh-agent.exe'
 $service = $null
+$externalCleanupRoots = @()
+$completed = $false
 
 foreach ($required in @($serviceExe, $restServerExe, $resticExe)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Required E2E binary was not found: $required" }
@@ -31,8 +34,6 @@ try {
 
     $sourceId = [Guid]::NewGuid()
     $backupSetId = [Guid]::NewGuid()
-    $mappingId = [Guid]::NewGuid()
-    $deviceId = [Guid]::NewGuid()
     $configuration = @{
         agent = @{ id = $sourceId; name = 'Local E2E Source' }
         storage = @{ controlEndpoint = 'https://localhost:7443'; repositoryPasswordFile = $passwordFile; resticCacheDirectory = (Join-Path $workRoot 'cache') }
@@ -70,15 +71,40 @@ try {
 
     $volumes = Invoke-RestMethod -Uri 'http://127.0.0.1:7444/api/v1/storage/volumes'
     $driveRoot = [IO.Path]::GetPathRoot($workRoot)
-    $volume = $volumes.Where({ $_.root -eq $driveRoot }, 'First')
-    if (-not $volume) { throw "Could not find the volume containing $workRoot." }
-    $relativeRepository = [IO.Path]::GetRelativePath($driveRoot, (Join-Path $workRoot 'repository'))
+    $primaryVolume = $volumes.Where({ $_.root -eq $driveRoot }, 'First')
+    if (-not $primaryVolume) { throw "Could not find the volume containing $workRoot." }
+    $selectedVolumes = @($primaryVolume)
+    if ($RequireSecondDevice) {
+        $secondVolume = $volumes.Where({ $_.root -ne $driveRoot -and (Test-Path -LiteralPath $_.root) }, 'First')
+        if ($secondVolume) { $selectedVolumes += $secondVolume }
+        else { throw 'A second connected storage volume is required for this E2E run.' }
+    }
+    $devices = @()
+    $mappings = @()
+    $repositories = @()
+    foreach ($selectedVolume in $selectedVolumes) {
+        $deviceId = [Guid]::NewGuid()
+        $mappingId = [Guid]::NewGuid()
+        if ($selectedVolume.root -eq $driveRoot) {
+            $repository = Join-Path $workRoot 'repository'
+        }
+        else {
+            $externalRoot = Join-Path $selectedVolume.root ("BackupMesh-E2E-" + $runId)
+            $externalCleanupRoots += $externalRoot
+            $repository = Join-Path $externalRoot 'repository'
+            [IO.Directory]::CreateDirectory($repository) | Out-Null
+        }
+        $relativeRepository = [IO.Path]::GetRelativePath($selectedVolume.root, $repository)
+        $devices += @{ id = $deviceId; stableId = $selectedVolume.stableId; displayName = "E2E $($selectedVolume.volumeLabel)"; volumeLabel = $selectedVolume.volumeLabel; lastKnownRoot = $selectedVolume.root; registeredAt = [DateTimeOffset]::UtcNow; lastSeenAt = [DateTimeOffset]::UtcNow; arrivalDelayMinutes = 0 }
+        $mappings += @{ id = $mappingId; backupSetId = $backupSetId; deviceId = $deviceId; repositoryPath = $relativeRepository; enabled = $true }
+        $repositories += $repository
+    }
     $topology = @{
         expectedRevision = 0
         configuration = @{
-            devices = @(@{ id = $deviceId; stableId = $volume.stableId; displayName = 'Local E2E Device'; volumeLabel = $volume.volumeLabel; lastKnownRoot = $volume.root; registeredAt = [DateTimeOffset]::UtcNow; lastSeenAt = [DateTimeOffset]::UtcNow; arrivalDelayMinutes = 0 })
+            devices = $devices
             backupSets = @(@{ id = $backupSetId; sourceAgentId = $pairing.agent_id; sourceAgentName = 'Local E2E Source'; name = 'e2e'; sourcePaths = @($sourceData) })
-            mappings = @(@{ id = $mappingId; backupSetId = $backupSetId; deviceId = $deviceId; repositoryPath = $relativeRepository; enabled = $true })
+            mappings = $mappings
         }
     }
     $topologyJson = $topology | ConvertTo-Json -Depth 10
@@ -95,16 +121,28 @@ try {
     }
     if (-not $storageReady) { throw 'Registered local storage did not become ready.' }
 
-    & $sourceExe backup -config $configPath -set e2e -restic $resticExe
-    if ($LASTEXITCODE -ne 0) { throw 'Source backup failed.' }
-    $repository = Join-Path $driveRoot $relativeRepository
-    & $resticExe -r $repository --password-file $passwordFile restore latest --target $restoreRoot
-    if ($LASTEXITCODE -ne 0) { throw 'Restic restore failed.' }
-    $restoredSource = Join-Path $restoreRoot ($sourceData.TrimStart([IO.Path]::DirectorySeparatorChar).Replace(':', ''))
+    $sourceOutput = Join-Path $workRoot 'source.stdout.log'
+    $sourceError = Join-Path $workRoot 'source.stderr.log'
+    $sourceArguments = "backup -config `"$configPath`" -set e2e -restic `"$resticExe`""
+    $sourceProcess = Start-Process -FilePath $sourceExe -ArgumentList $sourceArguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput $sourceOutput -RedirectStandardError $sourceError
+    if ($sourceProcess.ExitCode -ne 0) {
+        $sourceDiagnostics = @(
+            if (Test-Path -LiteralPath $sourceOutput) { [IO.File]::ReadAllText($sourceOutput) }
+            if (Test-Path -LiteralPath $sourceError) { [IO.File]::ReadAllText($sourceError) }
+        ) -join [Environment]::NewLine
+        throw "Source backup failed.`n$sourceDiagnostics"
+    }
     $originalHashes = Get-ChildItem -LiteralPath $sourceData -File | Sort-Object Name | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
-    $restoredHashes = Get-ChildItem -LiteralPath $restoredSource -File | Sort-Object Name | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
-    if (($originalHashes -join ',') -ne ($restoredHashes -join ',')) { throw 'Restored file content did not match the source.' }
-    Write-Host "BackupMesh local E2E passed: $($originalHashes.Count) files backed up and restored with matching SHA-256 hashes."
+    for ($index = 0; $index -lt $repositories.Count; $index++) {
+        $targetRestore = Join-Path $restoreRoot $index
+        & $resticExe -r $repositories[$index] --password-file $passwordFile restore latest --target $targetRestore
+        if ($LASTEXITCODE -ne 0) { throw "Restic restore failed for target $index." }
+        $restoredSource = Join-Path $targetRestore ($sourceData.TrimStart([IO.Path]::DirectorySeparatorChar).Replace(':', ''))
+        $restoredHashes = Get-ChildItem -LiteralPath $restoredSource -File | Sort-Object Name | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
+        if (($originalHashes -join ',') -ne ($restoredHashes -join ',')) { throw "Restored file content did not match the source for target $index." }
+    }
+    Write-Host "BackupMesh local E2E passed: $($originalHashes.Count) files backed up to $($repositories.Count) target(s) and restored with matching SHA-256 hashes."
+    $completed = $true
 }
 finally {
     if ($service -and -not $service.HasExited) {
@@ -113,8 +151,18 @@ finally {
         if (-not $service.WaitForExit(10000)) { Stop-Process -Id $service.Id -Force -ErrorAction SilentlyContinue }
     }
     if ($service) { $service.Dispose() }
+    if (-not $completed -and $serviceOutput -and (Test-Path -LiteralPath $serviceOutput)) {
+        Get-Content -LiteralPath $serviceOutput -Tail 120 | Write-Host
+    }
     $resolvedWork = [IO.Path]::GetFullPath($workRoot)
     if ($resolvedWork.StartsWith($artifactsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $resolvedWork)) {
         Remove-Item -LiteralPath $resolvedWork -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    foreach ($externalRoot in $externalCleanupRoots) {
+        $resolvedExternal = [IO.Path]::GetFullPath($externalRoot)
+        $externalDriveRoot = [IO.Path]::GetPathRoot($resolvedExternal)
+        if ($resolvedExternal.StartsWith((Join-Path $externalDriveRoot 'BackupMesh-E2E-'), [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $resolvedExternal)) {
+            Remove-Item -LiteralPath $resolvedExternal -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }

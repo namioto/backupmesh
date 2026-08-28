@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -76,19 +77,47 @@ func TestRunBackupTargetsContinuesAfterFailure(t *testing.T) {
 		{DeviceName: "Second", DestinationFolder: "two"},
 	}
 	var attempted []string
+	var attemptedGate sync.Mutex
 	err := runBackupTargets(targets, func(target controlapi.BackupTargetAvailability) error {
+		attemptedGate.Lock()
 		attempted = append(attempted, target.DeviceName)
+		attemptedGate.Unlock()
 		if target.DeviceName == "First" {
 			return errors.New("offline")
 		}
 		return nil
 	})
 
-	if strings.Join(attempted, ",") != "First,Second" {
-		t.Fatalf("attempted targets = %v, want both targets in order", attempted)
+	if len(attempted) != 2 {
+		t.Fatalf("attempted targets = %v, want both targets", attempted)
 	}
 	if err == nil || !strings.Contains(err.Error(), "First (one): offline") {
 		t.Fatalf("error = %v, want contextual first-target failure", err)
+	}
+}
+
+func TestRunBackupTargetsStartsAllTargetsConcurrently(t *testing.T) {
+	targets := []controlapi.BackupTargetAvailability{{DeviceName: "First"}, {DeviceName: "Second"}}
+	started := make(chan string, len(targets))
+	release := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		done <- runBackupTargets(targets, func(target controlapi.BackupTargetAvailability) error {
+			started <- target.DeviceName
+			<-release
+			return nil
+		})
+	}()
+	for range targets {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("backup targets did not start concurrently")
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 

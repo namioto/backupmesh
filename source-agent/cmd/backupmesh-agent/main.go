@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/namioto/backupmesh/source-agent/internal/config"
@@ -234,10 +235,22 @@ func loadMTLSClient(storage config.Storage) (*http.Client, error) {
 }
 
 func runBackupTargets(targets []controlapi.BackupTargetAvailability, runTarget func(controlapi.BackupTargetAvailability) error) error {
+	failuresByTarget := make([]error, len(targets))
+	var workers sync.WaitGroup
+	for index, target := range targets {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			if err := runTarget(target); err != nil {
+				failuresByTarget[index] = fmt.Errorf("backup target %s (%s): %w", target.DeviceName, target.DestinationFolder, err)
+			}
+		}()
+	}
+	workers.Wait()
 	var failures []error
-	for _, target := range targets {
-		if err := runTarget(target); err != nil {
-			failures = append(failures, fmt.Errorf("backup target %s (%s): %w", target.DeviceName, target.DestinationFolder, err))
+	for _, failure := range failuresByTarget {
+		if failure != nil {
+			failures = append(failures, failure)
 		}
 	}
 	return errors.Join(failures...)

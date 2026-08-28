@@ -80,13 +80,13 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
 
     public async Task<Uri> GetEndpointAsync(ResolvedBackupTarget target, CancellationToken cancellationToken)
     {
+        await PrepareDirectoryAsync(target.DestinationFolder, cancellationToken);
         Session session;
         lock (_gate)
         {
             if (_sessions.TryGetValue(target.MappingId, out session!) && !session.Process.HasExited)
                 return Endpoint(session);
             var port = options.BasePort + _sessions.Count;
-            Directory.CreateDirectory(target.DestinationFolder);
             var credential = options.NoAuthentication ? null : CreateCredential(target.MappingId, options.CredentialDirectory);
             var startInfo = new ProcessStartInfo
             {
@@ -100,11 +100,33 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
             if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
             else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
-            session = new(port, target.DestinationFolder, processFactory.Start(startInfo), credential);
+            IManagedProcess process;
+            try { process = processFactory.Start(startInfo); }
+            catch (Exception exception) when (exception is IOException or InvalidOperationException)
+            {
+                throw new IOException($"Could not start rest-server for repository '{target.DestinationFolder}': {exception.Message}", exception);
+            }
+            session = new(port, target.DestinationFolder, process, credential);
             _sessions[target.MappingId] = session;
         }
         await WaitUntilListeningAsync(session, cancellationToken);
         return Endpoint(session);
+    }
+
+    private static async Task PrepareDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        Exception? failure = null;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try { Directory.CreateDirectory(path); return; }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                failure = exception;
+                if (attempt < 4) await Task.Delay(200, cancellationToken);
+            }
+        }
+        throw new IOException($"Could not prepare repository directory '{path}': {failure?.Message}", failure);
     }
 
     private Uri Endpoint(Session session)
