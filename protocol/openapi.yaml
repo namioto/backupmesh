@@ -149,6 +149,96 @@ paths:
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
+  /automation/settings:
+    get:
+      tags: [Storage]
+      operationId: getAutomationSettings
+      summary: Read the service-authoritative automatic backup setting
+      responses:
+        '200':
+          description: Current automation setting
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AutomationSettings'}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Storage]
+      operationId: updateAutomationSettings
+      summary: Enable or disable automatic backups
+      description: Available only over the loopback endpoint to the local tray application.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AutomationSettings'}
+      responses:
+        '200':
+          description: Updated automation setting
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AutomationSettings'}
+        '403': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /backup/commands/enqueue:
+    post:
+      tags: [Backup]
+      operationId: enqueueBackupCommands
+      summary: Queue mapped backups selected by the local tray application
+      description: Available only over the loopback endpoint. Only ready, enabled mappings are queued.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BackupCommandEnqueueRequest'}
+      responses:
+        '202':
+          description: Commands queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BackupCommandEnqueueResult'}
+        '409': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /backup/commands/claim/{source_agent_id}:
+    post:
+      tags: [Source]
+      operationId: claimBackupCommand
+      summary: Lease the next pending command for a Source Agent
+      parameters:
+        - {name: source_agent_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: A leased command, or null when the queue is empty
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BackupCommandClaimResponse'}
+        '403': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /backup/commands/result:
+    post:
+      tags: [Source]
+      operationId: reportBackupCommandResult
+      summary: Complete a leased backup command
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/SentAt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BackupCommandResultRequest'}
+      responses:
+        '204': {description: Result recorded}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
   /backup/targets/{source_agent_id}/{backup_set_id}:
     get:
       tags: [Backup]
@@ -485,6 +575,74 @@ components:
                 occurred_at: '2026-08-28T02:18:21Z'
                 retryable: true
   schemas:
+    AutomationSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: {type: boolean}
+    BackupCommandEnqueueRequest:
+      type: object
+      additionalProperties: false
+      required: [mapping_ids]
+      properties:
+        mapping_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, format: uuid}
+        reason: {type: [string, 'null'], maxLength: 64}
+    BackupCommandEnqueueResult:
+      type: object
+      additionalProperties: false
+      required: [queued_count, command_ids, skipped_mapping_ids]
+      properties:
+        queued_count: {type: integer, minimum: 0}
+        command_ids:
+          type: array
+          items: {type: string, format: uuid}
+        skipped_mapping_ids:
+          type: array
+          items: {type: string, format: uuid}
+    BackupCommandClaimResponse:
+      type: object
+      additionalProperties: false
+      required: [command]
+      properties:
+        command:
+          oneOf:
+            - {$ref: '#/components/schemas/BackupCommand'}
+            - {type: 'null'}
+    BackupCommand:
+      type: object
+      additionalProperties: false
+      required: [command_id, type, source_agent_id, backup_set_id, target_mapping_id, reason, requested_at, state]
+      properties:
+        command_id: {type: string, format: uuid}
+        type: {type: string, enum: [BACKUP_SET]}
+        source_agent_id: {type: string, format: uuid}
+        backup_set_id: {type: string, format: uuid}
+        target_mapping_id: {type: string, format: uuid}
+        reason: {type: string, minLength: 1, maxLength: 64}
+        requested_at: {type: string, format: date-time}
+        state: {type: string, enum: [PENDING, CLAIMED, RUNNING, SUCCEEDED, FAILED, CANCELLED]}
+        claimed_at: {type: [string, 'null'], format: date-time}
+        lease_expires_at: {type: [string, 'null'], format: date-time}
+        completed_at: {type: [string, 'null'], format: date-time}
+        job_id: {type: [string, 'null'], format: uuid}
+        outcome: {type: [string, 'null'], enum: [SUCCEEDED, FAILED, CANCELLED, null]}
+        message: {type: [string, 'null'], maxLength: 2048}
+    BackupCommandResultRequest:
+      type: object
+      additionalProperties: false
+      required: [command_id, source_agent_id, completed_at, outcome]
+      properties:
+        command_id: {type: string, format: uuid}
+        source_agent_id: {type: string, format: uuid}
+        completed_at: {type: string, format: date-time}
+        outcome: {type: string, enum: [SUCCEEDED, FAILED, CANCELLED]}
+        job_id: {type: [string, 'null'], format: uuid}
+        message: {type: [string, 'null'], maxLength: 2048}
     StorageState:
       type: string
       enum: [offline, discovered, verifying, waiting, ready, busy, error]

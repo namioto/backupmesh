@@ -12,6 +12,10 @@ $requiredFragments = @(
     '  /backup/result:',
     '  /backup/cancel:',
     '  /backup/status/{job_id}:',
+    '  /automation/settings:',
+    '  /backup/commands/enqueue:',
+    '  /backup/commands/claim/{source_agent_id}:',
+    '  /backup/commands/result:',
     '  /source/catalog:',
     '  /source/catalogs:',
     '  /storage/configuration:',
@@ -37,8 +41,9 @@ foreach ($reference in $references) {
 
 $operationIds = [regex]::Matches($text, '(?m)^      operationId: (?<id>[A-Za-z][A-Za-z0-9]+)$') |
     ForEach-Object { $_.Groups['id'].Value }
-if ($operationIds.Count -ne 17) {
-    throw "Expected 17 operations, found $($operationIds.Count)."
+$expectedOperationCount = 22
+if ($operationIds.Count -ne $expectedOperationCount) {
+    throw "Expected $expectedOperationCount operations, found $($operationIds.Count)."
 }
 if (($operationIds | Sort-Object -Unique).Count -ne $operationIds.Count) {
     throw 'Duplicate operationId found.'
