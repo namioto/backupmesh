@@ -5,6 +5,16 @@ namespace BackupMesh.Storage.Tests;
 
 public sealed class StorageConfigurationViewModelTests
 {
+    [Theory]
+    [InlineData(0, "connected and ready")]
+    [InlineData(15, "15-minute arrival delay")]
+    public void ArrivalNotificationDescribesActualEligibility(int delay, string expected)
+    {
+        var message = MainWindowViewModel.DeviceArrivalMessage("Archive", delay);
+        Assert.Contains(expected, message, StringComparison.OrdinalIgnoreCase);
+        if (delay > 0) Assert.DoesNotContain("is ready", message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void RefreshDrivesPreservesTheUsersSelectedDevice()
     {

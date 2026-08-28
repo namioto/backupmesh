@@ -488,7 +488,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 AddActivity($"Registered device connected: {device.DisplayName}.");
-                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", $"{device.DisplayName} is ready. Eligible backups will start after {device.ArrivalDelayMinutes} minutes."));
+                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
             }
         }
         _connectedRoots.Clear();
@@ -528,6 +528,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         return $"\"{processPath ?? Path.Combine(appDirectory, "BackupMesh.Storage.App.exe")}\"";
     }
+
+    internal static string DeviceArrivalMessage(string displayName, int arrivalDelayMinutes) => arrivalDelayMinutes == 0
+        ? $"{displayName} is connected and ready for backup."
+        : $"{displayName} is connected. Backups become eligible after its {arrivalDelayMinutes}-minute arrival delay.";
 
     public void Dispose()
     {
