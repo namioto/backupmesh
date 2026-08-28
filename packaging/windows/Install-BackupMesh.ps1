@@ -20,6 +20,7 @@ $arguments = @(
     "--SourceCatalog:PersistencePath=`"$(Join-Path $dataRoot 'source-catalogs.json')`""
     "--BackupJob:PersistencePath=`"$(Join-Path $dataRoot 'backup-jobs.json')`""
     "--Pairing:CredentialHashPath=`"$(Join-Path $dataRoot 'pairing-credential.sha256')`""
+    "--PairingCertificate:ProtectedAuthorityPath=`"$(Join-Path $dataRoot 'pairing-authority.dpapi')`""
     "--RepositoryServer:ExecutablePath=`"$(Join-Path $serviceRoot 'rest-server.exe')`""
 )
 $binaryPath = "`"$serviceExe`" $($arguments -join ' ')"

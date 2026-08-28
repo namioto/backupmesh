@@ -7,6 +7,7 @@ $env:StorageConfiguration__PersistencePath = Join-Path $dataRoot 'storage-config
 $env:SourceCatalog__PersistencePath = Join-Path $dataRoot 'source-catalogs.json'
 $env:BackupJob__PersistencePath = Join-Path $dataRoot 'backup-jobs.json'
 $env:Pairing__CredentialHashPath = Join-Path $dataRoot 'pairing-credential.sha256'
+$env:PairingCertificate__ProtectedAuthorityPath = Join-Path $dataRoot 'pairing-authority.dpapi'
 $env:RepositoryServer__ExecutablePath = Join-Path $packageRoot 'Service\rest-server.exe'
 
 $serviceRoot = Join-Path $packageRoot 'Service'

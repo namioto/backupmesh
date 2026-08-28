@@ -25,18 +25,23 @@ paths:
       tags: [Source]
       operationId: issuePairingCredential
       summary: Issue a credential for one Source Agent
-      description: This bootstrap operation is available only over the Storage Agent loopback endpoint. Existing Source credentials remain valid and only SHA-256 hashes are persisted.
+      description: This bootstrap operation is available only over the Storage Agent loopback endpoint. It returns a Source identity, an identity-bound bearer credential, and a client certificate signed by the Storage Agent pairing authority. Only SHA-256 credential hashes and the DPAPI-protected authority key are persisted.
       security: []
       responses:
         '200':
-          description: Newly issued transfer credential
+          description: Newly issued Source Agent pairing bundle
           content:
             application/json:
               schema:
                 type: object
-                required: [credential, issued_at]
+                required: [agent_id, credential, certificate_pem, private_key_pem, authority_pem, expires_at, issued_at]
                 properties:
+                  agent_id: {type: string, format: uuid}
                   credential: {type: string, minLength: 43}
+                  certificate_pem: {type: string}
+                  private_key_pem: {type: string}
+                  authority_pem: {type: string}
+                  expires_at: {type: string, format: date-time}
                   issued_at: {type: string, format: date-time}
         '403': {$ref: '#/components/responses/Error'}
         default: {$ref: '#/components/responses/Error'}

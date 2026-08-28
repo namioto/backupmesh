@@ -5,7 +5,14 @@ using System.Text.Json.Serialization;
 
 namespace BackupMesh.Storage.App;
 
-public sealed record PairingCredentialDto([property: JsonPropertyName("credential")] string Credential, [property: JsonPropertyName("issued_at")] DateTimeOffset IssuedAt);
+public sealed record PairingCredentialDto(
+    [property: JsonPropertyName("agent_id")] Guid AgentId,
+    [property: JsonPropertyName("credential")] string Credential,
+    [property: JsonPropertyName("certificate_pem")] string CertificatePem,
+    [property: JsonPropertyName("private_key_pem")] string PrivateKeyPem,
+    [property: JsonPropertyName("authority_pem")] string AuthorityPem,
+    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
+    [property: JsonPropertyName("issued_at")] DateTimeOffset IssuedAt);
 public interface IPairingClient { Task<PairingCredentialDto> IssueAsync(CancellationToken cancellationToken); }
 public sealed class PairingClient : IPairingClient, IDisposable
 {

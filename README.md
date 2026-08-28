@@ -66,7 +66,7 @@ Linux home server                    Windows PC
 
 The Windows tray app keeps removable backup storage understandable without turning it into an always-on server. Register a physical device, review synchronized Source Agents and their Backup Sets, then map each Backup Set to a device and a relative repository path. The mapping model supports multiple Sources per device and multiple devices per Source.
 
-To pair a Source, choose **Pair Source Agent** in the tray app and save the generated `.token` file. Transfer it securely to the Source machine, store it at the absolute path configured as `storage.authenticationTokenFile`, and delete the transfer copy. The first authenticated request binds that credential to the Source's `agent.id`; it cannot subsequently impersonate another Source. Each Source receives an independent credential.
+To pair a Source, choose **Pair Source Agent** in the tray app and save the generated `backupmesh-pairing.json` bundle. Transfer it securely, then run `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`. This installs the identity-bound token, client certificate, private key, and Storage Agent authority, updates the Source ID and TLS paths, and protects the files with owner-only permissions on Linux. Delete the transfer bundle after applying it. Each Source receives an independent identity and credential.
 
 ![BackupMesh Storage Agent mapping multiple Sources to removable storage](docs/images/storage-agent-mappings.jpg)
 

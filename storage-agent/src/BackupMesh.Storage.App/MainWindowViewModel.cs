@@ -169,13 +169,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task PairSourceAsync()
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Save Source Agent pairing credential", FileName = "backupmesh-pairing.token", Filter = "BackupMesh pairing credential (*.token)|*.token", AddExtension = true, OverwritePrompt = true };
+        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Save Source Agent pairing bundle", FileName = "backupmesh-pairing.json", Filter = "BackupMesh pairing bundle (*.json)|*.json", AddExtension = true, OverwritePrompt = true };
         if (dialog.ShowDialog() != true) return;
         try
         {
             var pairing = await _pairingClient.IssueAsync(_shutdown.Token);
-            await File.WriteAllTextAsync(dialog.FileName, pairing.Credential + Environment.NewLine, _shutdown.Token);
-            FooterStatus = "Pairing credential saved. Copy it securely to the Source Agent and delete the transfer copy after use.";
+            var json = System.Text.Json.JsonSerializer.Serialize(pairing, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(dialog.FileName, json + Environment.NewLine, _shutdown.Token);
+            FooterStatus = "Pairing bundle saved. Apply it on the Source Agent, then delete the transfer copy.";
             NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
         }
         catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException) { FooterStatus = $"Pairing credential could not be saved: {exception.Message}"; }

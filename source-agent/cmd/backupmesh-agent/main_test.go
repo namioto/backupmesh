@@ -1,12 +1,74 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"math/big"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/namioto/backupmesh/source-agent/internal/config"
 	"github.com/namioto/backupmesh/source-agent/internal/controlapi"
 )
+
+func TestApplyPairingWritesIdentityAndProtectedFiles(t *testing.T) {
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "backupmesh.json")
+	bundlePath := filepath.Join(directory, "bundle.json")
+	outputPath := filepath.Join(directory, "secrets")
+	agentID := "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+	configuration := `{"agent":{"id":"11111111-1111-4111-8111-111111111111","name":"source"},"storage":{"controlEndpoint":"https://storage:7444","repositoryPasswordFile":"/var/lib/backupmesh/password"},"backupSets":[{"id":"22222222-2222-4222-8222-222222222222","name":"docs","paths":["/data"]}]}`
+	if err := os.WriteFile(configPath, []byte(configuration), 0600); err != nil {
+		t.Fatal(err)
+	}
+	certPEM, keyPEM := testCertificate(t, agentID)
+	bundle, _ := json.Marshal(pairingBundleFile{AgentID: agentID, Credential: strings.Repeat("x", 43), CertificatePEM: certPEM, PrivateKeyPEM: keyPEM, AuthorityPEM: certPEM, ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339), IssuedAt: time.Now().Format(time.RFC3339)})
+	if err := os.WriteFile(bundlePath, bundle, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyPairing(configPath, bundlePath, outputPath); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Agent.ID != agentID || cfg.Storage.TLSKeyFile != filepath.Join(outputPath, "source.key") {
+		t.Fatalf("pairing was not applied: %+v", cfg)
+	}
+	for _, name := range []string{"control.token", "source.crt", "source.key", "storage-ca.pem"} {
+		info, err := os.Stat(filepath.Join(outputPath, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
+			t.Fatalf("%s permissions = %o", name, info.Mode().Perm())
+		}
+	}
+}
+
+func testCertificate(t *testing.T, commonName string) (string, string) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: commonName}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})), string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
+}
 
 func TestRunBackupTargetsContinuesAfterFailure(t *testing.T) {
 	targets := []controlapi.BackupTargetAvailability{

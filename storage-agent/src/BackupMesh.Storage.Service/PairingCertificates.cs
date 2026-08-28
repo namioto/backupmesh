@@ -1,0 +1,67 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Runtime.Versioning;
+
+namespace BackupMesh.Storage.Service;
+
+public sealed class PairingCertificateOptions { public string? ProtectedAuthorityPath { get; set; } }
+public sealed record SourceCertificateBundle(string CertificatePem, string PrivateKeyPem, string AuthorityPem, DateTimeOffset ExpiresAt);
+
+public sealed class PairingCertificateAuthority(PairingCertificateOptions options)
+{
+    private readonly object _gate = new();
+    private readonly string _path = ResolvePath(options.ProtectedAuthorityPath);
+    private X509Certificate2? _authority;
+
+    public SourceCertificateBundle Issue(Guid sourceAgentId)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
+        lock (_gate)
+        {
+            var authority = _authority ??= LoadOrCreateAuthority();
+            using var key = RSA.Create(3072);
+            var request = new CertificateRequest($"CN={sourceAgentId:D}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+            request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
+            request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.2") }, true));
+            request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+            var expires = DateTimeOffset.UtcNow.AddYears(1);
+            using var certificate = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-5), expires, RandomNumberGenerator.GetBytes(16));
+            return new(certificate.ExportCertificatePem(), key.ExportPkcs8PrivateKeyPem(), authority.ExportCertificatePem(), expires);
+        }
+    }
+
+    public X509Certificate2 GetAuthorityCertificate()
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
+        lock (_gate) return X509CertificateLoader.LoadCertificate((_authority ??= LoadOrCreateAuthority()).RawData);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private X509Certificate2 LoadOrCreateAuthority()
+    {
+        if (File.Exists(_path))
+        {
+            var storedBytes = File.ReadAllBytes(_path);
+            var loadedPfx = ProtectedData.Unprotect(storedBytes, null, DataProtectionScope.CurrentUser);
+            return X509CertificateLoader.LoadPkcs12(loadedPfx, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+        }
+        using var key = RSA.Create(4096);
+        var request = new CertificateRequest("CN=BackupMesh Source Pairing CA", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+        using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(10));
+        var pfx = created.Export(X509ContentType.Pfx);
+        var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.CurrentUser);
+        Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? throw new InvalidOperationException("Pairing authority path must include a directory."));
+        var temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
+        try { File.WriteAllBytes(temporary, protectedBytes); File.Move(temporary, _path, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        return X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+    }
+
+    private static string ResolvePath(string? path) => !string.IsNullOrWhiteSpace(path)
+        ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path))
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "pairing-authority.dpapi");
+}

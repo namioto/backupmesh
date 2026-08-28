@@ -22,12 +22,12 @@ public sealed class BackupJobStoreTests
         try
         {
             var options = new PairingOptions { CredentialHashPath = path };
-            var credential = new PairingCredentialStore(options).Issue();
+            var agentId = Guid.NewGuid();
+            var credential = new PairingCredentialStore(options).Issue(agentId);
             var persisted = File.ReadAllText(path);
 
             Assert.True(credential.Length >= 43);
             Assert.DoesNotContain(credential, persisted, StringComparison.Ordinal);
-            var agentId = Guid.NewGuid();
             Assert.True(new PairingCredentialStore(options).Authorize(credential, agentId));
             Assert.False(new PairingCredentialStore(options).Authorize(credential + "x", agentId));
         }
@@ -38,18 +38,20 @@ public sealed class BackupJobStoreTests
     public void EachSourceCanKeepItsOwnPairingCredential()
     {
         var store = new PairingCredentialStore(new PairingOptions { CredentialHashPath = string.Empty });
-        var first = store.Issue();
-        var second = store.Issue();
-        Assert.True(store.Authorize(first, Guid.NewGuid()));
-        Assert.True(store.Authorize(second, Guid.NewGuid()));
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var first = store.Issue(firstId);
+        var second = store.Issue(secondId);
+        Assert.True(store.Authorize(first, firstId));
+        Assert.True(store.Authorize(second, secondId));
     }
 
     [Fact]
     public void PairingCredentialCannotImpersonateAnotherSourceAfterBinding()
     {
         var store = new PairingCredentialStore(new PairingOptions { CredentialHashPath = string.Empty });
-        var credential = store.Issue();
         var owner = Guid.NewGuid();
+        var credential = store.Issue(owner);
         Assert.True(store.Authorize(credential, owner));
         Assert.False(store.Authorize(credential, Guid.NewGuid()));
         Assert.True(store.Authorize(credential, owner));

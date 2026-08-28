@@ -7,6 +7,29 @@ namespace BackupMesh.Storage.Tests;
 public sealed class MutualTlsCertificateValidatorTests
 {
     [Fact]
+    public void PairingAuthorityPersistsProtectedKeyAndIssuesBoundClientCertificates()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-ca-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "authority.dpapi");
+        try
+        {
+            var agentId = Guid.NewGuid();
+            var first = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = path }).Issue(agentId);
+            using var certificate = X509Certificate2.CreateFromPem(first.CertificatePem);
+            using var authority = X509Certificate2.CreateFromPem(first.AuthorityPem);
+            Assert.Equal(agentId.ToString("D"), certificate.GetNameInfo(X509NameType.SimpleName, false));
+            Assert.True(MutualTlsCertificateValidator.Validate(certificate, authority));
+            Assert.DoesNotContain("PRIVATE KEY", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(path)), StringComparison.Ordinal);
+
+            var second = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = path }).Issue(Guid.NewGuid());
+            using var reloadedAuthority = X509Certificate2.CreateFromPem(second.AuthorityPem);
+            Assert.Equal(authority.Thumbprint, reloadedAuthority.Thumbprint);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public void AcceptsOnlyClientAuthCertificateFromConfiguredAuthority()
     {
         using var authority = CreateAuthority("CN=BackupMesh Test CA");

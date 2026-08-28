@@ -160,10 +160,10 @@ public sealed class PairingCredentialStore
         else if (!string.IsNullOrWhiteSpace(control?.AuthenticationToken) && control.AuthenticationToken.Length >= 32)
             _credentials.Add(new(SHA256.HashData(Encoding.UTF8.GetBytes(control.AuthenticationToken)), null));
     }
-    public string Issue()
+    public string Issue(Guid agentId)
     {
         var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        lock (_gate) { _credentials.Add(new(SHA256.HashData(Encoding.UTF8.GetBytes(credential)), null)); Persist(); }
+        lock (_gate) { _credentials.Add(new(SHA256.HashData(Encoding.UTF8.GetBytes(credential)), agentId)); Persist(); }
         return credential;
     }
     public bool Authorize(string supplied, Guid agentId)
@@ -233,11 +233,22 @@ public static class ControlApi
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
-        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, CancellationToken ct) =>
+        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, PairingCertificateAuthority certificates, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing credentials can only be issued from the local tray app.");
-            return Results.Ok(new { credential = credentials.Issue(), issued_at = DateTimeOffset.UtcNow });
+            var agentId = Guid.NewGuid();
+            var certificate = certificates.Issue(agentId);
+            return Results.Ok(new
+            {
+                agent_id = agentId,
+                credential = credentials.Issue(agentId),
+                certificate_pem = certificate.CertificatePem,
+                private_key_pem = certificate.PrivateKeyPem,
+                authority_pem = certificate.AuthorityPem,
+                expires_at = certificate.ExpiresAt,
+                issued_at = DateTimeOffset.UtcNow
+            });
         });
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });

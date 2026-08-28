@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,7 +33,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <validate|sync|backup|version>")
+		return fmt.Errorf("usage: backupmesh-agent <apply-pairing|validate|sync|backup|version>")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -39,8 +43,13 @@ func run(args []string) error {
 	configPath := fs.String("config", "backupmesh.json", "path to configuration")
 	setName := fs.String("set", "", "backup set name")
 	resticBinary := fs.String("restic", "restic", "path to bundled restic binary")
+	pairingBundle := fs.String("bundle", "backupmesh-pairing.json", "path to pairing bundle")
+	pairingOutput := fs.String("output", "", "directory for protected pairing files")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
+	}
+	if args[0] == "apply-pairing" {
+		return applyPairing(*configPath, *pairingBundle, *pairingOutput)
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -116,6 +125,103 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+type pairingBundleFile struct {
+	AgentID        string `json:"agent_id"`
+	Credential     string `json:"credential"`
+	CertificatePEM string `json:"certificate_pem"`
+	PrivateKeyPEM  string `json:"private_key_pem"`
+	AuthorityPEM   string `json:"authority_pem"`
+	ExpiresAt      string `json:"expires_at"`
+	IssuedAt       string `json:"issued_at"`
+}
+
+func applyPairing(configPath, bundlePath, outputDirectory string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	b, err := os.ReadFile(filepath.Clean(bundlePath))
+	if err != nil {
+		return fmt.Errorf("read pairing bundle: %w", err)
+	}
+	var bundle pairingBundleFile
+	decoder := json.NewDecoder(strings.NewReader(string(b)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&bundle); err != nil {
+		return fmt.Errorf("decode pairing bundle: %w", err)
+	}
+	certBlock, _ := pem.Decode([]byte(bundle.CertificatePEM))
+	caBlock, _ := pem.Decode([]byte(bundle.AuthorityPEM))
+	keyBlock, _ := pem.Decode([]byte(bundle.PrivateKeyPEM))
+	if certBlock == nil || caBlock == nil || keyBlock == nil || len(strings.TrimSpace(bundle.Credential)) < 32 {
+		return errors.New("pairing bundle is incomplete")
+	}
+	certificate, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return fmt.Errorf("parse pairing certificate: %w", err)
+	}
+	if certificate.Subject.CommonName != bundle.AgentID {
+		return errors.New("pairing certificate identity does not match agent_id")
+	}
+	if outputDirectory == "" {
+		outputDirectory = filepath.Join(filepath.Dir(configPath), "pairing")
+	}
+	outputDirectory, err = filepath.Abs(outputDirectory)
+	if err != nil {
+		return fmt.Errorf("resolve pairing output: %w", err)
+	}
+	if err := os.MkdirAll(outputDirectory, 0700); err != nil {
+		return fmt.Errorf("create pairing output: %w", err)
+	}
+	files := []struct{ name, content string }{
+		{"control.token", strings.TrimSpace(bundle.Credential) + "\n"},
+		{"source.crt", bundle.CertificatePEM}, {"source.key", bundle.PrivateKeyPEM}, {"storage-ca.pem", bundle.AuthorityPEM},
+	}
+	for _, file := range files {
+		if err := writePrivateFile(filepath.Join(outputDirectory, file.name), []byte(file.content)); err != nil {
+			return err
+		}
+	}
+	cfg.Agent.ID = bundle.AgentID
+	cfg.Storage.AuthenticationTokenFile = filepath.Join(outputDirectory, "control.token")
+	cfg.Storage.TLSCertificateFile = filepath.Join(outputDirectory, "source.crt")
+	cfg.Storage.TLSKeyFile = filepath.Join(outputDirectory, "source.key")
+	cfg.Storage.TLSCAFile = filepath.Join(outputDirectory, "storage-ca.pem")
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("paired configuration: %w", err)
+	}
+	encoded, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode paired configuration: %w", err)
+	}
+	if err := writePrivateFile(configPath, append(encoded, '\n')); err != nil {
+		return err
+	}
+	fmt.Printf("pairing applied for Source Agent %s\n", bundle.AgentID)
+	return nil
+}
+
+func writePrivateFile(path string, contents []byte) error {
+	temporary := path + ".tmp"
+	if err := os.WriteFile(temporary, contents, 0600); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Base(path), err)
+	}
+	if err := os.Rename(temporary, path); err != nil {
+		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			_ = os.Remove(temporary)
+			return fmt.Errorf("replace %s: %w", filepath.Base(path), err)
+		}
+		if retryErr := os.Rename(temporary, path); retryErr != nil {
+			_ = os.Remove(temporary)
+			return fmt.Errorf("replace %s: %w", filepath.Base(path), retryErr)
+		}
+	}
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("protect %s: %w", filepath.Base(path), err)
+	}
+	return nil
 }
 
 func loadMTLSClient(storage config.Storage) (*http.Client, error) {
