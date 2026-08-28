@@ -5,6 +5,16 @@ namespace BackupMesh.Storage.Tests;
 public sealed class BackupJobStoreTests
 {
     [Fact]
+    public void ControlApiTokenComparisonRejectsMissingShortAndDifferentTokens()
+    {
+        const string token = "0123456789abcdef0123456789abcdef";
+        Assert.True(ControlApiAuthenticationFilter.TokenMatches(token, token));
+        Assert.False(ControlApiAuthenticationFilter.TokenMatches(token, token + "x"));
+        Assert.False(ControlApiAuthenticationFilter.TokenMatches("short", "short"));
+        Assert.False(ControlApiAuthenticationFilter.TokenMatches(null, token));
+    }
+
+    [Fact]
     public void Admission_IsPerMappingAndIdempotent()
     {
         var store = new BackupJobStore(); var request = Request(Guid.NewGuid()); var endpoint = new Uri("https://localhost/repo");

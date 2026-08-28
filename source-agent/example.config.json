@@ -5,6 +5,7 @@
   },
   "storage": {
     "controlEndpoint": "https://storage.example:7443",
+    "authenticationTokenFile": "/run/secrets/backupmesh-control-token",
     "repositoryPasswordFile": "/run/secrets/restic-password",
     "resticCacheDirectory": "/var/cache/backupmesh/restic"
   },

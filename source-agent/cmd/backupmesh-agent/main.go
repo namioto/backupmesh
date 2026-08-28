@@ -45,14 +45,19 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	switch args[0] {
-	case "validate":
+	if args[0] == "validate" {
 		fmt.Println("configuration is valid")
 		return nil
+	}
+	authToken, err := loadAuthenticationToken(cfg.Storage.AuthenticationTokenFile)
+	if err != nil {
+		return err
+	}
+	switch args[0] {
 	case "sync":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1"}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -65,7 +70,7 @@ func run(args []string) error {
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1"}
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -105,6 +110,21 @@ func run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func loadAuthenticationToken(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read Control API authentication token: %w", err)
+	}
+	token := strings.TrimSpace(string(b))
+	if len(token) < 32 {
+		return "", fmt.Errorf("Control API authentication token must contain at least 32 characters")
+	}
+	return token, nil
 }
 
 func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, target controlapi.BackupTargetAvailability, resticBinary string) error {

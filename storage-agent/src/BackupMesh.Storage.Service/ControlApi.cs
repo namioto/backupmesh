@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using BackupMesh.Storage.Core;
 
 namespace BackupMesh.Storage.Service;
 
-public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); }
+public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
 public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags);
 public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("device_id")] Guid DeviceId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt, [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
 public sealed record BackupProgress([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("reported_at")] DateTimeOffset ReportedAt, [property: JsonPropertyName("phase"), Required, RegularExpression("^(SCANNING|UPLOADING|FINALIZING)$")] string Phase, [property: JsonPropertyName("bytes_done"), Range(0, long.MaxValue)] long BytesDone, [property: JsonPropertyName("bytes_total"), Range(0, long.MaxValue)] long? BytesTotal, [property: JsonPropertyName("files_done"), Range(0, long.MaxValue)] long FilesDone, [property: JsonPropertyName("files_total"), Range(0, long.MaxValue)] long? FilesTotal, [property: JsonPropertyName("message"), StringLength(512)] string? Message);
@@ -87,11 +89,33 @@ public sealed class RequiredControlHeadersFilter : IEndpointFilter
     }
 }
 
+public sealed class ControlApiAuthenticationFilter(ControlApiOptions options) : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    {
+        if (context.HttpContext.Connection.RemoteIpAddress is { } remote && System.Net.IPAddress.IsLoopback(remote))
+            return await next(context);
+        var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
+        var supplied = authorization.StartsWith("Bearer ", StringComparison.Ordinal) ? authorization[7..] : string.Empty;
+        if (!TokenMatches(options.AuthenticationToken, supplied))
+            return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid BackupMesh authentication token is required.");
+        return await next(context);
+    }
+
+    internal static bool TokenMatches(string? expected, string supplied)
+    {
+        if (string.IsNullOrEmpty(expected) || expected.Length < 32 || string.IsNullOrEmpty(supplied)) return false;
+        var left = Encoding.UTF8.GetBytes(expected);
+        var right = Encoding.UTF8.GetBytes(supplied);
+        return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
+    }
+}
+
 public static class ControlApi
 {
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
-        var api = endpoints.MapGroup("/api/v1");
+        var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
         api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });

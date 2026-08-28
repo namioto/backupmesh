@@ -26,6 +26,20 @@ func TestGetStorageStatusUsesSingularPathAndRequestID(t *testing.T) {
 	}
 }
 
+func TestClientSendsAuthenticationTokenOutsideTheRequestBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-token-with-at-least-32-characters" {
+			t.Errorf("authorization = %q", got)
+		}
+		_, _ = w.Write([]byte(`{"agent_id":"storage-1","state":"ready","observed_at":"2026-08-28T00:00:00Z","storage":[],"active_job_id":null}`))
+	}))
+	defer srv.Close()
+	_, err := (Client{BaseURL: srv.URL, AuthToken: "test-token-with-at-least-32-characters"}).GetStorageStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRequestBackupHeadersAndSnakeCaseBody(t *testing.T) {
 	now := time.Date(2026, 8, 28, 1, 2, 3, 0, time.UTC)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

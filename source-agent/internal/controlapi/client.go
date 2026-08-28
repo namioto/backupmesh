@@ -21,6 +21,7 @@ type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
 	Now        func() time.Time
+	AuthToken  string
 }
 
 type StorageStatus struct {
@@ -164,6 +165,9 @@ func (c Client) do(ctx context.Context, method, path, key string, body any, expe
 		return fmt.Errorf("create request ID: %w", err)
 	}
 	req.Header.Set("X-Request-ID", requestID)
+	if c.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

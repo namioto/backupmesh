@@ -43,3 +43,11 @@ func TestValidateRejectsRelativeResticCacheDirectory(t *testing.T) {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
+
+func TestValidateRejectsRelativeAuthenticationTokenFile(t *testing.T) {
+	c := validConfig()
+	c.Storage.AuthenticationTokenFile = "relative/token"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "authenticationTokenFile") {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
