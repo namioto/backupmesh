@@ -99,6 +99,50 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task BackupNowRequestsEveryConnectedEnabledMapping()
+    {
+        var sourceId = Guid.NewGuid();
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
+        var connectedDevice = new DeviceViewModel(new(Guid.NewGuid(), "disk:connected", "Connected disk", "READY", "D:\\", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)) { IsConnected = true };
+        var offlineDevice = new DeviceViewModel(new(Guid.NewGuid(), "disk:offline", "Offline disk", "OFFLINE", "E:\\", DateTimeOffset.UtcNow, null));
+        var connectedMapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, connectedDevice.Id, "BackupMesh\\Documents");
+        var offlineMapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, offlineDevice.Id, "BackupMesh\\Documents");
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.BackupSets.Add(set);
+        viewModel.Devices.Add(connectedDevice);
+        viewModel.Devices.Add(offlineDevice);
+        viewModel.Mappings.Add(new(connectedMapping, set, connectedDevice));
+        viewModel.Mappings.Add(new(offlineMapping, set, offlineDevice));
+
+        await viewModel.QueueEligibleBackupsAsync();
+
+        var request = Assert.Single(client.Requests);
+        Assert.Equal(sourceId, request.SourceAgentId);
+        Assert.Equal(set.Id, request.BackupSetId);
+        Assert.Equal(connectedMapping.Id, request.TargetMappingId);
+        Assert.Contains("Queued 1 mapped backup target", viewModel.FooterStatus);
+    }
+
+    [Fact]
+    public async Task BackupNowDoesNotCallServiceWhenNoMappingIsEligible()
+    {
+        var sourceId = Guid.NewGuid();
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:offline", "Offline disk", "OFFLINE", "E:\\", DateTimeOffset.UtcNow, null));
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.BackupSets.Add(set);
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(new(new(Guid.NewGuid(), set.Id, device.Id, "BackupMesh\\Documents"), set, device));
+
+        await viewModel.QueueEligibleBackupsAsync();
+
+        Assert.Empty(client.Requests);
+        Assert.Equal("No mapped backup is currently eligible.", viewModel.FooterStatus);
+    }
+
+    [Fact]
     public async Task SaveUsesTheRevisionLoadedFromService()
     {
         var client = new FakeConfigurationClient(new(4, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
@@ -131,7 +175,13 @@ public sealed class StorageConfigurationViewModelTests
 
     private sealed class FakeJobClient(IReadOnlyList<BackupJobDto> jobs) : IBackupJobClient
     {
+        public List<BackupRequestDto> Requests { get; } = [];
         public Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) => Task.FromResult(jobs);
+        public Task<BackupAdmissionDto> RequestAsync(BackupRequestDto request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new BackupAdmissionDto(request.JobId, request.TargetMappingId, Guid.NewGuid(), "ACCEPTED", DateTimeOffset.UtcNow, new("http://127.0.0.1:8000/repo")));
+        }
         public Task CancelAsync(Guid jobId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -37,7 +37,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _newDestinationFolder = string.Empty;
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
-    private bool _paused;
     private long _configurationRevision;
     private readonly bool _demoMode;
     private readonly bool _persistLocalState;
@@ -253,19 +252,51 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyCounts();
     }
 
-    public void TogglePause()
-    {
-        _paused = !_paused;
-        OverallStatus = _paused ? "Automation paused" : "Ready";
-        AddActivity(_paused ? "Automatic backups paused." : "Automatic backups resumed.");
-    }
+    public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
 
-    public void QueueSelectedBackups()
+    public async Task QueueEligibleBackupsAsync()
     {
-        var eligible = Mappings.Count(mapping => mapping.Enabled && mapping.Device.IsConnected);
-        var message = eligible == 0 ? "No mapped backup is currently eligible." : $"Queued {eligible} mapped backup target(s).";
-        AddActivity(message);
-        NotificationRequested?.Invoke(this, new("BackupMesh", message));
+        var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected).ToArray();
+        if (eligible.Length == 0)
+        {
+            const string noTargets = "No mapped backup is currently eligible.";
+            FooterStatus = noTargets;
+            AddActivity(noTargets);
+            NotificationRequested?.Invoke(this, new("BackupMesh", noTargets));
+            return;
+        }
+
+        var accepted = 0;
+        var failed = 0;
+        foreach (var mapping in eligible)
+        {
+            var request = new BackupRequestDto(
+                Guid.NewGuid(),
+                mapping.BackupSet.Model.SourceAgentId,
+                mapping.BackupSet.Id,
+                mapping.Id,
+                DateTimeOffset.UtcNow,
+                ["manual", "tray"]);
+            try
+            {
+                await _jobClient.RequestAsync(request, _shutdown.Token);
+                accepted++;
+                AddActivity($"Queued backup for {mapping.BackupSetName} to {mapping.DeviceName}.");
+            }
+            catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return; }
+            catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or TaskCanceledException)
+            {
+                failed++;
+                AddActivity($"Backup queue failed for {mapping.BackupSetName}: {exception.Message}");
+            }
+        }
+
+        await RefreshJobsAsync();
+        var message = failed == 0
+            ? $"Queued {accepted} mapped backup target(s)."
+            : $"Queued {accepted} of {eligible.Length} mapped backup target(s); {failed} failed.";
+        FooterStatus = message;
+        NotificationRequested?.Invoke(this, new("BackupMesh", message, failed > 0));
     }
 
     private void Load()
@@ -531,7 +562,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         _connectedRoots.Clear();
         foreach (var root in nowConnected) _connectedRoots.Add(root);
-        OverallStatus = _paused ? "Automation paused" : ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device(s) connected" : "Waiting for storage";
+        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device(s) connected" : "Waiting for storage";
         NotifyCounts();
     }
 

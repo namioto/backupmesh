@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Net.Http;
+using System.IO;
 using System.Text.Json.Serialization;
 
 namespace BackupMesh.Storage.App;
@@ -22,9 +23,26 @@ public sealed record BackupJobDto(
     [property: JsonPropertyName("progress")] BackupProgressDto? Progress,
     [property: JsonPropertyName("result")] BackupResultDto? Result);
 
+public sealed record BackupRequestDto(
+    [property: JsonPropertyName("job_id")] Guid JobId,
+    [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId,
+    [property: JsonPropertyName("backup_set_id")] Guid BackupSetId,
+    [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId,
+    [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt,
+    [property: JsonPropertyName("snapshot_tags")] string[] SnapshotTags);
+
+public sealed record BackupAdmissionDto(
+    [property: JsonPropertyName("job_id")] Guid JobId,
+    [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId,
+    [property: JsonPropertyName("device_id")] Guid DeviceId,
+    [property: JsonPropertyName("state")] string State,
+    [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt,
+    [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
+
 public interface IBackupJobClient
 {
     Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken);
+    Task<BackupAdmissionDto> RequestAsync(BackupRequestDto request, CancellationToken cancellationToken);
     Task CancelAsync(Guid jobId, CancellationToken cancellationToken);
 }
 
@@ -37,17 +55,35 @@ public sealed class BackupJobClient : IBackupJobClient, IDisposable
     public async Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) =>
         await _client.GetFromJsonAsync<BackupJobDto[]>("backup/jobs", cancellationToken) ?? [];
 
+    public async Task<BackupAdmissionDto> RequestAsync(BackupRequestDto backup, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "backup/request")
+        {
+            Content = JsonContent.Create(backup)
+        };
+        AddControlHeaders(request);
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BackupAdmissionDto>(cancellationToken) ??
+            throw new InvalidDataException("Storage Service accepted the backup request without returning an admission.");
+    }
+
     public async Task CancelAsync(Guid jobId, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "backup/cancel")
         {
             Content = JsonContent.Create(new { job_id = jobId, requested_at = DateTimeOffset.UtcNow, reason = "Cancelled from Storage Agent UI" })
         };
+        AddControlHeaders(request);
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static void AddControlHeaders(HttpRequestMessage request)
+    {
         request.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
         request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
         request.Headers.Add("X-BackupMesh-Sent-At", DateTimeOffset.UtcNow.ToString("O"));
-        using var response = await _client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
     }
 
     public void Dispose() => _client.Dispose();

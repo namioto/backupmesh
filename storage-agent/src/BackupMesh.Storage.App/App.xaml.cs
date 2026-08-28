@@ -23,7 +23,6 @@ public partial class App : System.Windows.Application
         menu.Items.Add("Open BackupMesh", null, (_, _) => ShowWindow());
         menu.Items.Add("Back up now", null, (_, _) => _window.ViewModel.QueueSelectedBackups());
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Pause automation", null, (_, _) => _window.ViewModel.TogglePause());
         menu.Items.Add("Exit", null, (_, _) => ExitApplication());
 
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "backupmesh-tray.ico");
