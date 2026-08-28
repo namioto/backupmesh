@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RequireSecondDevice)
+param([switch]$RequireSecondDevice, [switch]$AutomaticOnly)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -127,18 +127,20 @@ try {
     $sourceArguments = "watch -config `"$configPath`" -restic `"$resticExe`" -poll-interval 500ms"
     $sourceProcess = Start-Process -FilePath $sourceExe -ArgumentList $sourceArguments -NoNewWindow -PassThru -RedirectStandardOutput $sourceOutput -RedirectStandardError $sourceError
 
-    $headers = @{
-        'X-Request-ID' = [Guid]::NewGuid().ToString()
-        'Idempotency-Key' = ([Guid]::NewGuid()).ToString('N')
-        'X-BackupMesh-Sent-At' = [DateTimeOffset]::UtcNow.ToString('O')
-    }
-    $enqueue = @{
-        mapping_ids = [Guid[]]@($mappings | ForEach-Object { [Guid]$_.id })
-        reason = 'e2e-watch'
-    } | ConvertTo-Json -Depth 5
-    $enqueueResponse = Invoke-WebRequest -Method Post -Uri 'http://127.0.0.1:7444/api/v1/backup/commands/enqueue' -Headers $headers -ContentType 'application/json' -Body $enqueue -SkipHttpErrorCheck
-    if (-not $enqueueResponse.StatusCode.ToString().StartsWith('2')) {
-        throw "Backup commands were not queued ($($enqueueResponse.StatusCode)): $($enqueueResponse.Content)"
+    if (-not $AutomaticOnly) {
+        $headers = @{
+            'X-Request-ID' = [Guid]::NewGuid().ToString()
+            'Idempotency-Key' = ([Guid]::NewGuid()).ToString('N')
+            'X-BackupMesh-Sent-At' = [DateTimeOffset]::UtcNow.ToString('O')
+        }
+        $enqueue = @{
+            mapping_ids = [Guid[]]@($mappings | ForEach-Object { [Guid]$_.id })
+            reason = 'e2e-watch'
+        } | ConvertTo-Json -Depth 5
+        $enqueueResponse = Invoke-WebRequest -Method Post -Uri 'http://127.0.0.1:7444/api/v1/backup/commands/enqueue' -Headers $headers -ContentType 'application/json' -Body $enqueue -SkipHttpErrorCheck
+        if (-not $enqueueResponse.StatusCode.ToString().StartsWith('2')) {
+            throw "Backup commands were not queued ($($enqueueResponse.StatusCode)): $($enqueueResponse.Content)"
+        }
     }
 
     $allJobsSucceeded = $false

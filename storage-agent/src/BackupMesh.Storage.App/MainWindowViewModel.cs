@@ -211,6 +211,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var document = await _configurationClient.GetAsync(_shutdown.Token);
             ApplyTopology(document.Configuration);
             _configurationRevision = document.Revision;
+            AutomaticBackups = (await _configurationClient.GetAutomationAsync(_shutdown.Token)).Enabled;
             FooterStatus = $"Loaded Storage Service configuration revision {document.Revision}.";
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
@@ -360,6 +361,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var document = await _configurationClient.UpdateAsync(_configurationRevision, topology, _shutdown.Token);
+            AutomaticBackups = (await _configurationClient.UpdateAutomationAsync(AutomaticBackups, _shutdown.Token)).Enabled;
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {

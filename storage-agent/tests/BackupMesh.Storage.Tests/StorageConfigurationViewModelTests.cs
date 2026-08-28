@@ -164,6 +164,8 @@ public sealed class StorageConfigurationViewModelTests
             Document = new(expectedRevision + 1, DateTimeOffset.UtcNow, configuration);
             return Task.FromResult(Document);
         }
+        public Task<AutomationSettingsDto> GetAutomationAsync(CancellationToken cancellationToken) => Task.FromResult(new AutomationSettingsDto(true));
+        public Task<AutomationSettingsDto> UpdateAutomationAsync(bool enabled, CancellationToken cancellationToken) => Task.FromResult(new AutomationSettingsDto(enabled));
     }
 
     private sealed class FakeDeviceInventory(IReadOnlyList<AvailableDriveViewModel> drives) : IDeviceInventory

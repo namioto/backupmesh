@@ -8,11 +8,14 @@ namespace BackupMesh.Storage.App;
 
 public sealed record StorageConfigurationDocumentDto(long Revision, DateTimeOffset UpdatedAt, StorageAgentConfiguration Configuration);
 public sealed record StorageConfigurationUpdateDto(long ExpectedRevision, StorageAgentConfiguration Configuration);
+public sealed record AutomationSettingsDto(bool Enabled);
 
 public interface IStorageConfigurationClient
 {
     Task<StorageConfigurationDocumentDto> GetAsync(CancellationToken cancellationToken);
     Task<StorageConfigurationDocumentDto> UpdateAsync(long expectedRevision, StorageAgentConfiguration configuration, CancellationToken cancellationToken);
+    Task<AutomationSettingsDto> GetAutomationAsync(CancellationToken cancellationToken);
+    Task<AutomationSettingsDto> UpdateAutomationAsync(bool enabled, CancellationToken cancellationToken);
 }
 
 public sealed class StorageConfigurationConflictException : Exception
@@ -44,6 +47,16 @@ public sealed class StorageConfigurationClient : IStorageConfigurationClient, ID
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<StorageConfigurationDocumentDto>(cancellationToken: cancellationToken)
             ?? throw new InvalidDataException("Storage Service returned an empty configuration response.");
+    }
+
+    public async Task<AutomationSettingsDto> GetAutomationAsync(CancellationToken cancellationToken) =>
+        await _client.GetFromJsonAsync<AutomationSettingsDto>("automation/settings", cancellationToken) ?? new(true);
+
+    public async Task<AutomationSettingsDto> UpdateAutomationAsync(bool enabled, CancellationToken cancellationToken)
+    {
+        using var response = await _client.PutAsJsonAsync("automation/settings", new AutomationSettingsDto(enabled), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<AutomationSettingsDto>(cancellationToken: cancellationToken) ?? new(enabled);
     }
 
     public void Dispose() => _client.Dispose();

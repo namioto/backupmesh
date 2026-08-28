@@ -50,8 +50,10 @@ public sealed class StoragePresenceStore
     }
 }
 
-public sealed class StorageMonitorService(IStorageVolumeInventory inventory, StorageConfigurationStore configuration, StoragePresenceStore presence, StorageStateMachine state, StorageOptions options, ILogger<StorageMonitorService> logger) : BackgroundService
+public sealed class StorageMonitorService(IStorageVolumeInventory inventory, StorageConfigurationStore configuration, StoragePresenceStore presence, StorageStateMachine state, StorageOptions options, AutomationSettingsStore automation, BackupCommandQueue commands, ILogger<StorageMonitorService> logger) : BackgroundService
 {
+    private readonly HashSet<Guid> _readyDevices = [];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -60,6 +62,7 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
             {
                 var devices = presence.Refresh(configuration.Get().Configuration, inventory.GetVolumes(), DateTimeOffset.UtcNow);
                 UpdateAggregateState(state, devices);
+                EnqueueNewlyReadyDevices(configuration.Get().Configuration, devices);
             }
             catch (Exception exception)
             {
@@ -71,6 +74,24 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
             try { await Task.Delay(options.PollInterval, stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
+    }
+
+    private void EnqueueNewlyReadyDevices(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices)
+    {
+        var readyNow = devices.Where(device => device.Ready).Select(device => device.DeviceId).ToHashSet();
+        if (automation.Get().Enabled)
+        {
+            foreach (var deviceId in readyNow.Except(_readyDevices))
+            {
+                var drafts = from mapping in topology.Mappings
+                    where mapping.Enabled && mapping.DeviceId == deviceId
+                    join backupSet in topology.BackupSets on mapping.BackupSetId equals backupSet.Id
+                    select new BackupCommandDraft(backupSet.SourceAgentId, backupSet.Id, mapping.Id, "device-arrival");
+                commands.Enqueue($"arrival:{deviceId:N}:{devices.First(item => item.DeviceId == deviceId).ConnectedAt:O}", drafts.ToArray(), DateTimeOffset.UtcNow);
+            }
+        }
+        _readyDevices.Clear();
+        _readyDevices.UnionWith(readyNow);
     }
 
     private static void UpdateAggregateState(StorageStateMachine state, IReadOnlyList<RegisteredDevicePresence> devices)

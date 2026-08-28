@@ -131,6 +131,21 @@ public sealed class BackupJobStoreTests
         Assert.True(store.IsOwnedBy(request.JobId, request.SourceAgentId));
         Assert.False(store.IsOwnedBy(request.JobId, Guid.NewGuid()));
     }
+
+    [Fact]
+    public void AutomationSettingPersistsAcrossServiceRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-automation-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "automation.json");
+        try
+        {
+            var options = new AutomationSettingsOptions { PersistencePath = path };
+            Assert.True(new AutomationSettingsStore(options).Get().Enabled);
+            new AutomationSettingsStore(options).Update(new(false));
+            Assert.False(new AutomationSettingsStore(options).Get().Enabled);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
     [Fact]
     public void ProgressIsMonotonicAndResultIsTerminal()
     {

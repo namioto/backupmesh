@@ -38,6 +38,7 @@ builder.Services.Configure<SourceCatalogOptions>(builder.Configuration.GetSectio
 builder.Services.Configure<StorageConfigurationOptions>(builder.Configuration.GetSection("StorageConfiguration"));
 builder.Services.Configure<BackupJobOptions>(builder.Configuration.GetSection("BackupJob"));
 builder.Services.Configure<BackupCommandOptions>(builder.Configuration.GetSection("BackupCommand"));
+builder.Services.Configure<AutomationSettingsOptions>(builder.Configuration.GetSection("AutomationSettings"));
 builder.Services.Configure<PairingOptions>(builder.Configuration.GetSection("Pairing"));
 builder.Services.Configure<PairingCertificateOptions>(builder.Configuration.GetSection("PairingCertificate"));
 builder.Services.AddSingleton(mutualTls);
@@ -49,11 +50,13 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton(repositoryServer);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupJobOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupCommandOptions>>().Value);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AutomationSettingsOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingCertificateOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<BackupCommandQueue>();
+builder.Services.AddSingleton<AutomationSettingsStore>();
 builder.Services.AddSingleton<PairingCredentialStore>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<SourceCatalogStore>();
