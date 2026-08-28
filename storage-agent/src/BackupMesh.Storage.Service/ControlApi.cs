@@ -214,6 +214,8 @@ public sealed class ControlApiAuthenticationFilter(PairingCredentialStore creden
             if (!Guid.TryParse(certificate.GetNameInfo(X509NameType.SimpleName, false), out var certificateAgentId) || certificateAgentId != agentId)
                 return Results.Problem(statusCode: 403, title: "FORBIDDEN", detail: "The client certificate identity does not match the Source Agent.");
         }
+        else
+            return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A Source Agent client certificate is required.");
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
         var supplied = authorization.StartsWith("Bearer ", StringComparison.Ordinal) ? authorization[7..] : string.Empty;
         if (!credentials.Authorize(supplied, agentId))

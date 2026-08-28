@@ -5,6 +5,22 @@ namespace BackupMesh.Storage.Tests;
 public sealed class WindowsStorageVolumeInventoryTests
 {
     [Fact]
+    public void StableIdentityUsesVolumeSerialInsteadOfMutableLabelAndCapacity()
+    {
+        var first = WindowsStorageVolumeInventory.BuildStableId("serial:disk-1", "A1B2-C3D4", "Old label", 1000);
+        var renamed = WindowsStorageVolumeInventory.BuildStableId("serial:disk-1", "A1B2-C3D4", "New label", 2000);
+
+        Assert.Equal(first, renamed);
+        Assert.Equal("serial:disk-1|volume-serial:A1B2-C3D4", first);
+    }
+
+    [Fact]
+    public void StableIdentityFallsBackWhenWindowsReportsNoVolumeSerial()
+    {
+        Assert.Equal("pnp:disk-2|volume:Data:4096", WindowsStorageVolumeInventory.BuildStableId("pnp:disk-2", null, "Data", 4096));
+    }
+
+    [Fact]
     public void IncludesTheRunningWindowsSystemVolume()
     {
         if (!OperatingSystem.IsWindows()) return;

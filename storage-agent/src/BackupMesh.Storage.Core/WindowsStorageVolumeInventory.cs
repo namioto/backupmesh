@@ -43,7 +43,7 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
                     || Text(disk["MediaType"]).Contains("removable", StringComparison.OrdinalIgnoreCase);
                 foreach (var volume in volumes)
                 {
-                    var stableId = $"{physicalId}|volume:{volume.VolumeLabel}:{volume.TotalBytes}";
+                    var stableId = BuildStableId(physicalId, volume.VolumeSerialNumber, volume.VolumeLabel, volume.TotalBytes);
                     var name = string.IsNullOrWhiteSpace(model) ? volume.VolumeLabel : model;
                     devices.Add(new(stableId, volume.Root, volume.VolumeLabel, volume.AvailableBytes, volume.TotalBytes, name, volumes.Length, canEject, canEject ? pnpId : null));
                 }
@@ -64,7 +64,8 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
                         if (string.IsNullOrWhiteSpace(root)) continue;
                         var info = new DriveInfo(root + Path.DirectorySeparatorChar);
                         if (!info.IsReady) continue;
-                        yield return new(info.RootDirectory.FullName, string.IsNullOrWhiteSpace(info.VolumeLabel) ? "Data volume" : info.VolumeLabel, info.AvailableFreeSpace, info.TotalSize);
+                        yield return new(info.RootDirectory.FullName, string.IsNullOrWhiteSpace(info.VolumeLabel) ? "Data volume" : info.VolumeLabel,
+                            Text(logical["VolumeSerialNumber"]).Trim(), info.AvailableFreeSpace, info.TotalSize);
                     }
     }
 
@@ -78,8 +79,16 @@ public sealed class WindowsStorageVolumeInventory : IStorageVolumeInventory
         return new($"{drive.DriveFormat}|{label}|{drive.TotalSize}", drive.RootDirectory.FullName, label, drive.AvailableFreeSpace, drive.TotalSize, label, 1);
     }
 
+    internal static string BuildStableId(string physicalId, string? volumeSerialNumber, string volumeLabel, long totalBytes)
+    {
+        var serial = volumeSerialNumber?.Trim();
+        return !string.IsNullOrWhiteSpace(serial)
+            ? $"{physicalId}|volume-serial:{serial}"
+            : $"{physicalId}|volume:{volumeLabel}:{totalBytes}";
+    }
+
     private static string Text(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
-    private sealed record DetectedVolume(string Root, string VolumeLabel, long AvailableBytes, long TotalBytes);
+    private sealed record DetectedVolume(string Root, string VolumeLabel, string VolumeSerialNumber, long AvailableBytes, long TotalBytes);
 }
 
 public sealed record StorageEjectResult(bool Succeeded, string Message);
