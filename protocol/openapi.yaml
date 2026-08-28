@@ -20,6 +20,26 @@ tags:
   - name: Backup
   - name: Source
 paths:
+  /pairing/credential:
+    post:
+      tags: [Source]
+      operationId: issuePairingCredential
+      summary: Issue a credential for one Source Agent
+      description: This bootstrap operation is available only over the Storage Agent loopback endpoint. Existing Source credentials remain valid and only SHA-256 hashes are persisted.
+      security: []
+      responses:
+        '200':
+          description: Newly issued transfer credential
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credential, issued_at]
+                properties:
+                  credential: {type: string, minLength: 43}
+                  issued_at: {type: string, format: date-time}
+        '403': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
   /storage/devices/{device_id}/eject:
     post:
       tags: [Storage]

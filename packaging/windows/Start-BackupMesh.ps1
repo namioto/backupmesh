@@ -6,6 +6,7 @@ New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
 $env:StorageConfiguration__PersistencePath = Join-Path $dataRoot 'storage-configuration.json'
 $env:SourceCatalog__PersistencePath = Join-Path $dataRoot 'source-catalogs.json'
 $env:BackupJob__PersistencePath = Join-Path $dataRoot 'backup-jobs.json'
+$env:Pairing__CredentialHashPath = Join-Path $dataRoot 'pairing-credential.sha256'
 $env:RepositoryServer__ExecutablePath = Join-Path $packageRoot 'Service\rest-server.exe'
 
 $serviceRoot = Join-Path $packageRoot 'Service'

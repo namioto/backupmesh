@@ -15,6 +15,35 @@ public sealed class BackupJobStoreTests
     }
 
     [Fact]
+    public void PairingCredentialPersistsOnlyHashAndSurvivesRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-pairing-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "credential.sha256");
+        try
+        {
+            var options = new PairingOptions { CredentialHashPath = path };
+            var credential = new PairingCredentialStore(options).Issue();
+            var persisted = File.ReadAllText(path);
+
+            Assert.True(credential.Length >= 43);
+            Assert.DoesNotContain(credential, persisted, StringComparison.Ordinal);
+            Assert.True(new PairingCredentialStore(options).Matches(credential));
+            Assert.False(new PairingCredentialStore(options).Matches(credential + "x"));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void EachSourceCanKeepItsOwnPairingCredential()
+    {
+        var store = new PairingCredentialStore(new PairingOptions { CredentialHashPath = string.Empty });
+        var first = store.Issue();
+        var second = store.Issue();
+        Assert.True(store.Matches(first));
+        Assert.True(store.Matches(second));
+    }
+
+    [Fact]
     public void JobListReturnsNewestStatusFirst()
     {
         var store = new BackupJobStore();

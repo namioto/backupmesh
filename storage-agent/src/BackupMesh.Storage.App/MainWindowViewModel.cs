@@ -26,6 +26,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IStorageConfigurationClient _configurationClient;
     private readonly IBackupJobClient _jobClient;
     private readonly IStorageDeviceClient _storageDeviceClient;
+    private readonly IPairingClient _pairingClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
@@ -61,8 +62,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
     public ICommand EjectDeviceCommand { get; }
+    public ICommand PairSourceCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null, IPairingClient? pairingClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
@@ -71,6 +73,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _deviceInventory = deviceInventory ?? new WindowsDeviceInventory();
         _jobClient = jobClient ?? new BackupJobClient();
         _storageDeviceClient = storageDeviceClient ?? new StorageDeviceClient();
+        _pairingClient = pairingClient ?? new PairingClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
@@ -80,6 +83,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
+        PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync());
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
@@ -161,6 +165,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (HttpRequestException exception) { FooterStatus = $"Safe removal was refused: {exception.Message}"; }
         catch (TaskCanceledException) { FooterStatus = "Safe-removal request timed out."; }
+    }
+
+    private async Task PairSourceAsync()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Save Source Agent pairing credential", FileName = "backupmesh-pairing.token", Filter = "BackupMesh pairing credential (*.token)|*.token", AddExtension = true, OverwritePrompt = true };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var pairing = await _pairingClient.IssueAsync(_shutdown.Token);
+            await File.WriteAllTextAsync(dialog.FileName, pairing.Credential + Environment.NewLine, _shutdown.Token);
+            FooterStatus = "Pairing credential saved. Copy it securely to the Source Agent and delete the transfer copy after use.";
+            NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException) { FooterStatus = $"Pairing credential could not be saved: {exception.Message}"; }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
     private async Task RefreshCatalogsAsync()
@@ -561,6 +580,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
         if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
         if (_storageDeviceClient is IDisposable storageDeviceDisposable) storageDeviceDisposable.Dispose();
+        if (_pairingClient is IDisposable pairingDisposable) pairingDisposable.Dispose();
         _shutdown.Dispose();
     }
 }

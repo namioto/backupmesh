@@ -10,6 +10,7 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
+public sealed class PairingOptions { public string? CredentialHashPath { get; set; } }
 public sealed class MutualTlsOptions { public bool Enabled { get; set; } public int Port { get; set; } = 7443; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; }
 public static class MutualTlsCertificateValidator
 {
@@ -142,7 +143,48 @@ public sealed class RequiredControlHeadersFilter : IEndpointFilter
     }
 }
 
-public sealed class ControlApiAuthenticationFilter(ControlApiOptions options) : IEndpointFilter
+public sealed class PairingCredentialStore
+{
+    private readonly object _gate = new();
+    private readonly string? _path;
+    private readonly List<byte[]> _hashes = [];
+    public PairingCredentialStore(PairingOptions? pairing = null, ControlApiOptions? control = null)
+    {
+        _path = pairing is null ? null : ResolvePath(pairing.CredentialHashPath);
+        if (_path is not null && File.Exists(_path))
+            _hashes.AddRange(File.ReadAllLines(_path).Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => Convert.FromHexString(line.Trim())));
+        else if (!string.IsNullOrWhiteSpace(control?.AuthenticationToken) && control.AuthenticationToken.Length >= 32)
+            _hashes.Add(SHA256.HashData(Encoding.UTF8.GetBytes(control.AuthenticationToken)));
+    }
+    public string Issue()
+    {
+        var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        lock (_gate) { _hashes.Add(SHA256.HashData(Encoding.UTF8.GetBytes(credential))); Persist(); }
+        return credential;
+    }
+    public bool Matches(string supplied)
+    {
+        if (string.IsNullOrEmpty(supplied)) return false;
+        var candidate = SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
+        lock (_gate)
+        {
+            var matched = false;
+            foreach (var hash in _hashes) matched |= CryptographicOperations.FixedTimeEquals(hash, candidate);
+            return matched;
+        }
+    }
+    private void Persist()
+    {
+        if (_path is null) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? throw new InvalidOperationException("Pairing credential path must include a directory."));
+        var temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
+        try { File.WriteAllLines(temporary, _hashes.Select(Convert.ToHexString)); File.Move(temporary, _path, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    private static string? ResolvePath(string? path) => path == string.Empty ? null : !string.IsNullOrWhiteSpace(path) ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "pairing-credential.sha256");
+}
+
+public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -152,7 +194,7 @@ public sealed class ControlApiAuthenticationFilter(ControlApiOptions options) : 
             return await next(context);
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
         var supplied = authorization.StartsWith("Bearer ", StringComparison.Ordinal) ? authorization[7..] : string.Empty;
-        if (!TokenMatches(options.AuthenticationToken, supplied))
+        if (!credentials.Matches(supplied))
             return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid BackupMesh authentication token is required.");
         return await next(context);
     }
@@ -171,6 +213,12 @@ public static class ControlApi
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
+        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing credentials can only be issued from the local tray app.");
+            return Results.Ok(new { credential = credentials.Issue(), issued_at = DateTimeOffset.UtcNow });
+        });
         api.MapGet("/storage/status", (StorageStateMachine state, StoragePresenceStore presence, BackupJobStore jobs, ControlApiOptions options, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(new { agent_id = options.AgentId, state = state.State.ToString().ToLowerInvariant(), observed_at = DateTimeOffset.UtcNow, storage = presence.List(), active_job_id = jobs.ActiveJobId, message = state.Detail }); });
         api.MapGet("/storage/devices/status", (StoragePresenceStore presence, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(presence.List()); });
         api.MapGet("/storage/volumes", (IStorageVolumeInventory inventory, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(inventory.GetVolumes()); });
