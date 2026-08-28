@@ -79,9 +79,15 @@ public static class BackupTopologyValidator
     public static bool IsSafeRelativeRepositoryPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || Path.IsPathRooted(path)) return false;
-        if (path.Trim() == ".") return true;
+        if (path.Trim() == ".") return false;
         var segments = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length > 0 && segments.All(segment => segment is not "." and not "..");
+        const string invalidWindowsCharacters = "<>:\"|?*";
+        return segments.Length > 0 && segments.All(segment =>
+            segment is not "." and not ".."
+            && !string.IsNullOrWhiteSpace(segment)
+            && !segment.EndsWith(' ')
+            && !segment.EndsWith('.')
+            && !segment.Any(character => char.IsControl(character) || invalidWindowsCharacters.Contains(character)));
     }
 
     private static string Normalize(string path) => path.Replace('\\', '/').Trim('/').ToUpperInvariant();

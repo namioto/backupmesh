@@ -28,13 +28,13 @@ public sealed class BackupTopologyTests
     [InlineData("../outside")]
     [InlineData("C:\\absolute")]
     [InlineData("/absolute")]
+    [InlineData("folder:name")]
+    [InlineData("folder./child")]
+    [InlineData("folder /child")]
+    [InlineData(".")]
     [InlineData("")]
     public void RejectsUnsafeRepositoryPaths(string path) =>
         Assert.False(BackupTopologyValidator.IsSafeRelativeRepositoryPath(path));
-
-    [Fact]
-    public void AllowsTheSelectedDeviceRootAsDestination() =>
-        Assert.True(BackupTopologyValidator.IsSafeRelativeRepositoryPath("."));
 
     [Fact]
     public void RejectsTwoEnabledMappingsForTheSameDevicePath()

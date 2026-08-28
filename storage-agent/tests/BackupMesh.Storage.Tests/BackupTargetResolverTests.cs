@@ -31,7 +31,7 @@ public sealed class BackupTargetResolverTests
     {
         var set = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Source", "Photos", ["/photos"]);
         var device = new RegisteredDevice(Guid.NewGuid(), "volume:test", "Archive", "TEST", "X:\\", DateTimeOffset.UtcNow, null, 0);
-        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, ".");
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "BackupMesh");
         var configuration = new StorageConfigurationStore(new StorageConfigurationOptions { PersistencePath = string.Empty });
         configuration.Update(new(0, new([device], [set], [mapping])));
         var resolver = new BackupTargetResolver(configuration, new StoragePresenceStore());
