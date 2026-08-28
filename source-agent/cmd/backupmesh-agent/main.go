@@ -146,28 +146,17 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 
 	backupCtx, cancelBackup := context.WithCancel(ctx)
 	defer cancelBackup()
+	pollCtx, cancelPoll := context.WithCancel(ctx)
+	defer cancelPoll()
+	go pollCancellation(pollCtx, api, jobID, cancelBackup)
 	adapter := restic.Adapter{Binary: resticBinary}
 	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
 	var sequence int64
 	var reportErr error
-	var lastCancellationCheck time.Time
 	var result engine.Result
 	backupErr := adapter.EnsureRepository(backupCtx, backupRequest)
 	if backupErr == nil {
 		result, backupErr = adapter.Backup(backupCtx, backupRequest, func(p engine.Progress) {
-			if lastCancellationCheck.IsZero() || time.Since(lastCancellationCheck) >= time.Second {
-				lastCancellationCheck = time.Now()
-				status, statusErr := api.GetBackupStatus(backupCtx, jobID)
-				if statusErr != nil {
-					reportErr = fmt.Errorf("check backup cancellation: %w", statusErr)
-					cancelBackup()
-					return
-				}
-				if status.State == "CANCEL_REQUESTED" {
-					cancelBackup()
-					return
-				}
-			}
 			sequence++
 			eventID, idErr := controlapi.UUIDv4()
 			if idErr != nil {
@@ -183,6 +172,7 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 			fmt.Printf("%s progress %.1f%% (%d/%d bytes)\n", target.DeviceName, p.Percent*100, p.BytesDone, p.TotalBytes)
 		})
 	}
+	cancelPoll()
 	if reportErr != nil {
 		backupErr = fmt.Errorf("report backup progress: %w", reportErr)
 	}
@@ -213,6 +203,23 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	}
 	fmt.Printf("%s backup complete: snapshot %s\n", target.DeviceName, result.SnapshotID)
 	return nil
+}
+
+func pollCancellation(ctx context.Context, api controlapi.Client, jobID string, cancel context.CancelFunc) {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			status, err := api.GetBackupStatus(ctx, jobID)
+			if err == nil && status.State == "CANCEL_REQUESTED" {
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 func publishCatalog(ctx context.Context, api controlapi.Client, cfg config.Config) error {
