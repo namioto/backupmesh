@@ -21,8 +21,11 @@ $arguments = @(
     "--StorageConfiguration:PersistencePath=`"$(Join-Path $dataRoot 'storage-configuration.json')`""
     "--SourceCatalog:PersistencePath=`"$(Join-Path $dataRoot 'source-catalogs.json')`""
     "--BackupJob:PersistencePath=`"$(Join-Path $dataRoot 'backup-jobs.json')`""
+    "--BackupCommand:PersistencePath=`"$(Join-Path $dataRoot 'backup-commands.json')`""
+    "--AutomationSettings:PersistencePath=`"$(Join-Path $dataRoot 'automation-settings.json')`""
     "--Pairing:CredentialHashPath=`"$(Join-Path $dataRoot 'pairing-credential.sha256')`""
     "--PairingCertificate:ProtectedAuthorityPath=`"$(Join-Path $dataRoot 'pairing-authority.dpapi')`""
+    "--PairingCertificate:ProtectedServerCertificatePath=`"$(Join-Path $dataRoot 'server-certificate.dpapi')`""
     "--RepositoryServer:ExecutablePath=`"$(Join-Path $serviceRoot 'rest-server.exe')`""
 )
 $binaryPath = "`"$serviceExe`" $($arguments -join ' ')"
@@ -37,6 +40,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not create the BackupMesh service.' }
 & sc.exe description $serviceName 'Coordinates storage devices and BackupMesh repositories.' | Out-Null
 & sc.exe failure $serviceName 'reset= 86400' 'actions= restart/5000/restart/15000/restart/60000' | Out-Null
 Start-Service -Name $serviceName
+$startedService = Get-Service -Name $serviceName
+$startedService.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(15))
+$startedService.Refresh()
+if ($startedService.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Running) {
+    throw 'BackupMesh Storage Service did not reach the Running state.'
+}
 
 Remove-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName $firewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 7443 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null

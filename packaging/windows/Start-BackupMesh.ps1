@@ -6,8 +6,11 @@ New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
 $env:StorageConfiguration__PersistencePath = Join-Path $dataRoot 'storage-configuration.json'
 $env:SourceCatalog__PersistencePath = Join-Path $dataRoot 'source-catalogs.json'
 $env:BackupJob__PersistencePath = Join-Path $dataRoot 'backup-jobs.json'
+$env:BackupCommand__PersistencePath = Join-Path $dataRoot 'backup-commands.json'
+$env:AutomationSettings__PersistencePath = Join-Path $dataRoot 'automation-settings.json'
 $env:Pairing__CredentialHashPath = Join-Path $dataRoot 'pairing-credential.sha256'
 $env:PairingCertificate__ProtectedAuthorityPath = Join-Path $dataRoot 'pairing-authority.dpapi'
+$env:PairingCertificate__ProtectedServerCertificatePath = Join-Path $dataRoot 'server-certificate.dpapi'
 $env:RepositoryServer__ExecutablePath = Join-Path $packageRoot 'Service\rest-server.exe'
 
 $serviceRoot = Join-Path $packageRoot 'Service'

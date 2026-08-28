@@ -34,4 +34,22 @@ Copy-Item (Join-Path $repoRoot 'LICENSE') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'licenses') (Join-Path $outputRoot 'licenses') -Recurse -Force
 
+$requiredPackageFiles = @(
+    'App\BackupMesh.Storage.App.exe'
+    'Service\BackupMesh.Storage.Service.exe'
+    'Service\restic.exe'
+    'Service\rest-server.exe'
+    'Start-BackupMesh.ps1'
+    'Install-BackupMesh.ps1'
+    'Uninstall-BackupMesh.ps1'
+    'LICENSE'
+    'THIRD_PARTY_NOTICES.md'
+)
+foreach ($relativePath in $requiredPackageFiles) {
+    $packageFile = Join-Path $outputRoot $relativePath
+    if (-not (Test-Path -LiteralPath $packageFile -PathType Leaf)) {
+        throw "Windows package validation failed; missing $relativePath"
+    }
+}
+
 Write-Host "Windows test package: $outputRoot"
