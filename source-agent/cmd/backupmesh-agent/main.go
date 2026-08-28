@@ -128,13 +128,14 @@ func run(args []string) error {
 }
 
 type pairingBundleFile struct {
-	AgentID        string `json:"agent_id"`
-	Credential     string `json:"credential"`
-	CertificatePEM string `json:"certificate_pem"`
-	PrivateKeyPEM  string `json:"private_key_pem"`
-	AuthorityPEM   string `json:"authority_pem"`
-	ExpiresAt      string `json:"expires_at"`
-	IssuedAt       string `json:"issued_at"`
+	AgentID         string `json:"agent_id"`
+	ControlEndpoint string `json:"control_endpoint"`
+	Credential      string `json:"credential"`
+	CertificatePEM  string `json:"certificate_pem"`
+	PrivateKeyPEM   string `json:"private_key_pem"`
+	AuthorityPEM    string `json:"authority_pem"`
+	ExpiresAt       string `json:"expires_at"`
+	IssuedAt        string `json:"issued_at"`
 }
 
 func applyPairing(configPath, bundlePath, outputDirectory string) error {
@@ -185,6 +186,7 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 		}
 	}
 	cfg.Agent.ID = bundle.AgentID
+	cfg.Storage.ControlEndpoint = bundle.ControlEndpoint
 	cfg.Storage.AuthenticationTokenFile = filepath.Join(outputDirectory, "control.token")
 	cfg.Storage.TLSCertificateFile = filepath.Join(outputDirectory, "source.crt")
 	cfg.Storage.TLSKeyFile = filepath.Join(outputDirectory, "source.key")

@@ -34,9 +34,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [agent_id, credential, certificate_pem, private_key_pem, authority_pem, expires_at, issued_at]
+                required: [agent_id, control_endpoint, credential, certificate_pem, private_key_pem, authority_pem, expires_at, issued_at]
                 properties:
                   agent_id: {type: string, format: uuid}
+                  control_endpoint: {type: string, format: uri}
                   credential: {type: string, minLength: 43}
                   certificate_pem: {type: string}
                   private_key_pem: {type: string}

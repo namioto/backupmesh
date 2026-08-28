@@ -31,7 +31,7 @@ func TestApplyPairingWritesIdentityAndProtectedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	certPEM, keyPEM := testCertificate(t, agentID)
-	bundle, _ := json.Marshal(pairingBundleFile{AgentID: agentID, Credential: strings.Repeat("x", 43), CertificatePEM: certPEM, PrivateKeyPEM: keyPEM, AuthorityPEM: certPEM, ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339), IssuedAt: time.Now().Format(time.RFC3339)})
+	bundle, _ := json.Marshal(pairingBundleFile{AgentID: agentID, ControlEndpoint: "https://storage.example:7443", Credential: strings.Repeat("x", 43), CertificatePEM: certPEM, PrivateKeyPEM: keyPEM, AuthorityPEM: certPEM, ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339), IssuedAt: time.Now().Format(time.RFC3339)})
 	if err := os.WriteFile(bundlePath, bundle, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestApplyPairingWritesIdentityAndProtectedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Agent.ID != agentID || cfg.Storage.TLSKeyFile != filepath.Join(outputPath, "source.key") {
+	if cfg.Agent.ID != agentID || cfg.Storage.ControlEndpoint != "https://storage.example:7443" || cfg.Storage.TLSKeyFile != filepath.Join(outputPath, "source.key") {
 		t.Fatalf("pairing was not applied: %+v", cfg)
 	}
 	for _, name := range []string{"control.token", "source.crt", "source.key", "storage-ca.pem"} {

@@ -233,15 +233,18 @@ public static class ControlApi
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
-        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, PairingCertificateAuthority certificates, CancellationToken ct) =>
+        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing credentials can only be issued from the local tray app.");
             var agentId = Guid.NewGuid();
             var certificate = certificates.Issue(agentId);
+            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+            var endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
             return Results.Ok(new
             {
                 agent_id = agentId,
+                control_endpoint = endpoint,
                 credential = credentials.Issue(agentId),
                 certificate_pem = certificate.CertificatePem,
                 private_key_pem = certificate.PrivateKeyPem,

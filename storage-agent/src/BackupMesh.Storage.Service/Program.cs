@@ -39,6 +39,7 @@ builder.Services.Configure<RepositoryServerOptions>(builder.Configuration.GetSec
 builder.Services.Configure<BackupJobOptions>(builder.Configuration.GetSection("BackupJob"));
 builder.Services.Configure<PairingOptions>(builder.Configuration.GetSection("Pairing"));
 builder.Services.Configure<PairingCertificateOptions>(builder.Configuration.GetSection("PairingCertificate"));
+builder.Services.AddSingleton(mutualTls);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RestServerOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControlApiOptions>>().Value);

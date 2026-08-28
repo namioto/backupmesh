@@ -7,6 +7,7 @@ namespace BackupMesh.Storage.App;
 
 public sealed record PairingCredentialDto(
     [property: JsonPropertyName("agent_id")] Guid AgentId,
+    [property: JsonPropertyName("control_endpoint")] string ControlEndpoint,
     [property: JsonPropertyName("credential")] string Credential,
     [property: JsonPropertyName("certificate_pem")] string CertificatePem,
     [property: JsonPropertyName("private_key_pem")] string PrivateKeyPem,
