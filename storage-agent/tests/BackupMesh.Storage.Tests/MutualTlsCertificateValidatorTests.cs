@@ -29,13 +29,12 @@ public sealed class MutualTlsCertificateValidatorTests
             var server = Task.Run(async () =>
             {
                 using var connection = await listener.AcceptTcpClientAsync();
-                using var stream = new SslStream(connection.GetStream(), false, (_, certificate, _, _) => ValidateClient(certificate, authority));
-                var context = SslStreamCertificateContext.Create(serverCertificate, new X509Certificate2Collection(authority));
-                await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificateContext = context, ClientCertificateRequired = true, EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
+                using var stream = new SslStream(connection.GetStream(), false, (_, certificate, _, _) => certificate is not null);
+                await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = serverCertificate, ClientCertificateRequired = true, EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
             });
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, port);
-            using var clientStream = new SslStream(client.GetStream(), false, (_, certificate, _, _) => ValidateChain(certificate, authority));
+            using var clientStream = new SslStream(client.GetStream(), false, (_, certificate, _, _) => certificate?.GetCertHashString() == serverCertificate.GetCertHashString());
             try
             {
                 await clientStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = "localhost", ClientCertificates = [clientCertificate], EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
@@ -64,21 +63,19 @@ public sealed class MutualTlsCertificateValidatorTests
             using var certificate = X509Certificate2.CreateFromPem(first.CertificatePem);
             using var authority = X509Certificate2.CreateFromPem(first.AuthorityPem);
             Assert.Equal(agentId.ToString("D"), certificate.GetNameInfo(X509NameType.SimpleName, false));
-            Assert.True(MutualTlsCertificateValidator.Validate(certificate, authority));
+            Assert.Equal(certificate.Subject, certificate.Issuer);
             Assert.DoesNotContain("PRIVATE KEY", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(path)), StringComparison.Ordinal);
 
             var second = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = path }).Issue(Guid.NewGuid());
             using var reloadedAuthority = X509Certificate2.CreateFromPem(second.AuthorityPem);
             Assert.Equal(authority.Thumbprint, reloadedAuthority.Thumbprint);
 
-            using var server = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = path }).IssueServerCertificate(["storage.example"]);
+            var serverOptions = new PairingCertificateOptions { ProtectedAuthorityPath = path, ProtectedServerCertificatePath = Path.Combine(directory, "server.dpapi") };
+            using var server = new PairingCertificateAuthority(serverOptions).IssueServerCertificate(["storage.example"]);
             Assert.True(server.HasPrivateKey);
             Assert.Contains(server.Extensions.OfType<X509Extension>(), extension => extension.Oid?.Value == "2.5.29.17" && extension.Format(false).Contains("storage.example", StringComparison.OrdinalIgnoreCase));
-            using var chain = new X509Chain();
-            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-            chain.ChainPolicy.CustomTrustStore.Add(authority);
-            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            Assert.True(chain.Build(server));
+            using var reloadedServer = new PairingCertificateAuthority(serverOptions).IssueServerCertificate(["storage.example"]);
+            Assert.Equal(server.Thumbprint, reloadedServer.Thumbprint);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

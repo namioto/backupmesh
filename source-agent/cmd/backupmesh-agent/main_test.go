@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -9,6 +10,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -132,5 +135,50 @@ func TestRunBackupTargetsAggregatesFailures(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "failed First") || !strings.Contains(err.Error(), "failed Second") {
 		t.Fatalf("error = %v, want both target failures", err)
+	}
+}
+
+func TestExecuteSourceCommandReportsFailure(t *testing.T) {
+	var completed controlapi.BackupCommandResult
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/backup/commands/result":
+			if err := json.NewDecoder(r.Body).Decode(&completed); err != nil {
+				t.Fatal(err)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	cfg := config.Config{Agent: config.Agent{ID: "source-1"}, BackupSets: []config.BackupSet{{ID: "set-1", Name: "docs", Paths: []string{"/data"}}}}
+	api := controlapi.Client{BaseURL: srv.URL}
+	err := executeSourceCommand(context.Background(), api, cfg, controlapi.BackupCommand{CommandID: "command-1", BackupSetID: "missing-set"}, "restic")
+
+	if err == nil || !strings.Contains(err.Error(), `backup set "missing-set" not found`) {
+		t.Fatalf("error = %v, want missing-set failure", err)
+	}
+	if completed.Outcome != "FAILED" || !strings.Contains(completed.Message, "not found") {
+		t.Fatalf("completed = %#v", completed)
+	}
+}
+
+func TestRunSourceCommandRequiresReadyMapping(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/backup/targets/source-1/set-1" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{"mappingId":"mapping-other","deviceId":"device-1","backupSetId":"set-1","deviceName":"Local C","destinationFolder":"C:\\BackupMesh","state":"READY"}]`))
+	}))
+	defer srv.Close()
+
+	cfg := config.Config{Agent: config.Agent{ID: "source-1"}, BackupSets: []config.BackupSet{{ID: "set-1", Name: "docs", Paths: []string{"/data"}}}}
+	command := controlapi.BackupCommand{CommandID: "command-1", BackupSetID: "set-1", TargetMappingID: "mapping-1", JobID: "job-1"}
+	_, err := runSourceCommand(context.Background(), controlapi.Client{BaseURL: srv.URL}, cfg, command, "restic")
+
+	if err == nil || !strings.Contains(err.Error(), `mapped backup target "mapping-1" is not ready`) {
+		t.Fatalf("error = %v, want not-ready mapping failure", err)
 	}
 }

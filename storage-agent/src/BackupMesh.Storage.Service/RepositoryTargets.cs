@@ -7,7 +7,7 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed record BackupTargetAvailability(Guid MappingId, Guid DeviceId, Guid BackupSetId, string DeviceName, string DestinationFolder, string State, string? Reason);
-public sealed record ResolvedBackupTarget(Guid MappingId, Guid DeviceId, Guid BackupSetId, string DeviceName, string DeviceRoot, string RepositoryPath, string DestinationFolder);
+public sealed record ResolvedBackupTarget(Guid MappingId, Guid DeviceId, Guid BackupSetId, Guid SourceAgentId, string DeviceName, string DeviceRoot, string RepositoryPath, string DestinationFolder);
 public sealed record TargetResolution(ResolvedBackupTarget? Target, string? ErrorCode = null, string? Message = null);
 
 public sealed class BackupTargetResolver(StorageConfigurationStore configuration, StoragePresenceStore presence)
@@ -43,7 +43,25 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
             return new(null, "TARGET_NOT_READY", status?.Reason ?? "The mapped device is not ready.");
         var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
         if (!IsWithinRoot(status.CurrentRoot, destination)) return new(null, "INVALID_CONFIGURATION", "The repository destination is outside the registered device.");
-        return new(new(mapping.Id, device.Id, backupSet.Id, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));
+        return new(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));
+    }
+
+    public IReadOnlyList<ResolvedBackupTarget> ListReady(Guid[]? mappingIds)
+    {
+        var selectedMappings = mappingIds?.ToHashSet() ?? [];
+        var topology = configuration.Get().Configuration;
+        var presenceByDevice = presence.List().ToDictionary(item => item.DeviceId);
+        var targets = new List<ResolvedBackupTarget>();
+        foreach (var mapping in topology.Mappings.Where(item => item.Enabled && (selectedMappings.Count == 0 || selectedMappings.Contains(item.Id))))
+        {
+            var backupSet = topology.BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
+            var device = topology.Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
+            if (backupSet is null || device is null || !presenceByDevice.TryGetValue(mapping.DeviceId, out var status) || !status.Ready || string.IsNullOrWhiteSpace(status.CurrentRoot)) continue;
+            var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
+            if (!IsWithinRoot(status.CurrentRoot, destination)) continue;
+            targets.Add(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));
+        }
+        return targets;
     }
 
     private static string Destination(string? root, string repositoryPath) =>
@@ -119,7 +137,15 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         for (var attempt = 0; attempt < 5; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            try { Directory.CreateDirectory(path); return; }
+            try
+            {
+                await EnsureDirectoryAsync(path, cancellationToken);
+                foreach (var child in new[] { "data", "index", "keys", "locks", "snapshots" })
+                    await EnsureDirectoryAsync(Path.Combine(path, child), cancellationToken);
+                for (var shard = 0; shard <= byte.MaxValue; shard++)
+                    await EnsureDirectoryAsync(Path.Combine(path, "data", shard.ToString("x2")), cancellationToken);
+                return;
+            }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 failure = exception;
@@ -127,6 +153,23 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             }
         }
         throw new IOException($"Could not prepare repository directory '{path}': {failure?.Message}", failure);
+    }
+
+    private static async Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken)
+    {
+        Exception? failure = null;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                Directory.CreateDirectory(path);
+                if (Directory.Exists(path)) return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { failure = exception; }
+            await Task.Delay(200, cancellationToken);
+        }
+        throw new IOException(failure?.Message ?? $"Directory '{path}' did not become visible after creation.", failure);
     }
 
     private Uri Endpoint(Session session)

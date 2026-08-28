@@ -147,6 +147,49 @@ func TestPublishSourceCatalog(t *testing.T) {
 	}
 }
 
+func TestBackupCommandEndpoints(t *testing.T) {
+	paths := []string{}
+	var completion BackupCommandResult
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/backup/commands/claim/source%2F1":
+			_, _ = w.Write([]byte(`{"command":{"command_id":"command-1","source_agent_id":"source-1","backup_set_id":"set-1","target_mapping_id":"mapping-1","job_id":"job-1","reason":"manual","requested_at":"2026-08-28T01:02:03Z","state":"CLAIMED"}}`))
+		case "/backup/commands/result":
+			if r.Header.Get("Idempotency-Key") == "" {
+				t.Error("completion idempotency key missing")
+			}
+			if err := json.NewDecoder(r.Body).Decode(&completion); err != nil {
+				t.Fatal(err)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected path = %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := Client{BaseURL: srv.URL}
+	command, err := client.ClaimBackupCommand(context.Background(), "source/1")
+	if err != nil || command == nil || command.CommandID != "command-1" {
+		t.Fatalf("command = %#v, err = %v", command, err)
+	}
+	if command.Reason != "manual" || command.State != "CLAIMED" {
+		t.Fatalf("command = %#v, want Storage command fields", command)
+	}
+	if err := client.CompleteBackupCommand(context.Background(), "complete-key", BackupCommandResult{CommandID: "command-1", SourceAgentID: "source-1", Outcome: "SUCCEEDED", CompletedAt: time.Now(), JobID: "job-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(paths, ",") != "POST /backup/commands/claim/source%2F1,POST /backup/commands/result" {
+		t.Fatalf("paths = %#v", paths)
+	}
+	if completion.Outcome != "SUCCEEDED" || completion.JobID != "job-1" {
+		t.Fatalf("completion = %#v", completion)
+	}
+}
+
 func TestResponseBodyIsBounded(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(strings.Repeat("x", maxResponseBytes+1)))

@@ -11,7 +11,7 @@ namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
 public sealed class PairingOptions { public string? CredentialHashPath { get; set; } }
-public sealed class MutualTlsOptions { public bool Enabled { get; set; } = true; public int Port { get; set; } = 7443; public string[] ServerNames { get; set; } = []; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; }
+public sealed class MutualTlsOptions { public bool Enabled { get; set; } = true; public int Port { get; set; } = 7443; public string[] ServerNames { get; set; } = []; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; public string ServerTrustPem { get; set; } = string.Empty; }
 public static class MutualTlsCertificateValidator
 {
     public static bool Validate(X509Certificate2 certificate, X509Certificate2 authority)
@@ -31,6 +31,11 @@ public sealed record BackupProgress([property: JsonPropertyName("event_id")] Gui
 public sealed record BackupResult([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("snapshot_id"), StringLength(128, MinimumLength = 1)] string? SnapshotId, [property: JsonPropertyName("bytes_added"), Range(0, long.MaxValue)] long? BytesAdded, [property: JsonPropertyName("error_code"), RegularExpression("^[A-Z][A-Z0-9_]*$"), StringLength(64)] string? ErrorCode, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record CancelRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("reason"), StringLength(512)] string? Reason);
 public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("last_sequence")] long LastSequence, [property: JsonPropertyName("progress")] BackupProgress? Progress, [property: JsonPropertyName("result")] BackupResult? Result);
+public sealed record BackupCommandEnqueueRequest([property: JsonPropertyName("mapping_ids")] Guid[]? MappingIds, [property: JsonPropertyName("reason"), StringLength(64)] string? Reason);
+public sealed record BackupCommandClaimResponse([property: JsonPropertyName("command")] BackupCommand? Command);
+public sealed record BackupCommandAcknowledgementRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(RUNNING|CLAIMED)$")] string State, [property: JsonPropertyName("claimed_at")] DateTimeOffset ClaimedAt);
+public sealed record BackupCommandResultRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
+public sealed record BackupCommandCompletionRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string State, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
 public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
@@ -208,8 +213,6 @@ public sealed class ControlApiAuthenticationFilter(PairingCredentialStore creden
         {
             if (!Guid.TryParse(certificate.GetNameInfo(X509NameType.SimpleName, false), out var certificateAgentId) || certificateAgentId != agentId)
                 return Results.Problem(statusCode: 403, title: "FORBIDDEN", detail: "The client certificate identity does not match the Source Agent.");
-            context.HttpContext.Items["BackupMesh.AgentId"] = agentId;
-            return await next(context);
         }
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
         var supplied = authorization.StartsWith("Bearer ", StringComparison.Ordinal) ? authorization[7..] : string.Empty;
@@ -248,7 +251,7 @@ public static class ControlApi
                 credential = credentials.Issue(agentId),
                 certificate_pem = certificate.CertificatePem,
                 private_key_pem = certificate.PrivateKeyPem,
-                authority_pem = certificate.AuthorityPem,
+                authority_pem = mutualTls.ServerTrustPem,
                 expires_at = certificate.ExpiresAt,
                 issued_at = DateTimeOffset.UtcNow
             });
@@ -315,6 +318,68 @@ public static class ControlApi
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, job_id)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
         api.MapGet("/backup/jobs", (HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var list = jobs.List(); return Results.Ok(AuthenticatedAgent(http) is { } agentId ? list.Where(job => jobs.IsOwnedBy(job.JobId, agentId)) : list); });
+        api.MapPost("/backup/commands/enqueue", (BackupCommandEnqueueRequest request, HttpContext http, BackupTargetResolver targets, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Backup commands can only be queued from the local tray app.");
+            var invalid = Validate(request);
+            if (invalid is not null) return invalid;
+            var readyTargets = targets.ListReady(request.MappingIds);
+            var reason = string.IsNullOrWhiteSpace(request.Reason) ? "manual" : request.Reason.Trim();
+            var drafts = readyTargets.Select(target => new BackupCommandDraft(target.SourceAgentId, target.BackupSetId, target.MappingId, reason)).ToArray();
+            var result = commands.Enqueue(http.Request.Headers["Idempotency-Key"].ToString(), drafts, DateTimeOffset.UtcNow);
+            if (result.Outcome == StoreOutcome.Conflict) return Problem(409, "COMMAND_CONFLICT", "The idempotency key conflicts with a different enqueue request.");
+            http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant();
+            return Results.Accepted(value: result.Result);
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
+        api.MapPost("/backup/commands/claim/{source_agent_id:guid}", (Guid source_agent_id, HttpContext http, BackupCommandQueue commands, BackupCommandOptions options, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!AgentMatches(http, source_agent_id)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot claim another Source's commands.");
+            return Results.Ok(new BackupCommandClaimResponse(commands.ClaimNext(source_agent_id, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(Math.Max(60, options.LeaseSeconds)))));
+        });
+        api.MapPost("/backup/commands/result", (BackupCommandResultRequest request, HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var invalid = Validate(request);
+            if (invalid is not null) return invalid;
+            if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot complete another Source's command.");
+            if (request.CommandId == Guid.Empty || request.SourceAgentId == Guid.Empty || request.CompletedAt == default) return Problem(400, "INVALID_REQUEST", "Command result IDs and timestamp must be valid.");
+            var outcome = commands.Complete(request.SourceAgentId, request.CommandId, request.Outcome, request.CompletedAt, request.JobId, request.Message);
+            if (outcome == StoreOutcome.NotFound) return Problem(404, "NOT_FOUND", "Backup command not found.");
+            if (outcome == StoreOutcome.Conflict) return Problem(403, "FORBIDDEN", "The backup command belongs to another Source Agent.");
+            return EventResult(outcome, http);
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
+        api.MapGet("/source/commands/{source_agent_id:guid}/next", (Guid source_agent_id, HttpContext http, BackupCommandQueue commands, BackupCommandOptions options, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!AgentMatches(http, source_agent_id)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot claim another Source's commands.");
+            return Results.Ok(new BackupCommandClaimResponse(commands.ClaimNext(source_agent_id, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(Math.Max(60, options.LeaseSeconds)))));
+        });
+        api.MapPost("/source/commands/{command_id:guid}/ack", (Guid command_id, BackupCommandAcknowledgementRequest request, HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var invalid = Validate(request);
+            if (invalid is not null) return invalid;
+            if (request.CommandId != command_id || request.CommandId == Guid.Empty || request.SourceAgentId == Guid.Empty || request.ClaimedAt == default) return Problem(400, "INVALID_REQUEST", "Command acknowledgement IDs and timestamp must be valid.");
+            if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot acknowledge another Source's command.");
+            var outcome = commands.Acknowledge(request.SourceAgentId, request.CommandId, request.ClaimedAt);
+            if (outcome == StoreOutcome.NotFound) return Problem(404, "NOT_FOUND", "Backup command not found.");
+            if (outcome == StoreOutcome.Conflict) return Problem(403, "FORBIDDEN", "The backup command belongs to another Source Agent.");
+            return EventResult(outcome, http);
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
+        api.MapPost("/source/commands/{command_id:guid}/complete", (Guid command_id, BackupCommandCompletionRequest request, HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var invalid = Validate(request);
+            if (invalid is not null) return invalid;
+            if (request.CommandId != command_id || request.CommandId == Guid.Empty || request.SourceAgentId == Guid.Empty || request.CompletedAt == default) return Problem(400, "INVALID_REQUEST", "Command completion IDs and timestamp must be valid.");
+            if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot complete another Source's command.");
+            var outcome = commands.Complete(request.SourceAgentId, request.CommandId, request.State, request.CompletedAt, request.JobId, request.Message);
+            if (outcome == StoreOutcome.NotFound) return Problem(404, "NOT_FOUND", "Backup command not found.");
+            if (outcome == StoreOutcome.Conflict) return Problem(403, "FORBIDDEN", "The backup command belongs to another Source Agent.");
+            return EventResult(outcome, http);
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();

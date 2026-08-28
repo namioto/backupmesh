@@ -11,6 +11,7 @@ $restServerExe = Join-Path $artifactsRoot 'BackupMesh-Storage-win-x64\Service\re
 $resticExe = Join-Path $artifactsRoot 'tools\windows-x64\restic.exe'
 $sourceExe = Join-Path $workRoot 'backupmesh-agent.exe'
 $service = $null
+$sourceProcess = $null
 $externalCleanupRoots = @()
 $completed = $false
 
@@ -123,15 +124,54 @@ try {
 
     $sourceOutput = Join-Path $workRoot 'source.stdout.log'
     $sourceError = Join-Path $workRoot 'source.stderr.log'
-    $sourceArguments = "backup -config `"$configPath`" -set e2e -restic `"$resticExe`""
-    $sourceProcess = Start-Process -FilePath $sourceExe -ArgumentList $sourceArguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput $sourceOutput -RedirectStandardError $sourceError
-    if ($sourceProcess.ExitCode -ne 0) {
+    $sourceArguments = "watch -config `"$configPath`" -restic `"$resticExe`" -poll-interval 500ms"
+    $sourceProcess = Start-Process -FilePath $sourceExe -ArgumentList $sourceArguments -NoNewWindow -PassThru -RedirectStandardOutput $sourceOutput -RedirectStandardError $sourceError
+
+    $headers = @{
+        'X-Request-ID' = [Guid]::NewGuid().ToString()
+        'Idempotency-Key' = ([Guid]::NewGuid()).ToString('N')
+        'X-BackupMesh-Sent-At' = [DateTimeOffset]::UtcNow.ToString('O')
+    }
+    $enqueue = @{
+        mapping_ids = [Guid[]]@($mappings | ForEach-Object { [Guid]$_.id })
+        reason = 'e2e-watch'
+    } | ConvertTo-Json -Depth 5
+    $enqueueResponse = Invoke-WebRequest -Method Post -Uri 'http://127.0.0.1:7444/api/v1/backup/commands/enqueue' -Headers $headers -ContentType 'application/json' -Body $enqueue -SkipHttpErrorCheck
+    if (-not $enqueueResponse.StatusCode.ToString().StartsWith('2')) {
+        throw "Backup commands were not queued ($($enqueueResponse.StatusCode)): $($enqueueResponse.Content)"
+    }
+
+    $allJobsSucceeded = $false
+    for ($attempt = 0; $attempt -lt 240; $attempt++) {
+        if ($sourceProcess.HasExited) { break }
+        $jobs = @(Invoke-RestMethod -Uri 'http://127.0.0.1:7444/api/v1/backup/jobs')
+        $terminalJobs = @($jobs | Where-Object { $_.state -in @('SUCCEEDED', 'FAILED', 'CANCELLED') })
+        if ($terminalJobs.Count -ge $repositories.Count) {
+            $failedJobs = @($terminalJobs | Where-Object { $_.state -ne 'SUCCEEDED' })
+            if ($failedJobs.Count -gt 0) {
+                throw "One or more queued backup jobs failed: $($failedJobs | ConvertTo-Json -Depth 8)"
+            }
+            $allJobsSucceeded = $true
+            break
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    if (-not $allJobsSucceeded) {
+        if ($sourceProcess -and -not $sourceProcess.HasExited) {
+            Stop-Process -Id $sourceProcess.Id -Force -ErrorAction SilentlyContinue
+            $sourceProcess.WaitForExit(5000) | Out-Null
+        }
         $sourceDiagnostics = @(
             if (Test-Path -LiteralPath $sourceOutput) { [IO.File]::ReadAllText($sourceOutput) }
             if (Test-Path -LiteralPath $sourceError) { [IO.File]::ReadAllText($sourceError) }
         ) -join [Environment]::NewLine
-        throw "Source backup failed.`n$sourceDiagnostics"
+        throw "Queued Source backup did not complete.`n$sourceDiagnostics"
     }
+    Stop-Process -Id $sourceProcess.Id -Force -ErrorAction SilentlyContinue
+    $sourceProcess.WaitForExit(5000) | Out-Null
+    $sourceProcess.Dispose()
+    $sourceProcess = $null
+
     $originalHashes = Get-ChildItem -LiteralPath $sourceData -File | Sort-Object Name | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
     for ($index = 0; $index -lt $repositories.Count; $index++) {
         $targetRestore = Join-Path $restoreRoot $index
@@ -145,6 +185,10 @@ try {
     $completed = $true
 }
 finally {
+    if ($sourceProcess -and -not $sourceProcess.HasExited) {
+        Stop-Process -Id $sourceProcess.Id -Force -ErrorAction SilentlyContinue
+        $sourceProcess.Dispose()
+    }
     if ($service -and -not $service.HasExited) {
         try { Invoke-RestMethod -Method Post 'http://127.0.0.1:7444/api/v1/service/shutdown' -TimeoutSec 2 | Out-Null }
         catch { Stop-Process -Id $service.Id -Force -ErrorAction SilentlyContinue }

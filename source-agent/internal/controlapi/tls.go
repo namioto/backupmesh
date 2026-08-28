@@ -24,5 +24,5 @@ func NewMTLSHTTPClient(caFile, certificateFile, keyFile string) (*http.Client, e
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, Certificates: []tls.Certificate{certificate}}
-	return &http.Client{Transport: transport, Timeout: 30 * time.Second}, nil
+	return &http.Client{Transport: transport, Timeout: 2 * time.Minute}, nil
 }

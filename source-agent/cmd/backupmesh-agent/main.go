@@ -34,7 +34,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <apply-pairing|validate|sync|backup|version>")
+		return fmt.Errorf("usage: backupmesh-agent <apply-pairing|validate|sync|backup|watch|version>")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -46,6 +46,7 @@ func run(args []string) error {
 	resticBinary := fs.String("restic", "restic", "path to bundled restic binary")
 	pairingBundle := fs.String("bundle", "backupmesh-pairing.json", "path to pairing bundle")
 	pairingOutput := fs.String("output", "", "directory for protected pairing files")
+	pollInterval := fs.Duration("poll-interval", 5*time.Second, "Storage command polling interval")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -109,20 +110,23 @@ func run(args []string) error {
 		if len(readyTargets) == 0 {
 			return fmt.Errorf("no mapped backup target is ready")
 		}
-		if err := runHooks(ctx, set.Hooks.Before); err != nil {
-			return fmt.Errorf("before hook: %w", err)
-		}
-		backupErr := runBackupTargets(readyTargets, func(target controlapi.BackupTargetAvailability) error {
-			return runBackupTarget(ctx, api, cfg, set, target, *resticBinary)
-		})
-		if err := runHooks(ctx, set.Hooks.After); err != nil {
-			backupErr = errors.Join(backupErr, fmt.Errorf("after hook: %w", err))
-		}
-		if backupErr != nil {
-			return backupErr
+		if _, err := runBackupSet(ctx, api, cfg, set, readyTargets, *resticBinary, ""); err != nil {
+			return err
 		}
 		fmt.Printf("backup complete on %d target(s)\n", len(readyTargets))
 		return nil
+	case "watch":
+		if *pollInterval <= 0 {
+			return fmt.Errorf("poll interval must be positive")
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, AgentID: cfg.Agent.ID, HTTPClient: httpClient}
+		if err := publishCatalog(ctx, api, cfg); err != nil {
+			return fmt.Errorf("publish Source catalog: %w", err)
+		}
+		fmt.Printf("watching Storage commands every %s\n", pollInterval.String())
+		return watchSourceCommands(ctx, api, cfg, *resticBinary, *pollInterval)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -256,6 +260,32 @@ func runBackupTargets(targets []controlapi.BackupTargetAvailability, runTarget f
 	return errors.Join(failures...)
 }
 
+func runBackupSet(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, targets []controlapi.BackupTargetAvailability, resticBinary, jobID string) (int, error) {
+	if len(targets) == 0 {
+		return 0, fmt.Errorf("no mapped backup target is ready")
+	}
+	if jobID != "" && len(targets) != 1 {
+		return 0, fmt.Errorf("a Storage-issued job ID can only run against one target")
+	}
+	if err := runHooks(ctx, set.Hooks.Before); err != nil {
+		return 0, fmt.Errorf("before hook: %w", err)
+	}
+	backupErr := runBackupTargets(targets, func(target controlapi.BackupTargetAvailability) error {
+		targetJobID := ""
+		if len(targets) == 1 {
+			targetJobID = jobID
+		}
+		return runBackupTarget(ctx, api, cfg, set, target, resticBinary, targetJobID)
+	})
+	if err := runHooks(ctx, set.Hooks.After); err != nil {
+		backupErr = errors.Join(backupErr, fmt.Errorf("after hook: %w", err))
+	}
+	if backupErr != nil {
+		return len(targets), backupErr
+	}
+	return len(targets), nil
+}
+
 func loadAuthenticationToken(path string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", nil
@@ -271,10 +301,13 @@ func loadAuthenticationToken(path string) (string, error) {
 	return token, nil
 }
 
-func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, target controlapi.BackupTargetAvailability, resticBinary string) error {
-	jobID, err := controlapi.UUIDv4()
-	if err != nil {
-		return fmt.Errorf("create job ID: %w", err)
+func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, target controlapi.BackupTargetAvailability, resticBinary, jobID string) error {
+	if strings.TrimSpace(jobID) == "" {
+		generatedJobID, err := controlapi.UUIDv4()
+		if err != nil {
+			return fmt.Errorf("create job ID: %w", err)
+		}
+		jobID = generatedJobID
 	}
 	requestKey, err := controlapi.UUIDv4()
 	if err != nil {
@@ -347,6 +380,120 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	}
 	fmt.Printf("%s backup complete: snapshot %s\n", target.DeviceName, result.SnapshotID)
 	return nil
+}
+
+func watchSourceCommands(ctx context.Context, api controlapi.Client, cfg config.Config, resticBinary string, pollInterval time.Duration) error {
+	backoff := pollInterval
+	maxBackoff := 30 * time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		command, err := api.ClaimBackupCommand(ctx, cfg.Agent.ID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "command poll failed: %v\n", err)
+			if !sleepContext(ctx, backoff) {
+				return nil
+			}
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
+		}
+		backoff = pollInterval
+		if command == nil {
+			if !sleepContext(ctx, pollInterval) {
+				return nil
+			}
+			continue
+		}
+		if err := executeSourceCommand(ctx, api, cfg, *command, resticBinary); err != nil {
+			fmt.Fprintf(os.Stderr, "command %s failed: %v\n", command.CommandID, err)
+		}
+	}
+}
+
+func sleepContext(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func executeSourceCommand(ctx context.Context, api controlapi.Client, cfg config.Config, command controlapi.BackupCommand, resticBinary string) error {
+	if strings.TrimSpace(command.CommandID) == "" {
+		return errors.New("Storage command is missing command_id")
+	}
+	outcome := "SUCCEEDED"
+	message := ""
+	jobID, runErr := runSourceCommand(ctx, api, cfg, command, resticBinary)
+	if runErr != nil {
+		outcome = "FAILED"
+		message = runErr.Error()
+		if errors.Is(runErr, context.Canceled) {
+			outcome = "CANCELLED"
+			message = "command was cancelled"
+		}
+	}
+	completeKey, keyErr := controlapi.UUIDv4()
+	if keyErr != nil {
+		return fmt.Errorf("create command completion idempotency key: %w", keyErr)
+	}
+	reportCtx := ctx
+	var stopReport context.CancelFunc = func() {}
+	if ctx.Err() != nil {
+		reportCtx, stopReport = context.WithTimeout(context.Background(), 5*time.Second)
+	}
+	defer stopReport()
+	completion := controlapi.BackupCommandResult{CommandID: command.CommandID, SourceAgentID: cfg.Agent.ID, Outcome: outcome, CompletedAt: time.Now().UTC(), JobID: jobID, Message: message}
+	if err := api.CompleteBackupCommand(reportCtx, completeKey, completion); err != nil {
+		return fmt.Errorf("complete command: %w", err)
+	}
+	return runErr
+}
+
+func runSourceCommand(ctx context.Context, api controlapi.Client, cfg config.Config, command controlapi.BackupCommand, resticBinary string) (string, error) {
+	set, ok := cfg.FindBackupSetByID(command.BackupSetID)
+	if !ok {
+		return "", fmt.Errorf("backup set %q not found", command.BackupSetID)
+	}
+	targets, err := api.ListBackupTargets(ctx, cfg.Agent.ID, set.ID)
+	if err != nil {
+		return "", fmt.Errorf("list backup targets: %w", err)
+	}
+	readyTargets := make([]controlapi.BackupTargetAvailability, 0, len(targets))
+	for _, target := range targets {
+		if target.State != "READY" {
+			continue
+		}
+		if command.TargetMappingID != "" && target.MappingID != command.TargetMappingID {
+			continue
+		}
+		readyTargets = append(readyTargets, target)
+	}
+	if len(readyTargets) == 0 {
+		if command.TargetMappingID != "" {
+			return "", fmt.Errorf("mapped backup target %q is not ready", command.TargetMappingID)
+		}
+		return "", fmt.Errorf("no mapped backup target is ready")
+	}
+	jobID := command.JobID
+	if strings.TrimSpace(jobID) == "" && len(readyTargets) == 1 {
+		generatedJobID, err := controlapi.UUIDv4()
+		if err != nil {
+			return "", fmt.Errorf("create job ID: %w", err)
+		}
+		jobID = generatedJobID
+	}
+	_, err = runBackupSet(ctx, api, cfg, set, readyTargets, resticBinary, jobID)
+	return jobID, err
 }
 
 func pollCancellation(ctx context.Context, api controlapi.Client, jobID string, cancel context.CancelFunc) {

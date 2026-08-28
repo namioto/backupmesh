@@ -70,6 +70,30 @@ type BackupTargetAvailability struct {
 	Reason            string `json:"reason,omitempty"`
 }
 
+type BackupCommand struct {
+	CommandID       string    `json:"command_id"`
+	SourceAgentID   string    `json:"source_agent_id"`
+	BackupSetID     string    `json:"backup_set_id"`
+	TargetMappingID string    `json:"target_mapping_id"`
+	Reason          string    `json:"reason"`
+	RequestedAt     time.Time `json:"requested_at"`
+	State           string    `json:"state"`
+	JobID           string    `json:"job_id,omitempty"`
+}
+
+type BackupCommandClaimResponse struct {
+	Command *BackupCommand `json:"command"`
+}
+
+type BackupCommandResult struct {
+	CommandID     string    `json:"command_id"`
+	SourceAgentID string    `json:"source_agent_id"`
+	CompletedAt   time.Time `json:"completed_at"`
+	Outcome       string    `json:"outcome"`
+	JobID         string    `json:"job_id,omitempty"`
+	Message       string    `json:"message,omitempty"`
+}
+
 type BackupProgress struct {
 	EventID    string    `json:"event_id"`
 	JobID      string    `json:"job_id"`
@@ -135,6 +159,16 @@ func (c Client) ListBackupTargets(ctx context.Context, sourceAgentID, backupSetI
 	path := "/backup/targets/" + url.PathEscape(sourceAgentID) + "/" + url.PathEscape(backupSetID)
 	err := c.do(ctx, http.MethodGet, path, "", nil, http.StatusOK, &out)
 	return out, err
+}
+
+func (c Client) ClaimBackupCommand(ctx context.Context, sourceAgentID string) (*BackupCommand, error) {
+	var out BackupCommandClaimResponse
+	err := c.do(ctx, http.MethodPost, "/backup/commands/claim/"+url.PathEscape(sourceAgentID), "", nil, http.StatusOK, &out)
+	return out.Command, err
+}
+
+func (c Client) CompleteBackupCommand(ctx context.Context, key string, in BackupCommandResult) error {
+	return c.do(ctx, http.MethodPost, "/backup/commands/result", key, in, http.StatusNoContent, nil)
 }
 
 func (c Client) GetBackupStatus(ctx context.Context, jobID string) (JobStatus, error) {

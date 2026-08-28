@@ -79,6 +79,49 @@ public sealed class BackupJobStoreTests
         Assert.Equal(StoreOutcome.Conflict, store.Admit(Request(Guid.NewGuid(), request.TargetMappingId), "different-key-1234", endpoint).Outcome);
         Assert.Equal(StoreOutcome.Accepted, store.Admit(Request(Guid.NewGuid()), "another-target-12", endpoint).Outcome);
     }
+
+    [Fact]
+    public void BackupCommandsAreIdempotentAndClaimedByOwningSource()
+    {
+        var sourceId = Guid.NewGuid();
+        var mappingId = Guid.NewGuid();
+        var queue = new BackupCommandQueue(new BackupCommandOptions { PersistencePath = string.Empty });
+        var draft = new BackupCommandDraft(sourceId, Guid.NewGuid(), mappingId, "manual");
+
+        var first = queue.Enqueue("command-key-0001", [draft], DateTimeOffset.UtcNow);
+        var replay = queue.Enqueue("command-key-0001", [draft], DateTimeOffset.UtcNow);
+        var duplicate = queue.Enqueue("command-key-0002", [draft], DateTimeOffset.UtcNow);
+
+        Assert.Equal(StoreOutcome.Accepted, first.Outcome);
+        Assert.Equal(StoreOutcome.Replayed, replay.Outcome);
+        Assert.Equal(first.Result.CommandIds, replay.Result.CommandIds);
+        Assert.Empty(duplicate.Result.CommandIds);
+        Assert.Equal([mappingId], duplicate.Result.SkippedMappingIds);
+        Assert.Null(queue.ClaimNext(Guid.NewGuid(), DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5)));
+        var claimed = queue.ClaimNext(sourceId, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5));
+        Assert.NotNull(claimed);
+        Assert.Equal("BACKUP_SET", claimed.Type);
+        Assert.Equal(mappingId, claimed.TargetMappingId);
+        Assert.Equal(StoreOutcome.Accepted, queue.Acknowledge(sourceId, claimed.CommandId, DateTimeOffset.UtcNow));
+        Assert.Equal("RUNNING", queue.List().Single(command => command.CommandId == claimed.CommandId).State);
+    }
+
+    [Fact]
+    public void ClaimedBackupCommandCanBeReclaimedAfterLeaseExpires()
+    {
+        var sourceId = Guid.NewGuid();
+        var queue = new BackupCommandQueue(new BackupCommandOptions { PersistencePath = string.Empty });
+        queue.Enqueue("command-key-0003", [new(sourceId, Guid.NewGuid(), Guid.NewGuid(), "arrival")], DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        var claimed = queue.ClaimNext(sourceId, now, TimeSpan.FromSeconds(60));
+
+        Assert.Null(queue.ClaimNext(sourceId, now.AddSeconds(30), TimeSpan.FromSeconds(60)));
+        Assert.NotNull(queue.ClaimNext(sourceId, now.AddSeconds(61), TimeSpan.FromSeconds(60)));
+        Assert.Equal(StoreOutcome.Conflict, queue.Complete(Guid.NewGuid(), claimed!.CommandId, "FAILED", now, null, "wrong source"));
+        Assert.Equal(StoreOutcome.Accepted, queue.Complete(sourceId, claimed.CommandId, "SUCCEEDED", now, Guid.NewGuid(), null));
+        Assert.Equal(StoreOutcome.Terminal, queue.Complete(sourceId, claimed.CommandId, "SUCCEEDED", now, Guid.NewGuid(), null));
+    }
+
     [Fact]
     public void JobOwnershipIsBoundToAdmittedSource()
     {

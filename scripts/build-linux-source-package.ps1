@@ -29,6 +29,7 @@ Remove-Item -LiteralPath $archive -Force
 
 Copy-Item -LiteralPath (Join-Path $repoRoot 'source-agent\example.config.json') -Destination (Join-Path $outputRoot 'backupmesh.json.example') -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\install.sh') -Destination $outputRoot -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source-watch.service') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.service') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.timer') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $outputRoot -Force

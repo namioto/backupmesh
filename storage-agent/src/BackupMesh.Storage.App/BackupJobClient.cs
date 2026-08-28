@@ -23,26 +23,12 @@ public sealed record BackupJobDto(
     [property: JsonPropertyName("progress")] BackupProgressDto? Progress,
     [property: JsonPropertyName("result")] BackupResultDto? Result);
 
-public sealed record BackupRequestDto(
-    [property: JsonPropertyName("job_id")] Guid JobId,
-    [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId,
-    [property: JsonPropertyName("backup_set_id")] Guid BackupSetId,
-    [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId,
-    [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt,
-    [property: JsonPropertyName("snapshot_tags")] string[] SnapshotTags);
-
-public sealed record BackupAdmissionDto(
-    [property: JsonPropertyName("job_id")] Guid JobId,
-    [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId,
-    [property: JsonPropertyName("device_id")] Guid DeviceId,
-    [property: JsonPropertyName("state")] string State,
-    [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt,
-    [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
+public sealed record BackupCommandEnqueueDto([property: JsonPropertyName("queued_count")] int QueuedCount);
 
 public interface IBackupJobClient
 {
     Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken);
-    Task<BackupAdmissionDto> RequestAsync(BackupRequestDto request, CancellationToken cancellationToken);
+    Task<int> EnqueueAsync(Guid[] mappingIds, string reason, CancellationToken cancellationToken);
     Task CancelAsync(Guid jobId, CancellationToken cancellationToken);
 }
 
@@ -55,17 +41,17 @@ public sealed class BackupJobClient : IBackupJobClient, IDisposable
     public async Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) =>
         await _client.GetFromJsonAsync<BackupJobDto[]>("backup/jobs", cancellationToken) ?? [];
 
-    public async Task<BackupAdmissionDto> RequestAsync(BackupRequestDto backup, CancellationToken cancellationToken)
+    public async Task<int> EnqueueAsync(Guid[] mappingIds, string reason, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "backup/request")
+        using var request = new HttpRequestMessage(HttpMethod.Post, "backup/commands/enqueue")
         {
-            Content = JsonContent.Create(backup)
+            Content = JsonContent.Create(new { mapping_ids = mappingIds, reason })
         };
         AddControlHeaders(request);
         using var response = await _client.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<BackupAdmissionDto>(cancellationToken) ??
-            throw new InvalidDataException("Storage Service accepted the backup request without returning an admission.");
+        var result = await response.Content.ReadFromJsonAsync<BackupCommandEnqueueDto>(cancellationToken) ?? new(0);
+        return result.QueuedCount;
     }
 
     public async Task CancelAsync(Guid jobId, CancellationToken cancellationToken)

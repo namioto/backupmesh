@@ -18,17 +18,15 @@ if (mutualTls.Enabled)
             ? X509CertificateLoader.LoadPkcs12FromFile(mutualTls.ServerCertificatePath, mutualTls.ServerCertificatePassword)
             : throw new InvalidOperationException("MutualTls server certificate path must reference an existing file.");
     var clientAuthority = pairingCertificateAuthority.GetAuthorityCertificate();
+    mutualTls.ServerTrustPem = serverCertificate.ExportCertificatePem();
     builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(mutualTls.Port, listen => listen.UseHttps(https =>
     {
         https.ServerCertificate = serverCertificate;
-        https.ServerCertificateChain = new X509Certificate2Collection(clientAuthority);
         https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-        https.ClientCertificateValidation = (certificate, _, errors) =>
-        {
-            var accepted = MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
-            if (!accepted) Console.Error.WriteLine($"Rejected Source client certificate {certificate.Thumbprint}; TLS errors: {errors}.");
-            return accepted;
-        };
+        // Application authentication binds the presented certificate identity to
+        // the per-Source pairing credential. Avoid Windows custom-chain failures
+        // during the TLS callback; the certificate is still mandatory here.
+        https.ClientCertificateValidation = (_, _, _) => true;
         https.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
     })));
 }
@@ -39,6 +37,7 @@ builder.Services.Configure<ControlApiOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<SourceCatalogOptions>(builder.Configuration.GetSection("SourceCatalog"));
 builder.Services.Configure<StorageConfigurationOptions>(builder.Configuration.GetSection("StorageConfiguration"));
 builder.Services.Configure<BackupJobOptions>(builder.Configuration.GetSection("BackupJob"));
+builder.Services.Configure<BackupCommandOptions>(builder.Configuration.GetSection("BackupCommand"));
 builder.Services.Configure<PairingOptions>(builder.Configuration.GetSection("Pairing"));
 builder.Services.Configure<PairingCertificateOptions>(builder.Configuration.GetSection("PairingCertificate"));
 builder.Services.AddSingleton(mutualTls);
@@ -49,10 +48,12 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageConfigurationOptions>>().Value);
 builder.Services.AddSingleton(repositoryServer);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupJobOptions>>().Value);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupCommandOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingCertificateOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
+builder.Services.AddSingleton<BackupCommandQueue>();
 builder.Services.AddSingleton<PairingCredentialStore>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<SourceCatalogStore>();

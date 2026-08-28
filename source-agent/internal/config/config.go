@@ -152,3 +152,12 @@ func (c Config) FindBackupSet(name string) (BackupSet, bool) {
 	}
 	return BackupSet{}, false
 }
+
+func (c Config) FindBackupSetByID(id string) (BackupSet, bool) {
+	for _, set := range c.BackupSets {
+		if set.ID == id {
+			return set, true
+		}
+	}
+	return BackupSet{}, false
+}

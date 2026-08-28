@@ -266,37 +266,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var accepted = 0;
-        var failed = 0;
-        foreach (var mapping in eligible)
+        try
         {
-            var request = new BackupRequestDto(
-                Guid.NewGuid(),
-                mapping.BackupSet.Model.SourceAgentId,
-                mapping.BackupSet.Id,
-                mapping.Id,
-                DateTimeOffset.UtcNow,
-                ["manual", "tray"]);
-            try
-            {
-                await _jobClient.RequestAsync(request, _shutdown.Token);
-                accepted++;
-                AddActivity($"Queued backup for {mapping.BackupSetName} to {mapping.DeviceName}.");
-            }
-            catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return; }
-            catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or TaskCanceledException)
-            {
-                failed++;
-                AddActivity($"Backup queue failed for {mapping.BackupSetName}: {exception.Message}");
-            }
+            var queued = await _jobClient.EnqueueAsync(eligible.Select(mapping => mapping.Id).ToArray(), "manual", _shutdown.Token);
+            foreach (var mapping in eligible) AddActivity($"Requested backup for {mapping.BackupSetName} to {mapping.DeviceName}.");
+            await RefreshJobsAsync();
+            var message = queued == 0
+                ? "No new backups were queued; matching backup commands may already be pending."
+                : $"Queued {queued} mapped backup target(s).";
+            FooterStatus = message;
+            NotificationRequested?.Invoke(this, new("BackupMesh", message));
         }
-
-        await RefreshJobsAsync();
-        var message = failed == 0
-            ? $"Queued {accepted} mapped backup target(s)."
-            : $"Queued {accepted} of {eligible.Length} mapped backup target(s); {failed} failed.";
-        FooterStatus = message;
-        NotificationRequested?.Invoke(this, new("BackupMesh", message, failed > 0));
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or TaskCanceledException)
+        {
+            var message = $"Backup queue request failed: {exception.Message}";
+            FooterStatus = message;
+            AddActivity(message);
+            NotificationRequested?.Invoke(this, new("BackupMesh", message, true));
+        }
     }
 
     private void Load()

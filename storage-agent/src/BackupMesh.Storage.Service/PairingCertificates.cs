@@ -4,7 +4,7 @@ using System.Runtime.Versioning;
 
 namespace BackupMesh.Storage.Service;
 
-public sealed class PairingCertificateOptions { public string? ProtectedAuthorityPath { get; set; } }
+public sealed class PairingCertificateOptions { public string? ProtectedAuthorityPath { get; set; } public string? ProtectedServerCertificatePath { get; set; } }
 public sealed record SourceCertificateBundle(string CertificatePem, string PrivateKeyPem, string AuthorityPem, DateTimeOffset ExpiresAt);
 
 public sealed class PairingCertificateAuthority(PairingCertificateOptions options)
@@ -26,7 +26,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
             request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.2") }, true));
             request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
             var expires = DateTimeOffset.UtcNow.AddYears(1);
-            using var certificate = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-5), expires, RandomNumberGenerator.GetBytes(16));
+            using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), expires);
             return new(certificate.ExportCertificatePem(), key.ExportPkcs8PrivateKeyPem(), authority.ExportCertificatePem(), expires);
         }
     }
@@ -42,7 +42,15 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
         lock (_gate)
         {
-            var authority = _authority ??= LoadOrCreateAuthority();
+            var serverPath = !string.IsNullOrWhiteSpace(options.ProtectedServerCertificatePath)
+                ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(options.ProtectedServerCertificatePath))
+                : _path + ".server.dpapi";
+            if (File.Exists(serverPath))
+            {
+                var protectedPfx = File.ReadAllBytes(serverPath);
+                var storedPfx = ProtectedData.Unprotect(protectedPfx, null, DataProtectionScope.CurrentUser);
+                return X509CertificateLoader.LoadPkcs12(storedPfx, null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+            }
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "localhost", Environment.MachineName };
             if (configuredNames is not null)
                 foreach (var name in configuredNames.Where(value => !string.IsNullOrWhiteSpace(value))) names.Add(name.Trim());
@@ -58,9 +66,14 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
                 if (System.Net.IPAddress.TryParse(name, out var address)) san.AddIpAddress(address); else san.AddDnsName(name);
             request.CertificateExtensions.Add(san.Build());
             request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
-            using var publicCertificate = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(1), RandomNumberGenerator.GetBytes(16));
-            using var certificateWithKey = publicCertificate.CopyWithPrivateKey(key);
-            return X509CertificateLoader.LoadPkcs12(certificateWithKey.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+            using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(3));
+            var pfx = certificate.Export(X509ContentType.Pfx);
+            var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.CurrentUser);
+            Directory.CreateDirectory(Path.GetDirectoryName(serverPath) ?? throw new InvalidOperationException("Server certificate path must include a directory."));
+            var temporary = $"{serverPath}.{Guid.NewGuid():N}.tmp";
+            try { File.WriteAllBytes(temporary, protectedBytes); File.Move(temporary, serverPath, true); }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            return X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
         }
     }
 
@@ -91,4 +104,12 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
     private static string ResolvePath(string? path) => !string.IsNullOrWhiteSpace(path)
         ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path))
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "pairing-authority.dpapi");
+
+    private static byte[] CreatePositiveSerialNumber()
+    {
+        var serial = RandomNumberGenerator.GetBytes(16);
+        serial[0] &= 0x7f;
+        if (serial.All(value => value == 0)) serial[^1] = 1;
+        return serial;
+    }
 }

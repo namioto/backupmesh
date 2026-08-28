@@ -99,7 +99,7 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
-    public async Task BackupNowRequestsEveryConnectedEnabledMapping()
+    public async Task BackupNowEnqueuesEveryConnectedEnabledMapping()
     {
         var sourceId = Guid.NewGuid();
         var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
@@ -117,10 +117,8 @@ public sealed class StorageConfigurationViewModelTests
 
         await viewModel.QueueEligibleBackupsAsync();
 
-        var request = Assert.Single(client.Requests);
-        Assert.Equal(sourceId, request.SourceAgentId);
-        Assert.Equal(set.Id, request.BackupSetId);
-        Assert.Equal(connectedMapping.Id, request.TargetMappingId);
+        var mappingId = Assert.Single(client.EnqueuedMappingIds);
+        Assert.Equal(connectedMapping.Id, mappingId);
         Assert.Contains("Queued 1 mapped backup target", viewModel.FooterStatus);
     }
 
@@ -138,7 +136,7 @@ public sealed class StorageConfigurationViewModelTests
 
         await viewModel.QueueEligibleBackupsAsync();
 
-        Assert.Empty(client.Requests);
+        Assert.Empty(client.EnqueuedMappingIds);
         Assert.Equal("No mapped backup is currently eligible.", viewModel.FooterStatus);
     }
 
@@ -175,12 +173,12 @@ public sealed class StorageConfigurationViewModelTests
 
     private sealed class FakeJobClient(IReadOnlyList<BackupJobDto> jobs) : IBackupJobClient
     {
-        public List<BackupRequestDto> Requests { get; } = [];
+        public List<Guid> EnqueuedMappingIds { get; } = [];
         public Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken) => Task.FromResult(jobs);
-        public Task<BackupAdmissionDto> RequestAsync(BackupRequestDto request, CancellationToken cancellationToken)
+        public Task<int> EnqueueAsync(Guid[] mappingIds, string reason, CancellationToken cancellationToken)
         {
-            Requests.Add(request);
-            return Task.FromResult(new BackupAdmissionDto(request.JobId, request.TargetMappingId, Guid.NewGuid(), "ACCEPTED", DateTimeOffset.UtcNow, new("http://127.0.0.1:8000/repo")));
+            EnqueuedMappingIds.AddRange(mappingIds);
+            return Task.FromResult(mappingIds.Length);
         }
         public Task CancelAsync(Guid jobId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
