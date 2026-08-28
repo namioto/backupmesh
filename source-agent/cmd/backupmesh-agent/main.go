@@ -97,19 +97,30 @@ func run(args []string) error {
 		if err := runHooks(ctx, set.Hooks.Before); err != nil {
 			return fmt.Errorf("before hook: %w", err)
 		}
-		for _, target := range readyTargets {
-			if err := runBackupTarget(ctx, api, cfg, set, target, *resticBinary); err != nil {
-				return fmt.Errorf("backup target %s (%s): %w", target.DeviceName, target.DestinationFolder, err)
-			}
-		}
+		backupErr := runBackupTargets(readyTargets, func(target controlapi.BackupTargetAvailability) error {
+			return runBackupTarget(ctx, api, cfg, set, target, *resticBinary)
+		})
 		if err := runHooks(ctx, set.Hooks.After); err != nil {
-			return fmt.Errorf("after hook: %w", err)
+			backupErr = errors.Join(backupErr, fmt.Errorf("after hook: %w", err))
+		}
+		if backupErr != nil {
+			return backupErr
 		}
 		fmt.Printf("backup complete on %d target(s)\n", len(readyTargets))
 		return nil
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func runBackupTargets(targets []controlapi.BackupTargetAvailability, runTarget func(controlapi.BackupTargetAvailability) error) error {
+	var failures []error
+	for _, target := range targets {
+		if err := runTarget(target); err != nil {
+			failures = append(failures, fmt.Errorf("backup target %s (%s): %w", target.DeviceName, target.DestinationFolder, err))
+		}
+	}
+	return errors.Join(failures...)
 }
 
 func loadAuthenticationToken(path string) (string, error) {
