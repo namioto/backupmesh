@@ -62,6 +62,14 @@ Linux home server                    Windows PC
 4. BackupMesh verifies the storage and runs the backup according to policy.
 5. Confirm completion and safely eject the drive.
 
+## Storage Agent for Windows
+
+The Windows tray app makes offline backup storage easy to operate without turning it into an always-connected target. Register fixed or removable storage, review synchronized Source Agents and their Backup Sets, then map each Backup Set to the device and destination folder you want.
+
+BackupMesh supports practical many-to-many layouts: several Sources can share one device in separate folders, each Source can use a different device, and one Source can protect the same Backup Set across multiple devices.
+
+![BackupMesh Storage Agent mapping multiple Sources to backup storage](docs/images/storage-agent-mappings.jpg)
+
 ## Project status
 
 BackupMesh is in the early implementation stage. The first release focuses on:
