@@ -9,16 +9,24 @@ var pairingCertificateAuthority = new PairingCertificateAuthority(pairingCertifi
 var mutualTls = builder.Configuration.GetSection("MutualTls").Get<MutualTlsOptions>() ?? new();
 if (mutualTls.Enabled)
 {
-    if (!File.Exists(mutualTls.ServerCertificatePath))
-        throw new InvalidOperationException("MutualTls server certificate path must reference an existing file.");
-    var serverCertificate = X509CertificateLoader.LoadPkcs12FromFile(mutualTls.ServerCertificatePath, mutualTls.ServerCertificatePassword);
+    var serverCertificate = string.IsNullOrWhiteSpace(mutualTls.ServerCertificatePath)
+        ? pairingCertificateAuthority.IssueServerCertificate(mutualTls.ServerNames)
+        : File.Exists(mutualTls.ServerCertificatePath)
+            ? X509CertificateLoader.LoadPkcs12FromFile(mutualTls.ServerCertificatePath, mutualTls.ServerCertificatePassword)
+            : throw new InvalidOperationException("MutualTls server certificate path must reference an existing file.");
     var clientAuthority = pairingCertificateAuthority.GetAuthorityCertificate();
     builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(mutualTls.Port, listen => listen.UseHttps(https =>
     {
         https.ServerCertificate = serverCertificate;
+        https.ServerCertificateChain = new X509Certificate2Collection(clientAuthority);
         https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-        https.ClientCertificateValidation = (certificate, _, _) => MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
-        https.SslProtocols = System.Security.Authentication.SslProtocols.Tls13;
+        https.ClientCertificateValidation = (certificate, _, errors) =>
+        {
+            var accepted = MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
+            if (!accepted) Console.Error.WriteLine($"Rejected Source client certificate {certificate.Thumbprint}; TLS errors: {errors}.");
+            return accepted;
+        };
+        https.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
     })));
 }
 builder.Services.AddWindowsService(options => options.ServiceName = "BackupMesh Storage Agent");

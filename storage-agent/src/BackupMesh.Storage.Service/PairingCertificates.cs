@@ -37,6 +37,33 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         lock (_gate) return X509CertificateLoader.LoadCertificate((_authority ??= LoadOrCreateAuthority()).RawData);
     }
 
+    public X509Certificate2 IssueServerCertificate(IEnumerable<string>? configuredNames = null)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
+        lock (_gate)
+        {
+            var authority = _authority ??= LoadOrCreateAuthority();
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "localhost", Environment.MachineName };
+            if (configuredNames is not null)
+                foreach (var name in configuredNames.Where(value => !string.IsNullOrWhiteSpace(value))) names.Add(name.Trim());
+            using var key = RSA.Create(3072);
+            var request = new CertificateRequest($"CN={names.First()}", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+            request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true));
+            request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.1") }, true));
+            var san = new SubjectAlternativeNameBuilder();
+            san.AddIpAddress(System.Net.IPAddress.Loopback);
+            san.AddIpAddress(System.Net.IPAddress.IPv6Loopback);
+            foreach (var name in names)
+                if (System.Net.IPAddress.TryParse(name, out var address)) san.AddIpAddress(address); else san.AddDnsName(name);
+            request.CertificateExtensions.Add(san.Build());
+            request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+            using var publicCertificate = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(1), RandomNumberGenerator.GetBytes(16));
+            using var certificateWithKey = publicCertificate.CopyWithPrivateKey(key);
+            return X509CertificateLoader.LoadPkcs12(certificateWithKey.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+        }
+    }
+
     [SupportedOSPlatform("windows")]
     private X509Certificate2 LoadOrCreateAuthority()
     {

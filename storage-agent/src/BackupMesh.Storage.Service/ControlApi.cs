@@ -11,7 +11,7 @@ namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
 public sealed class PairingOptions { public string? CredentialHashPath { get; set; } }
-public sealed class MutualTlsOptions { public bool Enabled { get; set; } public int Port { get; set; } = 7443; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; }
+public sealed class MutualTlsOptions { public bool Enabled { get; set; } = true; public int Port { get; set; } = 7443; public string[] ServerNames { get; set; } = []; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; }
 public static class MutualTlsCertificateValidator
 {
     public static bool Validate(X509Certificate2 certificate, X509Certificate2 authority)
