@@ -80,6 +80,8 @@ pwsh -NoProfile -File scripts/build-windows-test-package.ps1
 
 상시 실행 형태로 설치하려면 관리자 권한 PowerShell에서 빌드된 패키지의 `Install-BackupMesh.ps1`을 실행합니다. Storage Agent가 자동 재시작되는 Windows 서비스로 등록되어 즉시 시작되고, 현재 사용자의 다음 로그인부터 트레이 앱도 자동 실행됩니다. `Uninstall-BackupMesh.ps1`은 설정과 repository를 보존하면서 서비스와 자동 시작 항목만 제거합니다.
 
+Linux Source Agent 자체 포함 패키지는 `pwsh -NoProfile -File scripts/build-linux-source-package.ps1`로 빌드합니다. `artifacts/BackupMesh-Source-linux-x64`를 Source 장치로 복사해 `sudo sh install.sh`을 실행하면 됩니다. 고정 버전 restic과 systemd 서비스·타이머 템플릿이 포함되며, 설치 프로그램은 `/etc/backupmesh/backupmesh.json`을 보존하거나 새로 만든 뒤 검증 및 타이머 활성화 명령을 안내합니다.
+
 ## 현재 상태
 
 BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.

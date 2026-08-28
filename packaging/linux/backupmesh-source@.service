@@ -1,0 +1,14 @@
+[Unit]
+Description=BackupMesh Source Agent backup set %I
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/backupmesh/backupmesh-agent backup -config /etc/backupmesh/backupmesh.json -set %I -restic /opt/backupmesh/restic
+CacheDirectory=backupmesh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/cache/backupmesh

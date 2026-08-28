@@ -80,6 +80,8 @@ Then run `artifacts\BackupMesh-Storage-win-x64\Start-BackupMesh.ps1`. The launch
 
 For an always-on installation, open PowerShell as Administrator and run `Install-BackupMesh.ps1` from the built package. It installs the Storage Agent as an automatically restarting Windows service, starts it immediately, and registers the tray app for the current user's next sign-in. `Uninstall-BackupMesh.ps1` removes the service and startup entry while preserving configuration and repositories.
 
+Build the self-contained Linux Source Agent package with `pwsh -NoProfile -File scripts/build-linux-source-package.ps1`. Copy `artifacts/BackupMesh-Source-linux-x64` to the source machine and run `sudo sh install.sh`. The package includes the pinned restic binary and systemd service/timer templates; the installer prints the validation and timer-enable commands after preserving or creating `/etc/backupmesh/backupmesh.json`.
+
 ## Project status
 
 BackupMesh is in the early implementation stage. The first release focuses on:
