@@ -15,6 +15,28 @@ public sealed class RestServerLifecycleTests
     }
 
     [Fact]
+    public void RepositoryEndpoint_EmbedsEphemeralBasicAuthentication()
+    {
+        var endpoint = RepositoryServerManager.BuildEndpoint("storage.local", 18000, "repo", "backupmesh", "secret");
+        Assert.Equal("rest:http://backupmesh:secret@storage.local:18000/repo/", endpoint.OriginalString);
+    }
+
+    [Fact]
+    public void RepositoryCredentialCreatesShaPasswordFileWithoutPlaintextSecret()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-credential-test-{Guid.NewGuid():N}");
+        try
+        {
+            var credential = RepositoryServerManager.CreateCredential(Guid.NewGuid(), directory);
+            var contents = File.ReadAllText(credential.FilePath);
+            Assert.StartsWith("backupmesh:{SHA}", contents);
+            Assert.DoesNotContain(credential.Password, contents, StringComparison.Ordinal);
+            Assert.Equal(32, credential.Password.Length);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public async Task Start_UsesArgumentListAndNoShell_ThenStops()
     {
         var factory = new FakeFactory();

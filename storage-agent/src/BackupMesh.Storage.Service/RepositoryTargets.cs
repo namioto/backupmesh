@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using BackupMesh.Storage.Core;
 
 namespace BackupMesh.Storage.Service;
@@ -62,7 +64,8 @@ public sealed class RepositoryServerOptions
     public string ListenHost { get; set; } = "127.0.0.1";
     public string PublicHost { get; set; } = "127.0.0.1";
     public int BasePort { get; set; } = 18000;
-    public bool NoAuthentication { get; set; } = true;
+    public bool NoAuthentication { get; set; }
+    public string? CredentialDirectory { get; set; }
 }
 
 public interface IRepositoryEndpointProvider
@@ -81,8 +84,9 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         lock (_gate)
         {
             if (_sessions.TryGetValue(target.DeviceId, out session!) && !session.Process.HasExited)
-                return Endpoint(session.Port, target.RepositoryPath);
+                return Endpoint(session, target.RepositoryPath);
             var port = options.BasePort + _sessions.Count;
+            var credential = options.NoAuthentication ? null : CreateCredential(target.DeviceId, options.CredentialDirectory);
             var startInfo = new ProcessStartInfo
             {
                 FileName = options.ExecutablePath,
@@ -94,23 +98,39 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             startInfo.ArgumentList.Add("--listen");
             startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
             if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
-            session = new(port, target.DeviceRoot, processFactory.Start(startInfo));
+            else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
+            session = new(port, target.DeviceRoot, processFactory.Start(startInfo), credential);
             _sessions[target.DeviceId] = session;
         }
         await WaitUntilListeningAsync(session, cancellationToken);
-        return Endpoint(session.Port, target.RepositoryPath);
+        return Endpoint(session, target.RepositoryPath);
     }
 
-    private Uri Endpoint(int port, string repositoryPath)
-        => BuildEndpoint(options.PublicHost, port, repositoryPath);
+    private Uri Endpoint(Session session, string repositoryPath)
+        => BuildEndpoint(options.PublicHost, session.Port, repositoryPath, session.Credential?.Username, session.Credential?.Password);
 
-    internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath)
+    internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null)
     {
         var path = repositoryPath == "." ? "/" : "/" + string.Join('/', repositoryPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString)) + "/";
         var endpoint = new UriBuilder(Uri.UriSchemeHttp, publicHost, port, path).Uri;
+        var builder = new UriBuilder(endpoint) { UserName = username ?? string.Empty, Password = password ?? string.Empty };
         // restic distinguishes its REST backend from an ordinary HTTP URL with
         // the `rest:` transport prefix.
-        return new Uri("rest:" + endpoint.AbsoluteUri);
+        return new Uri("rest:" + builder.Uri.AbsoluteUri);
+    }
+
+    internal static RepositoryCredential CreateCredential(Guid deviceId, string? configuredDirectory)
+    {
+        var directory = string.IsNullOrWhiteSpace(configuredDirectory)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "credentials")
+            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(configuredDirectory));
+        Directory.CreateDirectory(directory);
+        var username = "backupmesh";
+        var password = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var digest = Convert.ToBase64String(SHA1.HashData(Encoding.UTF8.GetBytes(password)));
+        var path = Path.Combine(directory, $"{deviceId:N}.htpasswd");
+        File.WriteAllText(path, $"{username}:{{SHA}}{digest}{Environment.NewLine}");
+        return new(username, password, path);
     }
 
     private static async Task WaitUntilListeningAsync(Session session, CancellationToken cancellationToken)
@@ -139,8 +159,10 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
             if (!session.Process.HasExited) session.Process.Kill();
             await session.Process.WaitForExitAsync(CancellationToken.None);
             await session.Process.DisposeAsync();
+            if (session.Credential is not null && File.Exists(session.Credential.FilePath)) File.Delete(session.Credential.FilePath);
         }
     }
 
-    private sealed record Session(int Port, string Root, IManagedProcess Process);
+    internal sealed record RepositoryCredential(string Username, string Password, string FilePath);
+    private sealed record Session(int Port, string Root, IManagedProcess Process, RepositoryCredential? Credential);
 }
