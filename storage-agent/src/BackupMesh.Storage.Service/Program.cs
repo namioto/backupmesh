@@ -26,12 +26,14 @@ builder.Services.Configure<ControlApiOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<SourceCatalogOptions>(builder.Configuration.GetSection("SourceCatalog"));
 builder.Services.Configure<StorageConfigurationOptions>(builder.Configuration.GetSection("StorageConfiguration"));
 builder.Services.Configure<RepositoryServerOptions>(builder.Configuration.GetSection("RepositoryServer"));
+builder.Services.Configure<BackupJobOptions>(builder.Configuration.GetSection("BackupJob"));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RestServerOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControlApiOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SourceCatalogOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageConfigurationOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryServerOptions>>().Value);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BackupJobOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<SourceCatalogStore>();

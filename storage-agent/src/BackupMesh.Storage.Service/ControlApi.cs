@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using BackupMesh.Storage.Core;
 
@@ -18,17 +19,34 @@ public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId
 public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
 public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
+public sealed class BackupJobOptions { public string? PersistencePath { get; set; } }
 
 public sealed class BackupJobStore
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly object _gate = new();
     private readonly Dictionary<Guid, JobStatus> _jobs = [];
     private readonly Dictionary<string, (string Signature, BackupAdmission Admission)> _admissions = [];
     private readonly Dictionary<Guid, object> _events = [];
     private readonly Dictionary<Guid, Guid> _jobMappings = [];
     private readonly Dictionary<Guid, Guid> _activeMappings = [];
+    private readonly string? _persistencePath;
     public Guid? ActiveJobId { get; private set; }
     public bool HasActiveJobs { get { lock (_gate) return _activeMappings.Count > 0; } }
+    public BackupJobStore(BackupJobOptions? options = null)
+    {
+        _persistencePath = options is null ? null : ResolvePath(options.PersistencePath);
+        foreach (var entry in Load(_persistencePath))
+        {
+            _jobs[entry.Status.JobId] = entry.Status;
+            if (!Terminal(entry.Status.State))
+            {
+                _jobMappings[entry.Status.JobId] = entry.MappingId;
+                _activeMappings[entry.MappingId] = entry.Status.JobId;
+            }
+        }
+        ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault();
+    }
     public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default)
     {
         lock (_gate)
@@ -38,6 +56,7 @@ public sealed class BackupJobStore
             if (_activeMappings.ContainsKey(request.TargetMappingId) || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
             var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint);
             _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
+            Persist();
             return (StoreOutcome.Accepted, admission);
         }
     }
@@ -49,7 +68,7 @@ public sealed class BackupJobStore
             if (Terminal(job.State)) return StoreOutcome.Terminal;
             if (_events.TryGetValue(progress.EventId, out var prior)) return Equals(prior, progress) ? StoreOutcome.Replayed : StoreOutcome.Conflict;
             if (progress.Sequence <= job.LastSequence) return StoreOutcome.InvalidSequence;
-            _events[progress.EventId] = progress; _jobs[progress.JobId] = job with { State = "RUNNING", UpdatedAt = DateTimeOffset.UtcNow, LastSequence = progress.Sequence, Progress = progress }; return StoreOutcome.Accepted;
+            _events[progress.EventId] = progress; _jobs[progress.JobId] = job with { State = "RUNNING", UpdatedAt = DateTimeOffset.UtcNow, LastSequence = progress.Sequence, Progress = progress }; Persist(); return StoreOutcome.Accepted;
         }
     }
     public StoreOutcome Complete(BackupResult result)
@@ -62,7 +81,7 @@ public sealed class BackupJobStore
             if (result.Sequence <= job.LastSequence) return StoreOutcome.InvalidSequence;
             _events[result.EventId] = result; _jobs[result.JobId] = job with { State = result.Outcome, UpdatedAt = DateTimeOffset.UtcNow, LastSequence = result.Sequence, Result = result };
             if (_jobMappings.Remove(result.JobId, out var mappingId)) _activeMappings.Remove(mappingId);
-            ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault(); return StoreOutcome.Accepted;
+            ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault(); Persist(); return StoreOutcome.Accepted;
         }
     }
     public (StoreOutcome Outcome, JobStatus? Status) Cancel(CancelRequest request)
@@ -71,12 +90,30 @@ public sealed class BackupJobStore
         {
             if (!_jobs.TryGetValue(request.JobId, out var job)) return (StoreOutcome.NotFound, null);
             if (Terminal(job.State)) return (StoreOutcome.Terminal, job);
-            job = job with { State = "CANCEL_REQUESTED", UpdatedAt = DateTimeOffset.UtcNow }; _jobs[request.JobId] = job; return (StoreOutcome.Accepted, job);
+            job = job with { State = "CANCEL_REQUESTED", UpdatedAt = DateTimeOffset.UtcNow }; _jobs[request.JobId] = job; Persist(); return (StoreOutcome.Accepted, job);
         }
     }
     public JobStatus? Get(Guid id) { lock (_gate) return _jobs.GetValueOrDefault(id); }
     public IReadOnlyList<JobStatus> List() { lock (_gate) return _jobs.Values.OrderByDescending(job => job.UpdatedAt).ToArray(); }
     private static bool Terminal(string state) => state is "CANCELLED" or "SUCCEEDED" or "FAILED";
+    private void Persist()
+    {
+        if (_persistencePath is null) return;
+        var directory = Path.GetDirectoryName(_persistencePath) ?? throw new InvalidOperationException("The backup job persistence path must include a directory.");
+        Directory.CreateDirectory(directory);
+        var entries = _jobs.Values.Select(status => new PersistedJob(status, _jobMappings.GetValueOrDefault(status.JobId))).ToArray();
+        var temporary = $"{_persistencePath}.{Guid.NewGuid():N}.tmp";
+        try { File.WriteAllText(temporary, JsonSerializer.Serialize(entries, JsonOptions)); File.Move(temporary, _persistencePath, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    private static PersistedJob[] Load(string? path)
+    {
+        if (path is null || !File.Exists(path)) return [];
+        try { return JsonSerializer.Deserialize<PersistedJob[]>(File.ReadAllText(path), JsonOptions) ?? []; }
+        catch (Exception exception) when (exception is IOException or JsonException) { throw new InvalidDataException($"Could not load backup jobs from '{path}'.", exception); }
+    }
+    private static string? ResolvePath(string? path) => path == string.Empty ? null : !string.IsNullOrWhiteSpace(path) ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "backup-jobs.json");
+    private sealed record PersistedJob(JobStatus Status, Guid MappingId);
 }
 
 public sealed class RequiredControlHeadersFilter : IEndpointFilter

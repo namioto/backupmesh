@@ -18,6 +18,7 @@ $arguments = @(
     "--contentRoot=`"$serviceRoot`""
     "--StorageConfiguration:PersistencePath=`"$(Join-Path $dataRoot 'storage-configuration.json')`""
     "--SourceCatalog:PersistencePath=`"$(Join-Path $dataRoot 'source-catalogs.json')`""
+    "--BackupJob:PersistencePath=`"$(Join-Path $dataRoot 'backup-jobs.json')`""
     "--RepositoryServer:ExecutablePath=`"$(Join-Path $serviceRoot 'rest-server.exe')`""
 )
 $binaryPath = "`"$serviceExe`" $($arguments -join ' ')"

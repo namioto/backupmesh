@@ -46,5 +46,31 @@ public sealed class BackupJobStoreTests
         Assert.Equal(StoreOutcome.Accepted, store.Complete(result)); Assert.Equal("SUCCEEDED", store.Get(id)!.State); Assert.Null(store.ActiveJobId);
         Assert.Equal(StoreOutcome.Terminal, store.Progress(progress with { EventId = Guid.NewGuid(), Sequence = 3 }));
     }
+    [Fact]
+    public void ActiveJobSurvivesRestartAndCanComplete()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-job-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "jobs.json");
+        try
+        {
+            var options = new BackupJobOptions { PersistencePath = path };
+            var request = Request(Guid.NewGuid());
+            var first = new BackupJobStore(options);
+            Assert.Equal(StoreOutcome.Accepted, first.Admit(request, "persistent-key-01", new Uri("https://localhost/repo")).Outcome);
+            Assert.Equal(StoreOutcome.Accepted, first.Progress(new(Guid.NewGuid(), request.JobId, 3, DateTimeOffset.UtcNow, "UPLOADING", 10, 20, 1, 2, null)));
+
+            var restored = new BackupJobStore(options);
+            Assert.True(restored.HasActiveJobs);
+            Assert.Equal("RUNNING", restored.Get(request.JobId)!.State);
+            Assert.Equal(StoreOutcome.Conflict, restored.Admit(Request(Guid.NewGuid(), request.TargetMappingId), "other-job-key-01", new Uri("https://localhost/repo")).Outcome);
+            Assert.Equal(StoreOutcome.Accepted, restored.Complete(new(Guid.NewGuid(), request.JobId, 4, DateTimeOffset.UtcNow, "FAILED", null, null, "RESTART_TEST", "recovered")));
+            Assert.False(restored.HasActiveJobs);
+            Assert.Equal("FAILED", new BackupJobStore(options).Get(request.JobId)!.State);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
     private static BackupRequest Request(Guid id, Guid? mappingId = null) => new(id, Guid.NewGuid(), Guid.NewGuid(), mappingId ?? Guid.NewGuid(), DateTimeOffset.UtcNow, ["daily"]);
 }
