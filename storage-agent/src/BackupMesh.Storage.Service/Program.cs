@@ -15,7 +15,7 @@ if (mutualTls.Enabled)
     {
         https.ServerCertificate = serverCertificate;
         https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-        https.ClientCertificateValidation = (certificate, _, _) => ValidateClientCertificate(certificate, clientAuthority);
+        https.ClientCertificateValidation = (certificate, _, _) => MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
         https.SslProtocols = System.Security.Authentication.SslProtocols.Tls13;
     })));
 }
@@ -53,15 +53,5 @@ builder.Services.AddHostedService<StorageMonitorService>();
 var app = builder.Build();
 app.MapControlApi();
 app.Run();
-
-static bool ValidateClientCertificate(X509Certificate2 certificate, X509Certificate2 authority)
-{
-    using var chain = new X509Chain();
-    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-    chain.ChainPolicy.CustomTrustStore.Add(authority);
-    chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-    chain.ChainPolicy.ApplicationPolicy.Add(new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.2"));
-    return chain.Build(certificate);
-}
 
 public partial class Program;
