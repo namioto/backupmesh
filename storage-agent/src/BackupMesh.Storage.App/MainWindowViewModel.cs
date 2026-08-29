@@ -173,13 +173,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var pairing = await _pairingClient.CreateSessionAsync(_shutdown.Token);
-            var instructions = $"Storage: {pairing.ControlEndpoint}\nPairing code: {pairing.Code}\nCertificate SHA-256: {pairing.CertificateSha256}\nExpires: {pairing.ExpiresAt.LocalDateTime:g}";
-            System.Windows.Clipboard.SetText(instructions);
-            System.Windows.MessageBox.Show(instructions + "\n\nThese details were copied to the clipboard. Enter them in the Source Agent pairing screen.", "Pair Source Agent", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-            FooterStatus = "One-time pairing details copied. The code expires in 10 minutes and works once.";
+            new PairingDetailsWindow(pairing).ShowDialog();
+            FooterStatus = "One-time pairing details generated. The code expires in 10 minutes and works once.";
             NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
         }
-        catch (Exception exception) when (exception is HttpRequestException or System.Runtime.InteropServices.ExternalException) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
+        catch (HttpRequestException exception) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
