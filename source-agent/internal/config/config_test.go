@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -110,6 +111,44 @@ func TestResolveIdentityStateRejectsAnAmbiguousSimultaneousRenameAndPathChange(t
 	}
 	if !strings.Contains(err.Error(), "matches more than one previously known backup set") {
 		t.Fatalf("Load() error = %v, want an ambiguous-match error", err)
+	}
+}
+
+func TestSaveIdentityStateIsOwnerOnlyAndHasNoLeftoverTemporaryFile(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "backupmesh.json")
+	statePath := path + ".state.json"
+	c := Config{Agent: Agent{ID: newUUID(), Name: "Home server"}, BackupSets: []BackupSet{{ID: newUUID(), Name: "alpha", Paths: []string{"/data/alpha"}}}}
+	if err := SaveIdentityState(path, c); err != nil {
+		t.Fatal(err)
+	}
+	// Overwrite it to exercise the rename-over-an-existing-file path, not just initial creation.
+	c.BackupSets[0].Name = "alpha-renamed"
+	if err := SaveIdentityState(path, c); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatalf("%s permissions = %o, want 0600", statePath, info.Mode().Perm())
+	}
+	reloaded, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(reloaded), "alpha-renamed") {
+		t.Fatalf("state file was not fully replaced by the second save: %s", reloaded)
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".tmp") {
+			t.Fatalf("leftover temporary file after atomic replacement: %s", entry.Name())
+		}
 	}
 }
 
