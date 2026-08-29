@@ -9,6 +9,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $outputRoot = Join-Path $repoRoot "artifacts\BackupMesh-Storage-$Runtime"
 $toolRoot = Join-Path $repoRoot 'artifacts\tools\windows-x64'
 
+$resolvedOutput = [IO.Path]::GetFullPath($outputRoot)
+$resolvedArtifacts = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts')) + [IO.Path]::DirectorySeparatorChar
+if (-not $resolvedOutput.StartsWith($resolvedArtifacts, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to clean package output outside the artifacts directory: $resolvedOutput"
+}
+if (Test-Path -LiteralPath $resolvedOutput) {
+    Remove-Item -LiteralPath $resolvedOutput -Recurse -Force
+}
+
 if ($Runtime -ne 'win-x64') {
     throw 'Bundled third-party tools are currently pinned only for win-x64.'
 }

@@ -38,6 +38,14 @@ if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
     Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
     & sc.exe delete $serviceName | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not replace the existing BackupMesh service.' }
+    for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        & sc.exe query $serviceName 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { break }
+        Start-Sleep -Milliseconds 250
+    }
+    if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
+        throw 'The existing BackupMesh service is still pending deletion. Restart Windows and run setup again.'
+    }
 }
 & sc.exe create $serviceName "binPath= $binaryPath" 'start= auto' 'DisplayName= BackupMesh Storage Agent' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the BackupMesh service.' }

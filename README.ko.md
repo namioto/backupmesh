@@ -4,7 +4,7 @@
 
 **필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
 
-현재 릴리스: **0.1.0** — 첫 번째 end-to-end MVP입니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
+다음 릴리스: **0.1.1** — Windows 설치 마법사를 포함한 첫 번째 end-to-end MVP입니다. 현재 소스에서 설치 프로그램을 만들 수 있으며, 관리자 권한 설치·제거 승인 테스트 후 정식 릴리스할 예정입니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
 
 BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 있어도, 저장장치가 사용 가능한 순간을 감지해 백업을 자동으로 시작하는 오케스트레이터입니다.
 
@@ -59,6 +59,10 @@ Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/res
 ![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
 
 ### 현재 Windows 빌드 사용해 보기
+
+일반 Windows 사용자는 `pwsh -NoProfile -File scripts/build-windows-installer.ps1`로 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 만든 뒤 설치 프로그램을 실행하면 됩니다. 서비스, 트레이 앱, 방화벽 규칙, 번들 도구, 자동 시작, 제거 프로그램을 한 번에 설치하고 완료 후 BackupMesh를 실행합니다. 설치 프로그램 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다.
+
+현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시될 수 있습니다. 설치를 승인하기 전에 GitHub 릴리스의 SHA-256 체크섬과 비교하세요.
 
 저장소의 PowerShell에서 self-contained 테스트 패키지를 만듭니다.
 

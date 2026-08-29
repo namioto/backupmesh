@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current release: **0.1.0** — the first end-to-end MVP. See the [changelog](CHANGELOG.md).
+Upcoming release: **0.1.1** — the first end-to-end MVP with a guided Windows installer. The installer is available from source builds while elevated install/uninstall acceptance testing remains pending. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
@@ -59,6 +59,10 @@ The Linux installer creates `/etc/backupmesh/restic-password` for repository enc
 ![BackupMesh Storage Agent mapping multiple Sources to removable storage](docs/images/storage-agent-mappings.jpg)
 
 ### Try the current Windows build
+
+For the normal Windows experience, build `BackupMesh-Storage-0.1.1-win-x64-Setup.exe` with `pwsh -NoProfile -File scripts/build-windows-installer.ps1`, then run the installer. It installs the service, tray app, firewall rules, bundled tools, automatic startup, and uninstaller, and launches BackupMesh when setup finishes. Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+
+The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher**. Verify the SHA-256 checksum from the GitHub release before approving installation.
 
 From PowerShell in the repository, build a self-contained test package:
 
