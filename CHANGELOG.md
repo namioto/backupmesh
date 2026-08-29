@@ -2,6 +2,17 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## [0.1.1] - 2026-08-29
+
+### Added
+
+- A bilingual Inno Setup wizard that installs the Windows service, tray app, bundled tools, firewall rules, automatic startup, Start menu shortcuts, and uninstaller from one executable.
+- A reproducible `build-windows-installer.ps1` entry point with package and version validation.
+
+### Fixed
+
+- Windows package builds now clean their exact artifacts directory before publishing, preventing stale files and nested license directories from leaking into later installers.
+
 ## [0.1.0] - 2026-08-29
 
 First end-to-end MVP release.
@@ -27,3 +38,4 @@ First end-to-end MVP release.
 - Windows package build, Linux package build and installation under Ubuntu, .NET tests, Go tests and vet, protocol validation, and systemd unit validation.
 
 [0.1.0]: https://github.com/namioto/backupmesh/releases/tag/v0.1.0
+[0.1.1]: https://github.com/namioto/backupmesh/releases/tag/v0.1.1

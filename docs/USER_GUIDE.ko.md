@@ -10,19 +10,23 @@
 
 ```powershell
 pwsh -NoProfile -File scripts/build-windows-test-package.ps1
+pwsh -NoProfile -File scripts/build-windows-installer.ps1
 pwsh -NoProfile -File scripts/build-linux-source-package.ps1
 ```
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\BackupMesh-Storage-win-x64`
+- `artifacts\installer\BackupMesh-Storage-0.1.1-win-x64-Setup.exe`
+- `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 
 고정 버전 `restic`과 `rest-server`가 포함되므로 대상 장비에 .NET이나 Go를 별도로 설치할 필요가 없습니다.
 
 ## 2. Windows Storage Agent 설치
 
-임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 상시 설치하려면 관리자 권한 PowerShell에서 다음을 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+
+개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
 ```powershell
 Set-Location artifacts\BackupMesh-Storage-win-x64

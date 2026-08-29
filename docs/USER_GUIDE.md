@@ -10,19 +10,23 @@ From PowerShell at the repository root:
 
 ```powershell
 pwsh -NoProfile -File scripts/build-windows-test-package.ps1
+pwsh -NoProfile -File scripts/build-windows-installer.ps1
 pwsh -NoProfile -File scripts/build-linux-source-package.ps1
 ```
 
 The resulting self-contained packages are written to:
 
-- `artifacts\BackupMesh-Storage-win-x64`
+- `artifacts\installer\BackupMesh-Storage-0.1.1-win-x64-Setup.exe`
+- `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For a temporary evaluation, run `Start-BackupMesh.ps1`. For an always-on installation, open PowerShell as Administrator and run:
+For normal use, run `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+
+For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
 ```powershell
 Set-Location artifacts\BackupMesh-Storage-win-x64
