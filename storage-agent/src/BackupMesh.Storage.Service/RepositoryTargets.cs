@@ -203,9 +203,7 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
 
     internal static RepositoryCredential CreateCredential(Guid deviceId, string? configuredDirectory)
     {
-        var directory = string.IsNullOrWhiteSpace(configuredDirectory)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "credentials")
-            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(configuredDirectory));
+        var directory = ResolveCredentialDirectory(configuredDirectory);
         Directory.CreateDirectory(directory);
         var username = "backupmesh";
         var password = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
@@ -219,9 +217,7 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     {
         if (string.IsNullOrWhiteSpace(configured.TlsCertificatePem) || string.IsNullOrWhiteSpace(configured.TlsPrivateKeyPem))
             throw new InvalidOperationException("Repository TLS certificate material is missing.");
-        var directory = string.IsNullOrWhiteSpace(configured.CredentialDirectory)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "credentials")
-            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(configured.CredentialDirectory));
+        var directory = ResolveCredentialDirectory(configured.CredentialDirectory);
         Directory.CreateDirectory(directory);
         var nonce = Guid.NewGuid().ToString("N");
         var certificatePath = Path.Combine(directory, $"{mappingId:N}.{nonce}.crt.pem");
@@ -236,6 +232,20 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         if (File.Exists(files.CertificatePath)) File.Delete(files.CertificatePath);
         if (File.Exists(files.KeyPath)) File.Delete(files.KeyPath);
     }
+
+    internal static void DeleteStaleTlsFiles(string? configuredDirectory)
+    {
+        var directory = ResolveCredentialDirectory(configuredDirectory);
+        if (!Directory.Exists(directory)) return;
+        foreach (var pattern in new[] { "*.crt.pem", "*.key.pem" })
+            foreach (var path in Directory.EnumerateFiles(directory, pattern, SearchOption.TopDirectoryOnly))
+                File.Delete(path);
+    }
+
+    private static string ResolveCredentialDirectory(string? configuredDirectory)
+        => string.IsNullOrWhiteSpace(configuredDirectory)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "credentials")
+            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(configuredDirectory));
 
     private static async Task WaitUntilListeningAsync(Session session, CancellationToken cancellationToken)
     {

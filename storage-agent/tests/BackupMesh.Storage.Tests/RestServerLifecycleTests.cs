@@ -96,6 +96,29 @@ public sealed class RestServerLifecycleTests
     }
 
     [Fact]
+    public void StartupCleanupRemovesOnlyEphemeralTlsMaterial()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-tls-cleanup-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var certificate = Path.Combine(directory, "stale.crt.pem");
+            var key = Path.Combine(directory, "stale.key.pem");
+            var credential = Path.Combine(directory, "repository.htpasswd");
+            File.WriteAllText(certificate, "certificate");
+            File.WriteAllText(key, "private key");
+            File.WriteAllText(credential, "credential");
+
+            RepositoryServerManager.DeleteStaleTlsFiles(directory);
+
+            Assert.False(File.Exists(certificate));
+            Assert.False(File.Exists(key));
+            Assert.True(File.Exists(credential));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public async Task Start_UsesArgumentListAndNoShell_ThenStops()
     {
         var factory = new FakeFactory();

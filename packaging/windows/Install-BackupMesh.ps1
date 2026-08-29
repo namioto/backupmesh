@@ -15,6 +15,10 @@ if (-not (Test-Path -LiteralPath $serviceExe -PathType Leaf)) {
     throw "Storage Service executable was not found: $serviceExe"
 }
 New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
+# Repository credentials and short-lived TLS key files live below this folder.
+# The tray app communicates through the loopback API and does not need file access.
+& icacls.exe $dataRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Could not secure the BackupMesh data directory.' }
 
 $arguments = @(
     "--contentRoot=`"$serviceRoot`""

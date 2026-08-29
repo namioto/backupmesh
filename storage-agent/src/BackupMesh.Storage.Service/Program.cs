@@ -10,6 +10,7 @@ var mutualTls = builder.Configuration.GetSection("MutualTls").Get<MutualTlsOptio
 var repositoryServer = builder.Configuration.GetSection("RepositoryServer").Get<RepositoryServerOptions>() ?? new();
 if (string.IsNullOrWhiteSpace(repositoryServer.PublicHost))
     repositoryServer.PublicHost = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+RepositoryServerManager.DeleteStaleTlsFiles(repositoryServer.CredentialDirectory);
 if (mutualTls.Enabled)
 {
     var serverCertificate = string.IsNullOrWhiteSpace(mutualTls.ServerCertificatePath)
