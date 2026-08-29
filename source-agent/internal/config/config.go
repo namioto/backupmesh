@@ -49,7 +49,35 @@ type Hooks struct {
 	After  [][]string `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
+// Load reads and fully validates a configuration, including the Storage connection fields that only
+// exist after pairing. Use it for sync/backup/watch/validate, which need a working connection.
 func Load(path string) (Config, error) {
+	c, err := load(path)
+	if err != nil {
+		return Config{}, err
+	}
+	if err := c.Validate(); err != nil {
+		return Config{}, err
+	}
+	return c, nil
+}
+
+// LoadUserConfig reads a configuration without requiring the Storage connection fields (endpoint,
+// repository password, credential/certificate paths) to be filled in yet. `pair` uses this so a freshly
+// authored config containing only agent.name and backupSets can be paired for the first time; those
+// connection fields do not exist until pairing writes them.
+func LoadUserConfig(path string) (Config, error) {
+	c, err := load(path)
+	if err != nil {
+		return Config{}, err
+	}
+	if err := c.ValidateUserAuthored(); err != nil {
+		return Config{}, err
+	}
+	return c, nil
+}
+
+func load(path string) (Config, error) {
 	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return Config{}, fmt.Errorf("read config: %w", err)
@@ -59,9 +87,6 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("decode config: %w", err)
 	}
 	if err := ResolveIdentityState(path, &c); err != nil {
-		return Config{}, err
-	}
-	if err := c.Validate(); err != nil {
 		return Config{}, err
 	}
 	return c, nil
@@ -188,16 +213,11 @@ func Marshal(c Config, path string) ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }
 
+// Validate checks the full configuration, including the Storage connection fields a Source Agent needs
+// to actually run a backup. It fails on a pre-pairing config; see ValidateUserAuthored for that case.
 func (c Config) Validate() error {
 	var problems []error
-	if strings.TrimSpace(c.Agent.ID) == "" {
-		problems = append(problems, errors.New("agent.id is required"))
-	} else if !isUUID(c.Agent.ID) {
-		problems = append(problems, errors.New("agent.id must be a UUID"))
-	}
-	if strings.TrimSpace(c.Agent.Name) == "" {
-		problems = append(problems, errors.New("agent.name is required"))
-	}
+	problems = append(problems, c.validateUserAuthored()...)
 	u, err := url.Parse(c.Storage.ControlEndpoint)
 	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		problems = append(problems, errors.New("storage.controlEndpoint must be an absolute HTTP(S) URL"))
@@ -223,6 +243,25 @@ func (c Config) Validate() error {
 	}
 	if tlsCount != 0 && tlsCount != len(tlsFiles) {
 		problems = append(problems, errors.New("storage tlsCaFile, tlsCertificateFile, and tlsKeyFile must be configured together"))
+	}
+	return errors.Join(problems...)
+}
+
+// ValidateUserAuthored checks only what a user writes by hand: agent identity and backup sets. It
+// deliberately does not require the Storage connection fields, which do not exist until `pair` runs.
+func (c Config) ValidateUserAuthored() error {
+	return errors.Join(c.validateUserAuthored()...)
+}
+
+func (c Config) validateUserAuthored() []error {
+	var problems []error
+	if strings.TrimSpace(c.Agent.ID) == "" {
+		problems = append(problems, errors.New("agent.id is required"))
+	} else if !isUUID(c.Agent.ID) {
+		problems = append(problems, errors.New("agent.id must be a UUID"))
+	}
+	if strings.TrimSpace(c.Agent.Name) == "" {
+		problems = append(problems, errors.New("agent.name is required"))
 	}
 	if c.UploadLimitBPS < 0 {
 		problems = append(problems, errors.New("uploadLimitBps cannot be negative"))
@@ -251,7 +290,7 @@ func (c Config) Validate() error {
 			}
 		}
 	}
-	return errors.Join(problems...)
+	return problems
 }
 
 func isUUID(s string) bool {

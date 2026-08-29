@@ -154,7 +154,7 @@ type pairingBundleFile struct {
 }
 
 func applyPairing(configPath, bundlePath, outputDirectory string) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.LoadUserConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 }
 
 func pairWithCode(configPath, endpoint, code, fingerprint, outputDirectory string) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.LoadUserConfig(configPath)
 	if err != nil {
 		return err
 	}

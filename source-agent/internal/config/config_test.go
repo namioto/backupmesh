@@ -42,6 +42,30 @@ backupSets:
 	}
 }
 
+func TestLoadUserConfigAcceptsAConfigWithNoStorageSectionYet(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "backupmesh.yaml")
+	contents := `agent:
+  name: New laptop
+backupSets:
+  - name: home
+    paths:
+      - /home/user/Documents
+`
+	if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadUserConfig(path)
+	if err != nil {
+		t.Fatalf("LoadUserConfig() error = %v, want nil so `pair` can run before a Storage endpoint is known", err)
+	}
+	if !isUUID(c.Agent.ID) || !isUUID(c.BackupSets[0].ID) {
+		t.Fatalf("identities were not generated: agent=%q set=%q", c.Agent.ID, c.BackupSets[0].ID)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() expected an error for a config missing storage.controlEndpoint, since pair has not run yet")
+	}
+}
+
 func TestLoadYAMLRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "backupmesh.yml")
 	if err := os.WriteFile(path, []byte("unknown: true\n"), 0600); err != nil {

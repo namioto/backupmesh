@@ -39,7 +39,9 @@ try {
     $backupSetId = [Guid]::NewGuid()
     $configuration = @{
         agent = @{ id = $sourceId; name = 'Local E2E Source' }
-        storage = @{ controlEndpoint = 'https://localhost:7443'; repositoryPasswordFile = $passwordFile; resticCacheDirectory = (Join-Path $workRoot 'cache') }
+        # No controlEndpoint yet: this mirrors a freshly authored user config, and `pair` below must be
+        # able to load and pair it before the Storage endpoint is known.
+        storage = @{ repositoryPasswordFile = $passwordFile; resticCacheDirectory = (Join-Path $workRoot 'cache') }
         backupSets = @(@{ id = $backupSetId; name = 'e2e'; paths = @($sourceData) })
     }
     [IO.File]::WriteAllText($configPath, ($configuration | ConvertTo-Json -Depth 10))
