@@ -37,7 +37,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <pair|apply-pairing|validate|sync|backup|watch|version>")
+		return fmt.Errorf("usage: backupmesh-agent <pair|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -57,6 +57,7 @@ func run(args []string) error {
 		return err
 	}
 	if args[0] == "apply-pairing" {
+		fmt.Fprintln(os.Stderr, "warning: apply-pairing is deprecated and kept only for migrating pairings created before one-time-code pairing; use 'backupmesh-agent pair' instead.")
 		return applyPairing(*configPath, *pairingBundle, *pairingOutput)
 	}
 	if args[0] == "pair" {
