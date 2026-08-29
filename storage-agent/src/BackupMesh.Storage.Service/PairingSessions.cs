@@ -68,11 +68,23 @@ public sealed class PairingAttemptThrottle(TimeProvider? clock = null)
         lock (_gate)
         {
             var now = _clock.GetUtcNow();
-            var window = _windows.TryGetValue(remote, out var existing) && now < existing.ExpiresAt ? existing : new Window(0, now.Add(WindowDuration), DateTimeOffset.MinValue);
+            // /pairing/exchange is reachable from the network, so without this an attacker holding a
+            // large address range (an IPv6 /64 costs nothing) could grow this dictionary without bound
+            // by sending one bad code from each address. Entries still inside their window, or still
+            // locked out, are kept.
+            foreach (var stale in _windows.Where(pair => now >= pair.Value.ExpiresAt && now >= pair.Value.LockedUntil).Select(pair => pair.Key).ToArray())
+                _windows.Remove(stale);
+            _windows.TryGetValue(remote, out var existing);
+            // Carry an active lockout across a window rollover so a new failure cannot shorten it.
+            var lockedUntil = existing is not null && now < existing.LockedUntil ? existing.LockedUntil : DateTimeOffset.MinValue;
+            var window = existing is not null && now < existing.ExpiresAt ? existing : new Window(0, now.Add(WindowDuration), lockedUntil);
             var count = window.Count + 1;
             _windows[remote] = window with { Count = count, LockedUntil = count >= MaxFailuresPerWindow ? now.Add(LockoutDuration) : window.LockedUntil };
         }
     }
+
+    // Test seam: how many remote addresses are currently being tracked.
+    internal int TrackedAddressCount { get { lock (_gate) return _windows.Count; } }
 
     public void RecordSuccess(System.Net.IPAddress? remote)
     {
