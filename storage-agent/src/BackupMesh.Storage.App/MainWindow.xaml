@@ -106,6 +106,7 @@
                         <ComboBox Width="360" ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedAvailableDrive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" DisplayMemberPath="DisplayName"/>
                         <Button Content="Refresh drives" Command="{Binding RefreshDrivesCommand}"/>
                         <Button Content="Register selected device" Command="{Binding RegisterDeviceCommand}"/>
+                        <Button Content="Register folder…" Command="{Binding RegisterFolderCommand}" ToolTip="Use a local or network folder as a logical storage device."/>
                         <Button Content="Forget device" Command="{Binding ForgetDeviceCommand}"/>
                         <Button Content="Safely remove" Command="{Binding EjectDeviceCommand}"/>
                         <TextBlock Text="Arrival delay" Margin="18,0,6,0" VerticalAlignment="Center"/><TextBox Text="{Binding SelectedDevice.ArrivalDelayMinutes}" Width="55"/><TextBlock Text="minutes" VerticalAlignment="Center" Margin="5,0"/>
@@ -121,7 +122,7 @@
                     <CheckBox Content="Automatically start eligible backups after the grace period" IsChecked="{Binding AutomaticBackups}" Margin="4,8"/>
                     <Separator Margin="0,18"/>
                     <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Local fixed drives and removable storage are both supported." TextWrapping="Wrap" Foreground="#526276"/>
+                    <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Fixed drives, removable storage, and registered local or network folders are supported." TextWrapping="Wrap" Foreground="#526276"/>
                     <Button Content="Save settings" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,18,0,0"/>
                 </StackPanel>
             </TabItem>

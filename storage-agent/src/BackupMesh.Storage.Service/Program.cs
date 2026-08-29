@@ -23,6 +23,18 @@ if (mutualTls.Enabled)
     {
         https.ServerCertificate = serverCertificate;
         https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+        https.OnAuthenticate = (_, authentication) =>
+        {
+            var policy = new X509ChainPolicy
+            {
+                TrustMode = X509ChainTrustMode.CustomRootTrust,
+                RevocationMode = X509RevocationMode.NoCheck,
+                VerificationFlags = X509VerificationFlags.NoFlag
+            };
+            policy.CustomTrustStore.Add(clientAuthority);
+            policy.ApplicationPolicy.Add(new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.2"));
+            authentication.CertificateChainPolicy = policy;
+        };
         https.ClientCertificateValidation = (certificate, _, _) =>
             MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
         https.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;

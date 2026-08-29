@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RequireSecondDevice, [switch]$AutomaticOnly)
+param([switch]$RequireSecondDevice, [switch]$FolderTargets, [switch]$AutomaticOnly)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -70,23 +70,36 @@ try {
     & $sourceExe apply-pairing -config $configPath -bundle $bundlePath -output $secretsRoot
     if ($LASTEXITCODE -ne 0) { throw 'Source pairing failed.' }
 
-    $volumes = Invoke-RestMethod -Uri 'http://127.0.0.1:7444/api/v1/storage/volumes'
     $driveRoot = [IO.Path]::GetPathRoot($workRoot)
-    $primaryVolume = $volumes.Where({ $_.root -eq $driveRoot }, 'First')
-    if (-not $primaryVolume) { throw "Could not find the volume containing $workRoot." }
-    $selectedVolumes = @($primaryVolume)
-    if ($RequireSecondDevice) {
-        $secondVolume = $volumes.Where({ $_.root -ne $driveRoot -and (Test-Path -LiteralPath $_.root) }, 'First')
-        if ($secondVolume) { $selectedVolumes += $secondVolume }
-        else { throw 'A second connected storage volume is required for this E2E run.' }
+    if ($FolderTargets) {
+        $selectedVolumes = 1..2 | ForEach-Object {
+            $folderRoot = [IO.Path]::GetFullPath((Join-Path $workRoot "folder-device-$_"))
+            [IO.Directory]::CreateDirectory($folderRoot) | Out-Null
+            [pscustomobject]@{ root = $folderRoot; stableId = 'folder:' + $folderRoot.TrimEnd([IO.Path]::DirectorySeparatorChar).ToUpperInvariant(); volumeLabel = "Folder $_" }
+        }
+    }
+    else {
+        $volumes = Invoke-RestMethod -Uri 'http://127.0.0.1:7444/api/v1/storage/volumes'
+        $primaryVolume = $volumes.Where({ $_.root -eq $driveRoot }, 'First')
+        if (-not $primaryVolume) { throw "Could not find the volume containing $workRoot." }
+        $selectedVolumes = @($primaryVolume)
+        if ($RequireSecondDevice) {
+            $secondVolume = $volumes.Where({ $_.root -ne $driveRoot -and (Test-Path -LiteralPath $_.root) }, 'First')
+            if ($secondVolume) { $selectedVolumes += $secondVolume }
+            else { throw 'A second connected storage volume is required for this E2E run.' }
+        }
     }
     $devices = @()
     $mappings = @()
     $repositories = @()
+    $expectedTargetCount = @($selectedVolumes).Count
     foreach ($selectedVolume in $selectedVolumes) {
         $deviceId = [Guid]::NewGuid()
         $mappingId = [Guid]::NewGuid()
-        if ($selectedVolume.root -eq $driveRoot) {
+        if ($FolderTargets) {
+            $repository = Join-Path $selectedVolume.root 'repository'
+        }
+        elseif ($selectedVolume.root -eq $driveRoot) {
             $repository = Join-Path $workRoot 'repository'
         }
         else {
@@ -146,9 +159,10 @@ try {
     $allJobsSucceeded = $false
     for ($attempt = 0; $attempt -lt 240; $attempt++) {
         if ($sourceProcess.HasExited) { break }
-        $jobs = @(Invoke-RestMethod -Uri 'http://127.0.0.1:7444/api/v1/backup/jobs')
+        $jobsJson = (Invoke-WebRequest -Uri 'http://127.0.0.1:7444/api/v1/backup/jobs').Content
+        $jobs = @($jobsJson | ConvertFrom-Json)
         $terminalJobs = @($jobs | Where-Object { $_.state -in @('SUCCEEDED', 'FAILED', 'CANCELLED') })
-        if ($terminalJobs.Count -ge $repositories.Count) {
+        if ($terminalJobs.Count -ge $expectedTargetCount) {
             $failedJobs = @($terminalJobs | Where-Object { $_.state -ne 'SUCCEEDED' })
             if ($failedJobs.Count -gt 0) {
                 throw "One or more queued backup jobs failed: $($failedJobs | ConvertTo-Json -Depth 8)"
@@ -201,7 +215,7 @@ finally {
         Get-Content -LiteralPath $serviceOutput -Tail 120 | Write-Host
     }
     $resolvedWork = [IO.Path]::GetFullPath($workRoot)
-    if ($resolvedWork.StartsWith($artifactsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $resolvedWork)) {
+    if ($completed -and $resolvedWork.StartsWith($artifactsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $resolvedWork)) {
         Remove-Item -LiteralPath $resolvedWork -Recurse -Force -ErrorAction SilentlyContinue
     }
     foreach ($externalRoot in $externalCleanupRoots) {

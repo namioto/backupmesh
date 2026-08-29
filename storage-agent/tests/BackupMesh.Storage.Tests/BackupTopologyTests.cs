@@ -5,6 +5,15 @@ namespace BackupMesh.Storage.Tests;
 public sealed class BackupTopologyTests
 {
     [Fact]
+    public void FolderStorageIdentityIsStableAcrossPathCasingAndTrailingSeparators()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "BackupMesh-Folder");
+        Assert.Equal(FolderStorageIdentity.Create(root), FolderStorageIdentity.Create(root.ToLowerInvariant() + Path.DirectorySeparatorChar));
+        Assert.True(FolderStorageIdentity.TryGetPath(FolderStorageIdentity.Create(root), out var parsed));
+        Assert.Equal(Path.GetFullPath(root), parsed, ignoreCase: true);
+    }
+
+    [Fact]
     public void SupportsManyToManySourceAndDeviceMappings()
     {
         var source = Guid.NewGuid();

@@ -32,6 +32,21 @@ public sealed record StorageAgentConfiguration(
     public static StorageAgentConfiguration Empty { get; } = new([], [], []);
 }
 
+public static class FolderStorageIdentity
+{
+    private const string Prefix = "folder:";
+    public static string Create(string path) => Prefix + Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToUpperInvariant();
+    public static bool TryGetPath(string stableId, out string path)
+    {
+        path = string.Empty;
+        if (!stableId.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var candidate = stableId[Prefix.Length..];
+        if (!Path.IsPathRooted(candidate)) return false;
+        path = Path.GetFullPath(candidate);
+        return true;
+    }
+}
+
 public static class BackupTopologyValidator
 {
     public static IReadOnlyList<string> Validate(StorageAgentConfiguration configuration)

@@ -6,6 +6,25 @@ namespace BackupMesh.Storage.Tests;
 public sealed class StoragePresenceStoreTests
 {
     [Fact]
+    public void RegisteredFolderActsAsAnIndependentStorageDevice()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"backupmesh-folder-device-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var stableId = FolderStorageIdentity.Create(root);
+            var device = new RegisteredDevice(Guid.NewGuid(), stableId, "Folder A", "Folder", root, DateTimeOffset.UtcNow, null, 0);
+
+            var presence = new StoragePresenceStore().Refresh(new([device], [], []), [], DateTimeOffset.UtcNow).Single();
+
+            Assert.True(presence.Connected);
+            Assert.True(presence.Ready);
+            Assert.Equal(Path.GetFullPath(root), presence.CurrentRoot, ignoreCase: true);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void ConnectedDeviceBecomesReadyAfterItsOwnArrivalDelay()
     {
         var root = Path.GetTempPath();

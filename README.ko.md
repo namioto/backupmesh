@@ -64,7 +64,7 @@ Linux 홈서버                         Windows PC
 
 ## Windows Storage Agent
 
-Windows 트레이 앱에서 물리 저장장치를 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
+Windows 트레이 앱에서 물리 저장장치 또는 일반 로컬·네트워크 폴더를 논리 저장장치로 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
 
 Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 생성된 `backupmesh-pairing.json` 번들을 저장합니다. 안전하게 Source 장치로 옮긴 뒤 `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`을 실행합니다. 이 명령은 Source ID와 TLS 경로를 갱신하고, 해당 Source에 결속된 토큰·클라이언트 인증서·개인 키·Storage Agent CA와 원격 Control API 주소를 설치하며 Linux에서는 소유자 전용 권한으로 보호합니다. 적용 후 전송용 번들은 삭제하세요. Source마다 독립된 신원과 credential이 발급됩니다.
 

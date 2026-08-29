@@ -21,6 +21,8 @@ public sealed class StoragePresenceStore
             foreach (var device in configuration.Devices)
             {
                 var volume = volumes.FirstOrDefault(item => string.Equals(item.StableId, device.StableId, StringComparison.OrdinalIgnoreCase));
+                if (volume is null && FolderStorageIdentity.TryGetPath(device.StableId, out var folderRoot) && Directory.Exists(folderRoot))
+                    volume = new(device.StableId, folderRoot, device.VolumeLabel ?? "Folder", 0, 0, device.DisplayName, 1);
                 if (volume is null)
                 {
                     _connectedSince.Remove(device.Id);

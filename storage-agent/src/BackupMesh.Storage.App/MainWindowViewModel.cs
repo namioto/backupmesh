@@ -57,6 +57,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RemoveMappingCommand { get; }
     public ICommand RefreshDrivesCommand { get; }
     public ICommand RegisterDeviceCommand { get; }
+    public ICommand RegisterFolderCommand { get; }
     public ICommand ForgetDeviceCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
@@ -78,6 +79,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
+        RegisterFolderCommand = new RelayCommand(RegisterFolder);
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
@@ -513,6 +515,31 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyCounts();
     }
 
+    private void RegisterFolder()
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "Choose a folder to use as a logical BackupMesh storage device.",
+            ShowNewFolderButton = true
+        };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
+        var root = Path.GetFullPath(dialog.SelectedPath);
+        var stableId = FolderStorageIdentity.Create(root);
+        if (Devices.Any(device => string.Equals(device.StableId, stableId, StringComparison.OrdinalIgnoreCase)))
+        {
+            FooterStatus = "That folder is already registered.";
+            return;
+        }
+        var displayName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } name ? name : root;
+        var model = new RegisteredDevice(Guid.NewGuid(), stableId, displayName, "Folder", root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
+        var registered = new DeviceViewModel(model) { CurrentRoot = root, IsConnected = true, CanEject = false };
+        Devices.Add(registered);
+        SelectedDevice = registered;
+        AddActivity($"Registered storage folder {root}.");
+        FooterStatus = "Storage folder registered. Save settings to persist it.";
+        NotifyCounts();
+    }
+
     private void ForgetDevice()
     {
         if (SelectedDevice is null) return;
@@ -539,11 +566,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         foreach (var device in Devices)
         {
             var match = drives.FirstOrDefault(drive => string.Equals(drive.StableId, device.StableId, StringComparison.OrdinalIgnoreCase));
+            var folderConnected = FolderStorageIdentity.TryGetPath(device.StableId, out var folderRoot) && Directory.Exists(folderRoot);
             var wasConnected = device.IsConnected;
-            device.IsConnected = match is not null;
+            device.IsConnected = match is not null || folderConnected;
             device.CanEject = match?.CanEject == true;
-            device.CurrentRoot = match?.Root;
-            if (!wasConnected && match is not null)
+            device.CurrentRoot = match?.Root ?? (folderConnected ? folderRoot : null);
+            if (!wasConnected && device.IsConnected)
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 AddActivity($"Registered device connected: {device.DisplayName}.");
