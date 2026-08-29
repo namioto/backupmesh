@@ -58,6 +58,7 @@ builder.Services.Configure<PairingOptions>(builder.Configuration.GetSection("Pai
 builder.Services.Configure<PairingCertificateOptions>(builder.Configuration.GetSection("PairingCertificate"));
 builder.Services.Configure<IssuedCertificateOptions>(builder.Configuration.GetSection("IssuedCertificate"));
 builder.Services.Configure<SourceDisplayNameOptions>(builder.Configuration.GetSection("SourceDisplayName"));
+builder.Services.Configure<LocalBackupOptions>(builder.Configuration.GetSection("LocalBackup"));
 builder.Services.AddSingleton(mutualTls);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RestServerOptions>>().Value);
@@ -72,6 +73,7 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PairingCertificateOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<IssuedCertificateOptions>>().Value);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SourceDisplayNameOptions>>().Value);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LocalBackupOptions>>().Value);
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<BackupCommandQueue>();
@@ -83,6 +85,7 @@ builder.Services.AddSingleton<PairingAttemptThrottle>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<IssuedCertificateStore>();
 builder.Services.AddSingleton<SourceDisplayNameStore>();
+builder.Services.AddSingleton<LocalRepositoryPasswordStore>();
 builder.Services.AddSingleton<SourceCatalogStore>();
 builder.Services.AddSingleton<StorageConfigurationStore>();
 builder.Services.AddSingleton<StoragePresenceStore>();
@@ -97,6 +100,7 @@ builder.Services.AddSingleton<IStorageDeviceEjector, WindowsStorageDeviceEjector
 builder.Services.AddSingleton<IProcessFactory, SystemProcessFactory>();
 builder.Services.AddSingleton<IRestServerLifecycle, RestServerLifecycle>();
 builder.Services.AddHostedService<StorageMonitorService>();
+builder.Services.AddHostedService<LocalBackupExecutorService>();
 
 var app = builder.Build();
 app.MapControlApi();

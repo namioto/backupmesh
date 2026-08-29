@@ -1,5 +1,16 @@
 namespace BackupMesh.Storage.Core;
 
+// The well-known "Source Agent" identity for Backup Sets the user defines directly on the Storage
+// Agent's own PC - no pairing, no remote process, no mTLS. Storage itself runs restic directly against
+// the local filesystem for these; see LocalBackupExecutorService. Never issued as a real pairing
+// identity (PairingCredentialStore.Issue is keyed by freshly generated GUIDs, so a collision is not
+// possible), and BackupTopologyValidator only requires SourceAgentId to be non-empty.
+public static class LocalSourceIdentity
+{
+    public static readonly Guid AgentId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    public const string DisplayName = "This PC";
+}
+
 public sealed record RegisteredDevice(
     Guid Id,
     string StableId,

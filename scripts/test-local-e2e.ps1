@@ -64,6 +64,11 @@ try {
     $env:BackupCommand__PersistencePath = Join-Path $workRoot 'backup-commands.json'
     $env:RepositoryServer__ExecutablePath = $restServerExe
     $env:RepositoryServer__CredentialDirectory = Join-Path $workRoot 'repository-credentials'
+    $env:IssuedCertificate__RecordPath = Join-Path $workRoot 'issued-certificates.txt'
+    $env:SourceDisplayName__RecordPath = Join-Path $workRoot 'source-display-names.json'
+    $env:LocalBackup__ResticExecutablePath = $resticExe
+    $env:LocalBackup__PasswordDirectory = Join-Path $workRoot 'local-repository-passwords'
+    $env:LocalBackup__CacheDirectory = Join-Path $workRoot 'local-restic-cache'
     $serviceOutput = Join-Path $workRoot 'service.stdout.log'
     $serviceError = Join-Path $workRoot 'service.stderr.log'
     $service = Start-Process -FilePath $serviceExe -WorkingDirectory (Split-Path $serviceExe) -WindowStyle Hidden -RedirectStandardOutput $serviceOutput -RedirectStandardError $serviceError -PassThru
