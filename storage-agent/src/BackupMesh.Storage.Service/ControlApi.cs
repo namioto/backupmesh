@@ -269,14 +269,27 @@ public static class ControlApi
             var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
             return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = ServerFingerprint(mutualTls.ServerTrustPem) });
         });
-        pairing.MapPost("/exchange", (PairingExchangeRequest request, PairingSessionStore sessions, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, CancellationToken ct) =>
+        pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
+            var remote = http.Connection.RemoteIpAddress;
+            if (throttle.IsLockedOut(remote))
+            {
+                logger.LogWarning("Pairing exchange throttled for {RemoteAddress} after repeated invalid codes.", remote);
+                return Problem(429, "PAIRING_RATE_LIMITED", "Too many invalid pairing attempts. Try again later.");
+            }
             if (request.AgentId == Guid.Empty || string.IsNullOrWhiteSpace(request.AgentName)) return Problem(400, "INVALID_REQUEST", "Source identity and name are required.");
-            if (!sessions.Consume(request.Code)) return Problem(401, "PAIRING_CODE_INVALID", "The pairing code is invalid, expired, or already used.");
+            if (!sessions.Consume(request.Code))
+            {
+                throttle.RecordFailure(remote);
+                logger.LogWarning("Pairing exchange rejected an invalid, expired, or already-used code from {RemoteAddress} for agent {AgentId}.", remote, request.AgentId);
+                return Problem(401, "PAIRING_CODE_INVALID", "The pairing code is invalid, expired, or already used.");
+            }
+            throttle.RecordSuccess(remote);
             var certificate = certificates.Issue(request.AgentId);
             var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
             var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
+            logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
             return Results.Ok(new { agent_id = request.AgentId, control_endpoint = controlEndpoint, credential = credentials.Issue(request.AgentId), certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt, issued_at = DateTimeOffset.UtcNow });
         });
         var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();

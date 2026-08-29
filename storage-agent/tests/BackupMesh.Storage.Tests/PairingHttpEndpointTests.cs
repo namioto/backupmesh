@@ -36,8 +36,10 @@ public sealed class PairingHttpEndpointTests : IDisposable
                 // Every service type referenced anywhere in ControlApi.cs must resolve here, even though
                 // these pairing tests only ever invoke the pairing and service/shutdown endpoints.
                 services.AddRouting();
+                services.AddLogging();
                 services.AddSingleton(mutualTls);
                 services.AddSingleton(_sessions);
+                services.AddSingleton(new PairingAttemptThrottle(_clock));
                 services.AddSingleton(new PairingCredentialStore());
                 services.AddSingleton(certificateAuthority);
                 services.AddSingleton<ControlApiAuthenticationFilter>();
@@ -135,6 +137,26 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task RepeatedInvalidCodesLockOutFurtherExchangeAttempts()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var failure = await ExchangeAsync(new string('a', 27), Guid.NewGuid(), "source-1");
+            Assert.Equal(HttpStatusCode.Unauthorized, failure.StatusCode);
+        }
+
+        // Even a fresh, valid code is throttled once the failure threshold is hit for this caller.
+        var session = _sessions.Create();
+        var lockedOut = await ExchangeAsync(session.Code, Guid.NewGuid(), "source-1");
+        Assert.Equal(HttpStatusCode.TooManyRequests, lockedOut.StatusCode);
+
+        // A different caller is unaffected: the throttle is keyed per remote address, not global.
+        var otherCallerSession = _sessions.Create();
+        var otherCaller = await ExchangeAsync(otherCallerSession.Code, Guid.NewGuid(), "source-2", IPAddress.Parse("198.51.100.20"));
+        Assert.Equal(HttpStatusCode.OK, otherCaller.StatusCode);
+    }
+
+    [Fact]
     public async Task RemoteCallersWithoutPairingCannotReachGeneralControlApi()
     {
         // No client certificate, no bearer token, no loopback: the general control API must stay closed
@@ -160,9 +182,12 @@ public sealed class PairingHttpEndpointTests : IDisposable
         Assert.Equal(401, context.Response.StatusCode);
     }
 
-    private async Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName)
+    private Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName) => ExchangeAsync(code, agentId, agentName, IPAddress.Parse("203.0.113.10"));
+
+    private async Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName, IPAddress remoteAddress)
     {
-        using var client = _server.CreateClient();
+        using var handler = _server.CreateHandler(ctx => ctx.Connection.RemoteIpAddress = remoteAddress);
+        using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
         return await client.PostAsJsonAsync("/api/v1/pairing/exchange", new { code, agent_id = agentId, agent_name = agentName });
     }
 

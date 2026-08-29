@@ -74,6 +74,7 @@ builder.Services.AddSingleton<BackupCommandQueue>();
 builder.Services.AddSingleton<AutomationSettingsStore>();
 builder.Services.AddSingleton<PairingCredentialStore>();
 builder.Services.AddSingleton<PairingSessionStore>();
+builder.Services.AddSingleton<PairingAttemptThrottle>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<SourceCatalogStore>();
 builder.Services.AddSingleton<StorageConfigurationStore>();
