@@ -86,4 +86,12 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("RenameSourceButton").AsButton());
         Assert.NotNull(Find("ForgetSourceButton").AsButton());
     }
+
+    [Fact]
+    public void TriggerDevicesControls_AreReachableByAutomationId()
+    {
+        Assert.NotNull(Find("TriggerDevicesListBox").AsListBox());
+        Assert.NotNull(Find("RequireAllTriggerDevicesCheckBox").AsCheckBox());
+        Assert.NotNull(Find("TriggerSummaryText"));
+    }
 }

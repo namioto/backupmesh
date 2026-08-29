@@ -52,7 +52,8 @@
             <TabItem Header="Sources &amp; mappings" AutomationProperties.AutomationId="SourcesMappingsTab">
                 <Grid Margin="16">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
-                    <GroupBox Header="Paired Source Agents" Padding="10" Margin="0,0,10,0">
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <GroupBox Grid.Row="0" Header="Paired Source Agents" Padding="10" Margin="0,0,10,0">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="1.2*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <TreeView ItemsSource="{Binding Sources}" SelectedItemChanged="OnSourceSelectionChanged" AutomationProperties.AutomationId="PairedSourcesTree">
@@ -84,7 +85,7 @@
                             </StackPanel>
                         </Grid>
                     </GroupBox>
-                    <GroupBox Grid.Column="1" Header="Backup targets" Padding="10">
+                    <GroupBox Grid.Row="0" Grid.Column="1" Header="Backup targets" Padding="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="MappingsGrid">
@@ -108,6 +109,21 @@
                             </Grid>
                         </Grid>
                     </GroupBox>
+                    <GroupBox Grid.Row="1" Grid.ColumnSpan="2" Header="Trigger devices" Margin="0,10,0,0" Padding="10">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8">
+                                Choose which registered devices, when connected, mean the selected Backup Set's own data has arrived - so an external source device does not need a backup target mapping of its own. Leave none selected to keep the previous automatic behavior (any device whose root contains a source path).
+                            </TextBlock>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <ListBox Grid.Column="0" x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayName" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox"/>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
+                                    <CheckBox x:Name="RequireAllTriggerDevicesCheckBox" Content="Require all selected devices at once" Checked="OnTriggerDevicesSelectionChanged" Unchecked="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="RequireAllTriggerDevicesCheckBox" ToolTip="Only meaningful with more than one selected device: wait until every one of them is available before backing up, instead of starting as soon as any one arrives."/>
+                                    <TextBlock Text="{Binding SelectedBackupSet.TriggerSummary}" Margin="0,10,0,0" Foreground="#607086" TextWrapping="Wrap" MaxWidth="220" AutomationProperties.AutomationId="TriggerSummaryText"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
                 </Grid>
             </TabItem>
 
@@ -119,6 +135,7 @@
                             <DataGridTextColumn Header="Device" Binding="{Binding DisplayName}" Width="2*"/>
                             <DataGridTextColumn Header="Volume" Binding="{Binding VolumeLabel}" Width="*"/>
                             <DataGridTextColumn Header="Current location" Binding="{Binding CurrentRoot}" Width="*"/>
+                            <DataGridTextColumn Header="Role" Binding="{Binding RoleDisplay}" Width="*" ToolTipService.ToolTip="A device is only a Source trigger when a Backup Set explicitly names it as one."/>
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*"/>
                             <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="*"/>
                         </DataGrid.Columns>

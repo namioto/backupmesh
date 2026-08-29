@@ -120,6 +120,73 @@ public sealed class StoragePresenceStoreTests
         Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]));
     }
 
+    [Fact]
+    public void AnExplicitTriggerDeviceFiresRegardlessOfPathContainment()
+    {
+        // The explicit trigger device does not even need a source path under its root - it is a
+        // user-declared relationship, not an inference from where files happen to live.
+        var sourceDeviceId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(sourceDeviceId, Path.Combine(Path.GetTempPath(), "camera-card")), Device(targetId, Path.Combine(Path.GetTempPath(), "target"))],
+            [new(setId, Guid.NewGuid(), "This PC", "Camera", ["/completely/unrelated/path"], [sourceDeviceId])],
+            [mapping]);
+        var presence = new[] { Presence(sourceDeviceId, Path.Combine(Path.GetTempPath(), "camera-card"), true), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+
+        var drafts = StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]);
+
+        Assert.Single(drafts);
+        Assert.Equal("source-arrival", drafts[0].Reason);
+    }
+
+    [Fact]
+    public void AnExplicitTriggerDeviceDoesNotFireForAnUnrelatedDeviceArrival()
+    {
+        var triggerDeviceId = Guid.NewGuid();
+        var otherDeviceId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var otherRoot = Path.Combine(Path.GetTempPath(), "other-drive");
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(triggerDeviceId, Path.Combine(Path.GetTempPath(), "camera-card")), Device(otherDeviceId, otherRoot), Device(targetId, Path.Combine(Path.GetTempPath(), "target"))],
+            // The unrelated device's own root is deliberately used as the (otherwise-matching) source
+            // path, so the only thing preventing a false-positive source-arrival is the explicit trigger.
+            [new(setId, Guid.NewGuid(), "This PC", "Camera", [otherRoot], [triggerDeviceId])],
+            [mapping]);
+        var presence = new[] { Presence(triggerDeviceId, Path.Combine(Path.GetTempPath(), "camera-card"), false), Presence(otherDeviceId, otherRoot, true), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+
+        Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[1]));
+    }
+
+    [Fact]
+    public void AllAvailablePolicyWaitsForEveryTriggerDeviceBeforeFiring()
+    {
+        var firstTriggerId = Guid.NewGuid();
+        var secondTriggerId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var firstRoot = Path.Combine(Path.GetTempPath(), "volume-a");
+        var secondRoot = Path.Combine(Path.GetTempPath(), "volume-b");
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(firstTriggerId, firstRoot), Device(secondTriggerId, secondRoot), Device(targetId, Path.Combine(Path.GetTempPath(), "target"))],
+            [new(setId, Guid.NewGuid(), "This PC", "Split media", [firstRoot, secondRoot], [firstTriggerId, secondTriggerId], BackupSetTriggerPolicy.AllAvailable)],
+            [mapping]);
+
+        // Only the first volume is ready so far - must not fire yet.
+        var onlyFirstReady = new[] { Presence(firstTriggerId, firstRoot, true), Presence(secondTriggerId, null, false), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+        Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, onlyFirstReady, onlyFirstReady[0]));
+
+        // The second volume now arrives too - both trigger devices are ready, so it must fire.
+        var bothReady = new[] { Presence(firstTriggerId, firstRoot, true), Presence(secondTriggerId, secondRoot, true), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+        var drafts = StorageMonitorService.BuildArrivalDrafts(topology, bothReady, bothReady[1]);
+        Assert.Single(drafts);
+        Assert.Equal("source-arrival", drafts[0].Reason);
+    }
+
     private static RegisteredDevice Device(Guid id, string root) =>
         new(id, FolderStorageIdentity.Create(root), root, "Folder", root, DateTimeOffset.UtcNow, null, 0);
 

@@ -343,8 +343,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var set in catalog.BackupSets)
             {
-                var model = new SourceBackupSet(set.BackupSetId, catalog.SourceAgentId, catalog.SourceAgentName, set.Name, set.SourcePaths);
                 var existing = BackupSets.FirstOrDefault(item => item.Id == set.BackupSetId);
+                // Trigger devices/policy are Storage-side configuration, not something a Source reports -
+                // carry them over from what is already known instead of letting a routine catalog
+                // refresh silently erase them.
+                var model = new SourceBackupSet(set.BackupSetId, catalog.SourceAgentId, catalog.SourceAgentName, set.Name, set.SourcePaths,
+                    existing?.Model.TriggerDeviceIds ?? [], existing?.Model.TriggerPolicy ?? BackupSetTriggerPolicy.AnyAvailable);
                 if (existing is null) BackupSets.Add(new(model));
                 else existing.Update(model);
             }
@@ -357,7 +361,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Sources.Add(source);
         }
         SelectedBackupSet ??= BackupSets.FirstOrDefault(set => set.IsAvailable);
+        RefreshDeviceTriggerRoles();
         NotifyCounts();
+    }
+
+    private void RefreshDeviceTriggerRoles()
+    {
+        var triggerDeviceIds = BackupSets.SelectMany(set => set.Model.TriggerDeviceIds).ToHashSet();
+        var targetDeviceIds = Mappings.Where(mapping => mapping.Enabled).Select(mapping => mapping.Device.Id).ToHashSet();
+        foreach (var device in Devices)
+        {
+            device.IsSourceTrigger = triggerDeviceIds.Contains(device.Id);
+            device.IsUsedAsTarget = targetDeviceIds.Contains(device.Id);
+        }
+    }
+
+    public void UpdateBackupSetTriggers(BackupSetViewModel set, IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
+    {
+        set.UpdateTriggers(triggerDeviceIds, policy);
+        RefreshDeviceTriggerRoles();
+        FooterStatus = "Trigger devices updated. Save settings to persist this change.";
     }
 
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
@@ -523,6 +546,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedBackupSet = BackupSets.FirstOrDefault();
         SelectedDevice = Devices.FirstOrDefault();
         RefreshDrives();
+        RefreshDeviceTriggerRoles();
         NotifyCounts();
     }
 
@@ -545,6 +569,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var errors = BackupTopologyValidator.Validate(topology);
         if (errors.Count > 0) { FooterStatus = errors[0]; return; }
         Mappings.Add(new(candidate, SelectedBackupSet, SelectedDevice));
+        RefreshDeviceTriggerRoles();
         NotifyCounts();
         FooterStatus = "Mapping added. Save settings to persist it.";
     }
@@ -600,6 +625,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (SelectedMapping is null) return;
         Mappings.Remove(SelectedMapping);
         SelectedMapping = null;
+        RefreshDeviceTriggerRoles();
         NotifyCounts();
         FooterStatus = "Mapping removed. Save settings to persist it.";
     }
@@ -784,6 +810,19 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(DisplayName));
     }
 
+    // Unlike Update(), does not touch IsAvailable: this is a local Storage-side configuration edit, not
+    // news that the Source just reported this Backup Set.
+    public void UpdateTriggers(IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
+    {
+        _model = _model with { TriggerDeviceIds = triggerDeviceIds, TriggerPolicy = policy };
+        OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(TriggerSummary));
+    }
+
+    public string TriggerSummary => Model.TriggerDeviceIds.Count == 0
+        ? "No explicit trigger (inferred from source path)"
+        : $"Triggered by {Model.TriggerDeviceIds.Count} device(s) — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must be available" : "any available")}";
+
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -794,6 +833,8 @@ public sealed class DeviceViewModel : ObservableObject
     private bool _canEject;
     private string? _currentRoot;
     private DateTimeOffset? _lastSeenAt;
+    private bool _isSourceTrigger;
+    private bool _isUsedAsTarget;
     public DeviceViewModel(RegisteredDevice model) { Id = model.Id; StableId = model.StableId; DisplayName = model.DisplayName; VolumeLabel = model.VolumeLabel; LastKnownRoot = model.LastKnownRoot; RegisteredAt = model.RegisteredAt; _lastSeenAt = model.LastSeenAt; ArrivalDelayMinutes = model.ArrivalDelayMinutes; }
     public Guid Id { get; }
     public string StableId { get; }
@@ -808,6 +849,17 @@ public sealed class DeviceViewModel : ObservableObject
     public string Status => IsConnected ? "Connected" : "Offline";
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
     public int ArrivalDelayMinutes { get; set; }
+    // Explicitly set only when a Backup Set names this device as its trigger, or a mapping targets it -
+    // never inferred, per the same "don't let the UI guess" principle as the arrival logic itself.
+    public bool IsSourceTrigger { get => _isSourceTrigger; set { if (Set(ref _isSourceTrigger, value)) OnPropertyChanged(nameof(RoleDisplay)); } }
+    public bool IsUsedAsTarget { get => _isUsedAsTarget; set { if (Set(ref _isUsedAsTarget, value)) OnPropertyChanged(nameof(RoleDisplay)); } }
+    public string RoleDisplay => (IsUsedAsTarget, IsSourceTrigger) switch
+    {
+        (true, true) => "Target + Source trigger",
+        (false, true) => "Source trigger",
+        (true, false) => "Target",
+        (false, false) => "Unassigned"
+    };
     public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt, ArrivalDelayMinutes);
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.

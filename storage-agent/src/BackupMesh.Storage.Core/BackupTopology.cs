@@ -10,12 +10,30 @@ public sealed record RegisteredDevice(
     DateTimeOffset? LastSeenAt,
     int ArrivalDelayMinutes = 30);
 
+// AnyAvailable (the default, and the only behavior possible before trigger devices existed) fires a
+// source arrival as soon as one trigger device is ready. AllAvailable only applies when a Backup Set's
+// source paths span more than one volume and a backup should wait until every one of them is
+// simultaneously present, rather than running against whichever volumes happened to arrive first.
+public enum BackupSetTriggerPolicy { AnyAvailable, AllAvailable }
+
 public sealed record SourceBackupSet(
     Guid Id,
     Guid SourceAgentId,
     string SourceAgentName,
     string Name,
-    IReadOnlyList<string> SourcePaths);
+    IReadOnlyList<string> SourcePaths,
+    // Explicit "this Backup Set is triggered when this device arrives" relationships, replacing
+    // guesswork based on whether a source path happens to fall under whatever device just connected.
+    // Empty (the default) preserves the original path-containment inference for Backup Sets that were
+    // configured before trigger devices existed.
+    IReadOnlyList<Guid> TriggerDeviceIds = null!,
+    BackupSetTriggerPolicy TriggerPolicy = BackupSetTriggerPolicy.AnyAvailable)
+{
+    // Normalizes both the default value and an explicit null from deserializing JSON saved before this
+    // field existed, since System.Text.Json passes the declared default only when the property is
+    // entirely absent, not when it round-trips as an explicit null.
+    public IReadOnlyList<Guid> TriggerDeviceIds { get; init; } = TriggerDeviceIds ?? [];
+}
 
 public sealed record BackupTargetMapping(
     Guid Id,
@@ -68,6 +86,8 @@ public static class BackupTopologyValidator
         {
             if (backupSet.Id == Guid.Empty || backupSet.SourceAgentId == Guid.Empty || string.IsNullOrWhiteSpace(backupSet.Name))
                 errors.Add("Backup Sets must have valid IDs, a Source Agent ID, and a name.");
+            foreach (var triggerDeviceId in backupSet.TriggerDeviceIds)
+                if (!deviceIds.Contains(triggerDeviceId)) errors.Add($"Backup Set {backupSet.Id} references an unknown trigger device.");
         }
 
         foreach (var mapping in configuration.Mappings)

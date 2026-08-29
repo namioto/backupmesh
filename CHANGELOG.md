@@ -21,6 +21,7 @@ All notable changes to BackupMesh are documented in this file.
 - The Source Agent renews its own mTLS client certificate about 30 days before it expires, authenticated with its current certificate and token - no one-time code, tray interaction, or unbounded key reuse required. Checked at the start of every `backup` run and once a day while `watch` is running.
 - The tray's Connections list shows each Source's certificate expiry, and lets you **Rename** its display name (cosmetic only - the Source keeps reporting its own name) or **Forget** it (revokes it and removes it from the list; its Backup Set mappings are kept but stop being reported until it is re-paired, rather than being deleted).
 - A **Rotate Storage identity** action (Settings tab) regenerates the Storage pairing CA and server certificate for recovery from a suspected key compromise. It only takes effect after a service restart, after which every paired Source must be re-paired - existing agent_id, catalog, and revocation state are preserved.
+- Backup Sets can now name explicit **trigger devices** and an availability policy (any one, or all at once) instead of Storage silently inferring a source arrival from path containment. The Devices tab shows each device's role (Target / Source trigger / both / unassigned) so this is never left for the user to guess, and a device used only as a trigger no longer needs a backup target mapping of its own. Backup Sets without an explicit trigger keep the previous inferred behavior unchanged.
 
 ## [0.1.1] - 2026-08-30
 
