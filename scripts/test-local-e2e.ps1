@@ -52,10 +52,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not build the Windows Source Agent.' }
 
     $env:Pairing__CredentialHashPath = Join-Path $workRoot 'credentials.sha256'
+    $env:Pairing__RevokedAgentsPath = Join-Path $workRoot 'revoked-agents.txt'
     $env:PairingCertificate__ProtectedAuthorityPath = Join-Path $workRoot 'authority.dpapi'
     $env:StorageConfiguration__PersistencePath = Join-Path $workRoot 'storage.json'
     $env:SourceCatalog__PersistencePath = Join-Path $workRoot 'catalog.json'
     $env:BackupJob__PersistencePath = Join-Path $workRoot 'jobs.json'
+    # Every persistence path must be isolated to $workRoot: a real BackupMesh install locks
+    # %ProgramData%\BackupMesh (the default path these fall back to) down to Administrators/SYSTEM,
+    # so a stray default here fails with UnauthorizedAccessException instead of just using stale data.
+    $env:AutomationSettings__PersistencePath = Join-Path $workRoot 'automation-settings.json'
+    $env:BackupCommand__PersistencePath = Join-Path $workRoot 'backup-commands.json'
     $env:RepositoryServer__ExecutablePath = $restServerExe
     $env:RepositoryServer__CredentialDirectory = Join-Path $workRoot 'repository-credentials'
     $serviceOutput = Join-Path $workRoot 'service.stdout.log'
