@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -17,14 +18,18 @@ public sealed class PairingHttpEndpointTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"backupmesh-pairing-http-{Guid.NewGuid():N}");
     private readonly ManualTimeProvider _clock = new(DateTimeOffset.UtcNow);
     private readonly PairingSessionStore _sessions;
+    private readonly PairingCredentialStore _credentials = new();
+    private readonly RevokedSourceStore _revocations = new();
+    private readonly SourceCatalogStore _catalogs = new(new() { PersistencePath = string.Empty });
+    private readonly PairingCertificateAuthority _certificateAuthority;
     private readonly IHost _host;
     private readonly TestServer _server;
 
     public PairingHttpEndpointTests()
     {
         _sessions = new PairingSessionStore(_clock);
-        var certificateAuthority = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = Path.Combine(_directory, "authority.dpapi") });
-        using var serverCertificate = certificateAuthority.IssueServerCertificate(["test-storage"]);
+        _certificateAuthority = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = Path.Combine(_directory, "authority.dpapi") });
+        using var serverCertificate = _certificateAuthority.IssueServerCertificate(["test-storage"]);
         var mutualTls = new MutualTlsOptions { ServerNames = ["test-storage"], Port = 7443, ServerTrustPem = serverCertificate.ExportCertificatePem() };
 
         _host = new HostBuilder().ConfigureWebHost(web => web
@@ -40,8 +45,9 @@ public sealed class PairingHttpEndpointTests : IDisposable
                 services.AddSingleton(mutualTls);
                 services.AddSingleton(_sessions);
                 services.AddSingleton(new PairingAttemptThrottle(_clock));
-                services.AddSingleton(new PairingCredentialStore());
-                services.AddSingleton(certificateAuthority);
+                services.AddSingleton(_credentials);
+                services.AddSingleton(_revocations);
+                services.AddSingleton(_certificateAuthority);
                 services.AddSingleton<ControlApiAuthenticationFilter>();
                 services.AddSingleton(new ControlApiOptions());
                 services.AddSingleton(new StorageStateMachine());
@@ -50,7 +56,7 @@ public sealed class PairingHttpEndpointTests : IDisposable
                 services.AddSingleton(new BackupCommandQueue(new() { PersistencePath = string.Empty }));
                 services.AddSingleton(new BackupCommandOptions());
                 services.AddSingleton(new AutomationSettingsStore(new() { PersistencePath = string.Empty }));
-                services.AddSingleton(new SourceCatalogStore(new() { PersistencePath = string.Empty }));
+                services.AddSingleton(_catalogs);
                 services.AddSingleton(new StorageConfigurationStore(new() { PersistencePath = string.Empty }));
                 services.AddSingleton<IStorageVolumeInventory>(new StubVolumeInventory());
                 services.AddSingleton<IStorageDeviceEjector>(new StubDeviceEjector());
@@ -181,6 +187,105 @@ public sealed class PairingHttpEndpointTests : IDisposable
         });
         Assert.Equal(401, context.Response.StatusCode);
     }
+
+    [Fact]
+    public async Task RevokedSourceCannotReachTheGeneralControlApiEvenWithAValidCertificateAndToken()
+    {
+        var (agentId, certificate, token) = IssuePairedIdentity();
+        using var _ = certificate;
+        _revocations.Revoke(agentId);
+
+        var context = await SendAsPairedAgentAsync(agentId, certificate, token);
+
+        Assert.Equal(403, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UnrevokingASourceRestoresGeneralControlApiAccess()
+    {
+        var (agentId, certificate, token) = IssuePairedIdentity();
+        using var _ = certificate;
+        _revocations.Revoke(agentId);
+        _revocations.Unrevoke(agentId);
+
+        var context = await SendAsPairedAgentAsync(agentId, certificate, token);
+
+        Assert.Equal(200, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonRevokedSourceReachesTheGeneralControlApiNormally()
+    {
+        var (agentId, certificate, token) = IssuePairedIdentity();
+        using var _ = certificate;
+
+        var context = await SendAsPairedAgentAsync(agentId, certificate, token);
+
+        Assert.Equal(200, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListSourcesIsRejectedFromNonLoopbackCallers()
+    {
+        // Rejected either by ControlApiAuthenticationFilter (no agent identity header: 401) or by this
+        // endpoint's own loopback check if it gets that far (403); either way it must not succeed.
+        var context = await PostOrGetAsync("GET", "/api/v1/sources", IPAddress.Parse("203.0.113.10"));
+        Assert.True(context.Response.StatusCode is 401 or 403);
+    }
+
+    [Fact]
+    public async Task ListSourcesFromLoopbackReportsRevocationStatus()
+    {
+        var agentId = Guid.NewGuid();
+        _catalogs.Upsert(new SourceCatalog(agentId, "source-1", DateTimeOffset.UtcNow, []));
+        _revocations.Revoke(agentId);
+
+        var context = await PostOrGetAsync("GET", "/api/v1/sources", IPAddress.Loopback);
+        var payload = await ReadJsonAsync(context);
+
+        Assert.Equal(200, context.Response.StatusCode);
+        var entry = payload.EnumerateArray().Single(item => item.GetProperty("agent_id").GetGuid() == agentId);
+        Assert.True(entry.GetProperty("revoked").GetBoolean());
+    }
+
+    [Fact]
+    public async Task RevokeAndUnrevokeEndpointsAreLoopbackOnly()
+    {
+        var agentId = Guid.NewGuid();
+        var revoke = await PostOrGetAsync("POST", $"/api/v1/sources/{agentId}/revoke", IPAddress.Parse("203.0.113.10"));
+        Assert.True(revoke.Response.StatusCode is 401 or 403);
+        Assert.False(_revocations.IsRevoked(agentId));
+
+        var revokeFromLoopback = await PostOrGetAsync("POST", $"/api/v1/sources/{agentId}/revoke", IPAddress.Loopback);
+        Assert.Equal(200, revokeFromLoopback.Response.StatusCode);
+        Assert.True(_revocations.IsRevoked(agentId));
+    }
+
+    private (Guid AgentId, X509Certificate2 Certificate, string Token) IssuePairedIdentity()
+    {
+        var agentId = Guid.NewGuid();
+        var bundle = _certificateAuthority.Issue(agentId);
+        var certificate = X509Certificate2.CreateFromPem(bundle.CertificatePem);
+        var token = _credentials.Issue(agentId);
+        return (agentId, certificate, token);
+    }
+
+    private async Task<HttpContext> SendAsPairedAgentAsync(Guid agentId, X509Certificate2 certificate, string token) => await _server.SendAsync(ctx =>
+    {
+        ctx.Request.Method = HttpMethods.Get;
+        ctx.Request.Path = "/api/v1/storage/status";
+        ctx.Request.Headers["X-BackupMesh-Agent-ID"] = agentId.ToString();
+        ctx.Request.Headers.Authorization = $"Bearer {token}";
+        ctx.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        ctx.Connection.ClientCertificate = certificate;
+    });
+
+    private async Task<HttpContext> PostOrGetAsync(string method, string path, IPAddress remoteAddress) => await _server.SendAsync(ctx =>
+    {
+        ctx.Request.Method = method;
+        ctx.Request.Path = path;
+        ctx.Connection.RemoteIpAddress = remoteAddress;
+    });
 
     private Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName) => ExchangeAsync(code, agentId, agentName, IPAddress.Parse("203.0.113.10"));
 

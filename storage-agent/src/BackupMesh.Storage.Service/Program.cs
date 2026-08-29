@@ -73,6 +73,7 @@ builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<BackupCommandQueue>();
 builder.Services.AddSingleton<AutomationSettingsStore>();
 builder.Services.AddSingleton<PairingCredentialStore>();
+builder.Services.AddSingleton<RevokedSourceStore>();
 builder.Services.AddSingleton<PairingSessionStore>();
 builder.Services.AddSingleton<PairingAttemptThrottle>();
 builder.Services.AddSingleton(pairingCertificateAuthority);

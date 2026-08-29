@@ -54,11 +54,27 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
                     <GroupBox Header="Paired Source Agents" Padding="10" Margin="0,0,10,0">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="1.2*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <TreeView ItemsSource="{Binding Sources}" SelectedItemChanged="OnSourceSelectionChanged" AutomationProperties.AutomationId="PairedSourcesTree">
                                 <TreeView.ItemTemplate><HierarchicalDataTemplate ItemsSource="{Binding BackupSets}"><TextBlock Text="{Binding DisplayName}"/></HierarchicalDataTemplate></TreeView.ItemTemplate>
                             </TreeView>
-                            <StackPanel Grid.Row="1" Margin="4,12,4,4">
+                            <GroupBox Grid.Row="1" Header="Connections" Margin="0,10,0,0" Padding="6">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <DataGrid ItemsSource="{Binding SourceConnections}" SelectedItem="{Binding SelectedSourceConnection}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Source" Binding="{Binding AgentName}" Width="2*"/>
+                                            <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="2*"/>
+                                            <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                                        <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
+                                        <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+                            <StackPanel Grid.Row="2" Margin="4,12,4,4">
                                 <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
                                 <TextBlock Text="Backup sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
                             </StackPanel>

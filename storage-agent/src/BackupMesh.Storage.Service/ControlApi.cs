@@ -10,7 +10,7 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
-public sealed class PairingOptions { public string? CredentialHashPath { get; set; } }
+public sealed class PairingOptions { public string? CredentialHashPath { get; set; } public string? RevokedAgentsPath { get; set; } }
 public sealed class MutualTlsOptions { public bool Enabled { get; set; } = true; public int Port { get; set; } = 7443; public string[] ServerNames { get; set; } = []; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; public string ServerTrustPem { get; set; } = string.Empty; }
 public static class MutualTlsCertificateValidator
 {
@@ -224,7 +224,7 @@ public sealed class PairingCredentialStore
     private sealed class CredentialEntry(byte[] hash, Guid? agentId) { public byte[] Hash { get; } = hash; public Guid? AgentId { get; set; } = agentId; }
 }
 
-public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials) : IEndpointFilter
+public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials, RevokedSourceStore revocations) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -232,6 +232,8 @@ public sealed class ControlApiAuthenticationFilter(PairingCredentialStore creden
             return await next(context);
         if (!Guid.TryParse(context.HttpContext.Request.Headers["X-BackupMesh-Agent-ID"], out var agentId))
             return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid Source Agent identity header is required.");
+        if (revocations.IsRevoked(agentId))
+            return Results.Problem(statusCode: 403, title: "REVOKED", detail: "This Source Agent's access has been revoked.");
         if (context.HttpContext.Connection.ClientCertificate is { } certificate)
         {
             if (!Guid.TryParse(certificate.GetNameInfo(X509NameType.SimpleName, false), out var certificateAgentId) || certificateAgentId != agentId)
@@ -465,6 +467,27 @@ public static class ControlApi
             return Results.NoContent();
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/source/catalogs", (SourceCatalogStore catalogs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(catalogs.List()); });
+        api.MapGet("/sources", (HttpContext http, SourceCatalogStore catalogs, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            var revoked = revocations.List();
+            return Results.Ok(catalogs.List().Select(catalog => new { agent_id = catalog.SourceAgentId, agent_name = catalog.SourceAgentName, last_seen_at = catalog.UpdatedAt, backup_set_count = catalog.BackupSets.Length, revoked = revoked.Contains(catalog.SourceAgentId) }));
+        });
+        api.MapPost("/sources/{agent_id:guid}/revoke", (Guid agent_id, HttpContext http, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            revocations.Revoke(agent_id);
+            return Results.Ok(new { agent_id, revoked = true });
+        });
+        api.MapPost("/sources/{agent_id:guid}/unrevoke", (Guid agent_id, HttpContext http, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            revocations.Unrevoke(agent_id);
+            return Results.Ok(new { agent_id, revoked = false });
+        });
         api.MapGet("/storage/configuration", (StorageConfigurationStore configuration, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();

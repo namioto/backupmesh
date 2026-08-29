@@ -60,4 +60,17 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     {
         Assert.NotNull(Find("MappingsGrid").AsDataGridView());
     }
+
+    [Fact]
+    public void SourceConnectionsGrid_IsReachableByAutomationId()
+    {
+        Assert.NotNull(Find("SourceConnectionsGrid").AsDataGridView());
+    }
+
+    [Fact]
+    public void RevokeAndRestoreAccessButtons_ArePresent()
+    {
+        Assert.NotNull(Find("RevokeSourceButton").AsButton());
+        Assert.NotNull(Find("UnrevokeSourceButton").AsButton());
+    }
 }

@@ -483,6 +483,78 @@ paths:
                   $ref: '#/components/schemas/SourceCatalog'
         default:
           $ref: '#/components/responses/Error'
+  /sources:
+    get:
+      tags: [Source]
+      operationId: listSourceConnections
+      summary: List paired Source Agents and their revocation status
+      description: Available only over the loopback endpoint to the local tray app.
+      security: []
+      responses:
+        '200':
+          description: Known Source Agent connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [agent_id, agent_name, last_seen_at, backup_set_count, revoked]
+                  properties:
+                    agent_id: {type: string, format: uuid}
+                    agent_name: {type: string}
+                    last_seen_at: {type: string, format: date-time}
+                    backup_set_count: {type: integer, minimum: 0}
+                    revoked: {type: boolean}
+        '403': {$ref: '#/components/responses/Error'}
+  /sources/{agent_id}/revoke:
+    post:
+      tags: [Source]
+      operationId: revokeSource
+      summary: Immediately block a Source Agent from the control API
+      description: Available only over the loopback endpoint to the local tray app. Takes effect on the Source Agent's next request even with a valid certificate and bearer token.
+      security: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Revocation recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_id, revoked]
+                properties:
+                  agent_id: {type: string, format: uuid}
+                  revoked: {type: boolean}
+        '403': {$ref: '#/components/responses/Error'}
+  /sources/{agent_id}/unrevoke:
+    post:
+      tags: [Source]
+      operationId: unrevokeSource
+      summary: Restore a previously revoked Source Agent's control API access
+      description: Available only over the loopback endpoint to the local tray app.
+      security: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Revocation cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_id, revoked]
+                properties:
+                  agent_id: {type: string, format: uuid}
+                  revoked: {type: boolean}
+        '403': {$ref: '#/components/responses/Error'}
   /storage/configuration:
     get:
       tags: [Storage]
