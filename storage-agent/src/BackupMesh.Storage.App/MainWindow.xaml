@@ -59,7 +59,7 @@
                                 <TreeView.ItemTemplate><HierarchicalDataTemplate ItemsSource="{Binding BackupSets}"><TextBlock Text="{Binding DisplayName}"/></HierarchicalDataTemplate></TreeView.ItemTemplate>
                             </TreeView>
                             <StackPanel Grid.Row="1" Margin="4,12,4,4">
-                                <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint."/>
+                                <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
                                 <TextBlock Text="Backup sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
                             </StackPanel>
                         </Grid>
