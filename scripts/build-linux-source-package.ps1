@@ -33,6 +33,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source-w
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.service') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'packaging\linux\backupmesh-source@.timer') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $outputRoot -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'VERSION') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'licenses\restic-BSD-2-Clause.txt') -Destination $outputRoot -Force
 $requiredPackageFiles = @(
@@ -44,6 +45,7 @@ $requiredPackageFiles = @(
     'backupmesh-source@.service'
     'backupmesh-source@.timer'
     'LICENSE'
+    'THIRD_PARTY_NOTICES.md'
     'VERSION'
     'restic-BSD-2-Clause.txt'
 )
