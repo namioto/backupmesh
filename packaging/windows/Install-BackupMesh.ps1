@@ -47,9 +47,13 @@ if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
         throw 'The existing BackupMesh service is still pending deletion. Restart Windows and run setup again.'
     }
 }
-& sc.exe create $serviceName "binPath= $binaryPath" 'start= auto' 'DisplayName= BackupMesh Storage Agent' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Could not create the BackupMesh service.' }
-& sc.exe description $serviceName 'Coordinates storage devices and BackupMesh repositories.' | Out-Null
+# sc.exe create's "binPath= <value>" argument is a single token containing embedded quotes (the exe
+# path and each --option="..." value), and PowerShell's native-command argument marshaling mangles
+# that quoting badly enough that sc.exe rejects the whole command line (exit 1639,
+# ERROR_INVALID_COMMAND_LINE) instead of creating the service. New-Service calls the Win32 service
+# API directly with -BinaryPathName, so the string is stored in the registry ImagePath value
+# unparsed, with no command-line re-quoting step to go wrong.
+New-Service -Name $serviceName -BinaryPathName $binaryPath -DisplayName 'BackupMesh Storage Agent' -StartupType Automatic -Description 'Coordinates storage devices and BackupMesh repositories.' | Out-Null
 & sc.exe failure $serviceName 'reset= 86400' 'actions= restart/5000/restart/15000/restart/60000' | Out-Null
 Start-Service -Name $serviceName
 $startedService = Get-Service -Name $serviceName
