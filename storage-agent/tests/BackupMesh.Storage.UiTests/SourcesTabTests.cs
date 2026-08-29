@@ -94,4 +94,19 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("RequireAllTriggerDevicesCheckBox").AsCheckBox());
         Assert.NotNull(Find("TriggerSummaryText"));
     }
+
+    [Fact]
+    public void AddAndRemoveLocalBackupSetButtons_ArePresent()
+    {
+        Assert.NotNull(Find("AddLocalBackupSetButton").AsButton());
+        Assert.NotNull(Find("RemoveLocalBackupSetButton").AsButton());
+    }
+
+    /// <summary>"This PC" is always shown as a Source, even with no local Backup Sets configured yet.</summary>
+    [Fact]
+    public void ThisPCIsAlwaysListedInThePairedSourcesTree()
+    {
+        var tree = Find("PairedSourcesTree").AsTree();
+        Assert.Contains(tree.Items, item => item.Text == "This PC");
+    }
 }

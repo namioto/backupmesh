@@ -50,6 +50,12 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
 
+## 3b. 이 PC 자체의 파일 백업하기 (Source Agent 불필요)
+
+**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Sources & mappings** 탭의 Source 목록 맨 위에 항상 표시됩니다. **Add local Backup Set…**을 선택해 폴더를 고르면, 페어링된 Source의 Backup Set과 똑같이 등록된 대상 장치에 매핑할 수 있는 Backup Set으로 나타납니다. 매핑된 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
+
+이 방식으로 폴더 백업을 그만두려면 **Remove local Backup Set**을 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Source Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
+
 ## 4. Linux Source Agent 설치와 설정
 
 `BackupMesh-Source-linux-x64`를 Linux 장비로 복사한 뒤 실행합니다.
@@ -72,11 +78,21 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 대화형 터미널에서 `install.sh`를 실행하면(스크립트로 자동 실행하는 대신) 손으로 편집할 일반 템플릿 대신 Agent 이름과 첫 Backup Set을 직접 물어보고, 완료 후 바로 `pair`를 실행할지도 제안합니다.
 
-## 4b. 같은 PC의 파일 백업하기 (Windows Source Agent)
+## 4b. 다른 PC에 Windows Source Agent 설치하기
 
-Storage Agent를 실행 중인 같은 Windows PC의 로컬 파일을 백업하려면 `BackupMesh-Source-win-x64`를 원하는 위치에 복사하고 **관리자 권한이 아닌** 일반 PowerShell에서 `Install-BackupMeshSource.ps1`을 실행하세요. Storage Agent와 달리 이 설치는 전부 `%LOCALAPPDATA%\BackupMesh\Source` 아래에서 이루어지고 사용자별 예약 작업(Scheduled Task)을 등록합니다 — 자신의 파일을 백업하는 데 관리자 권한이 필요할 이유가 없기 때문입니다. 스크립트가 Agent 이름과 첫 Backup Set 경로를 물어보고 최소한의 `backupmesh.yaml`을 작성해 주며, `backupSets` 항목은 이후 직접 추가할 수 있습니다.
+이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-이렇게 설치한 Windows Source Agent가 감지되면 트레이의 **Pair Source Agent** 대화상자에 "Pair it automatically" 버튼이 나타나 아래 명령과 동등한 작업을 대신 실행해 줍니다. 같은 PC에서는 endpoint/code/fingerprint를 직접 입력할 필요가 없습니다.
+그 PC에서 `BackupMesh-Source-0.1.1-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+
+스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
+
+```powershell
+pwsh -NoProfile -File scripts/build-windows-source-package.ps1
+Set-Location artifacts\BackupMesh-Source-win-x64
+.\Install-BackupMeshSource.ps1
+```
+
+트레이의 **Pair Source Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `

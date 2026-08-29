@@ -82,6 +82,11 @@
                             <StackPanel Grid.Row="2" Margin="4,12,4,4">
                                 <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
                                 <TextBlock Text="Backup sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Add local Backup Set…" Command="{Binding AddLocalBackupSetCommand}" ToolTip="Back up a folder on this PC directly - no Source Agent or pairing needed." AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
+                                    <Button Content="Remove local Backup Set" Command="{Binding RemoveLocalBackupSetCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
+                                </StackPanel>
+                                <TextBlock Text="&quot;This PC&quot; is always available as a Source for local folders." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
                             </StackPanel>
                         </Grid>
                     </GroupBox>

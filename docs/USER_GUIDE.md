@@ -50,6 +50,12 @@ Open BackupMesh from the system tray and go to **Devices**.
 
 Folder devices are useful for evaluation and for storage that is not exposed as a removable USB volume. They also allow multi-target behavior to be tested with ordinary folders.
 
+## 3b. Back up this PC's own files (no Source Agent needed)
+
+**This PC** always appears at the top of the **Sources & mappings** tab's Source list, with no pairing, no separate installer, and no enable step. Choose **Add local Backup Set…**, pick a folder, and it appears as a Backup Set you can map to any registered target device exactly like a paired Source's Backup Set. Storage runs the bundled `restic` directly against the local folder when the mapped target becomes ready - no network hop, no certificates, no repository password to manage.
+
+Use **Remove local Backup Set** to stop backing up a folder this way; its mappings are removed with it. This is unrelated to the standalone Windows Source Agent described below, which is for a *different* PC with no Storage Agent of its own.
+
 ## 4. Install and configure a Linux Source Agent
 
 Copy `BackupMesh-Source-linux-x64` to the Linux machine and run:
@@ -74,7 +80,7 @@ Running `install.sh` from an interactive terminal (rather than a script) prompts
 
 ## 4b. Install a Windows Source Agent on a different PC
 
-Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. It is not needed to back up the Storage Agent's own PC; see the note at the end of this section for that case.
+Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **This PC** in the tray instead (section 3b) — no installer needed at all.
 
 Run `BackupMesh-Source-0.1.1-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
@@ -86,7 +92,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-Then, in the tray's **Pair Source Agent** dialog, a "Pair it automatically" button appears whenever a Windows Source Agent installed this way is detected on the *same* PC as the tray — it runs the equivalent of the `pair` command below for you, so the endpoint, code, and fingerprint never need to be typed by hand:
+Pair it the same way as a Linux Source, using the code, endpoint, and fingerprint the tray's **Pair Source Agent** dialog shows:
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `

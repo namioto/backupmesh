@@ -62,6 +62,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RegisterDeviceCommand { get; }
     public ICommand RegisterFolderCommand { get; }
     public ICommand ForgetDeviceCommand { get; }
+    public ICommand AddLocalBackupSetCommand { get; }
+    public ICommand RemoveLocalBackupSetCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
     public ICommand EjectDeviceCommand { get; }
@@ -91,6 +93,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
         RegisterFolderCommand = new RelayCommand(RegisterFolder);
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
+        AddLocalBackupSetCommand = new RelayCommand(AddLocalBackupSet);
+        RemoveLocalBackupSetCommand = new RelayCommand(RemoveLocalBackupSet);
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
@@ -338,7 +342,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ApplyCatalogs(IReadOnlyList<SourceCatalogDto> catalogs)
     {
-        foreach (var existing in BackupSets) existing.IsAvailable = false;
+        // Local Backup Sets are Storage's own authored data, never reported by any Source's catalog
+        // sync, so they must never be marked "not reported" by this routine refresh.
+        foreach (var existing in BackupSets.Where(set => set.Model.SourceAgentId != LocalSourceIdentity.AgentId)) existing.IsAvailable = false;
         foreach (var catalog in catalogs)
         {
             foreach (var set in catalog.BackupSets)
@@ -354,7 +360,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             }
         }
         Sources.Clear();
-        foreach (var group in BackupSets.GroupBy(set => new { set.Model.SourceAgentId, set.Model.SourceAgentName }).OrderBy(group => group.Key.SourceAgentName, StringComparer.OrdinalIgnoreCase))
+        // "This PC" always appears first, even with no local Backup Sets yet.
+        var localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        foreach (var set in BackupSets.Where(item => item.Model.SourceAgentId == LocalSourceIdentity.AgentId).OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase))
+            localSource.BackupSets.Add(set);
+        Sources.Add(localSource);
+        foreach (var group in BackupSets.Where(item => item.Model.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.Model.SourceAgentId, set.Model.SourceAgentName }).OrderBy(group => group.Key.SourceAgentName, StringComparer.OrdinalIgnoreCase))
         {
             var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
             foreach (var set in group.OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase)) source.BackupSets.Add(set);
@@ -448,6 +459,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void LoadDemoSources()
     {
+        Sources.Add(new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName));
+
         var home = new SourceAgentViewModel(Guid.Parse("c60280da-a03c-4887-a600-577def417af6"), "Home Server");
         AddDemoSet(home, new(Guid.Parse("7d750726-97ab-4f81-9f09-f06c34f524d1"), home.Id, home.DisplayName, "Photos", ["/srv/photos", "/srv/videos"]));
         AddDemoSet(home, new(Guid.Parse("e10a4df5-0f71-438d-93f0-34e587357f00"), home.Id, home.DisplayName, "Documents", ["/home/park/Documents"]));
@@ -526,7 +539,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Sources.Clear();
         Mappings.Clear();
         foreach (var device in topology.Devices) Devices.Add(new(device));
-        foreach (var group in topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
+        // "This PC" always appears first, even with no local Backup Sets yet: local backups need no
+        // Source Agent, pairing, or explicit enable step to be available in the tray.
+        var localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        Sources.Add(localSource);
+        foreach (var model in topology.BackupSets.Where(set => set.SourceAgentId == LocalSourceIdentity.AgentId))
+        {
+            var backupSet = new BackupSetViewModel(model);
+            BackupSets.Add(backupSet);
+            localSource.BackupSets.Add(backupSet);
+        }
+        foreach (var group in topology.BackupSets.Where(set => set.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
         {
             var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
             foreach (var model in group)
@@ -668,6 +691,50 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedDevice = registered;
         AddActivity($"Registered storage folder {root}.");
         FooterStatus = "Storage folder registered. Save settings to persist it.";
+        NotifyCounts();
+    }
+
+    // "This PC" needs no pairing, Source Agent, or enable step: choosing a folder here is the entire
+    // flow, mirroring RegisterFolder()'s own no-separate-name-prompt pattern.
+    private void AddLocalBackupSet()
+    {
+        using var dialog = new Forms.FolderBrowserDialog { Description = "Choose a local folder to back up", ShowNewFolderButton = false };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
+        var path = Path.GetFullPath(dialog.SelectedPath);
+        if (BackupSets.Any(set => set.Model.SourceAgentId == LocalSourceIdentity.AgentId && set.Model.SourcePaths.Contains(path, StringComparer.OrdinalIgnoreCase)))
+        {
+            FooterStatus = "That folder is already a local Backup Set.";
+            return;
+        }
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : path;
+        var backupSet = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, name, [path]));
+        BackupSets.Add(backupSet);
+        var localSource = Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId);
+        if (localSource is null)
+        {
+            localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+            Sources.Insert(0, localSource);
+        }
+        localSource.BackupSets.Add(backupSet);
+        SelectedBackupSet = backupSet;
+        AddActivity($"Added local Backup Set for {path}.");
+        FooterStatus = "Local Backup Set added. Save settings, then map it to a target device.";
+        NotifyCounts();
+    }
+
+    private void RemoveLocalBackupSet()
+    {
+        if (SelectedBackupSet is not { } backupSet || backupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId)
+        {
+            FooterStatus = "Select a local Backup Set first.";
+            return;
+        }
+        foreach (var mapping in Mappings.Where(mapping => mapping.BackupSet.Id == backupSet.Id).ToArray()) Mappings.Remove(mapping);
+        BackupSets.Remove(backupSet);
+        Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId)?.BackupSets.Remove(backupSet);
+        SelectedBackupSet = BackupSets.FirstOrDefault();
+        RefreshDeviceTriggerRoles();
+        FooterStatus = "Local Backup Set removed. Save settings to persist it.";
         NotifyCounts();
     }
 
