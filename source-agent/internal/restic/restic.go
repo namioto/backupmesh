@@ -27,6 +27,8 @@ func (a Adapter) EnsureRepository(ctx context.Context, req engine.BackupRequest)
 	}
 	if err := a.run(ctx, binary, req, "snapshots", "--json"); err == nil {
 		return nil
+	} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
 	}
 	if err := a.run(ctx, binary, req, "init", "--repository-version", "2"); err != nil {
 		// Another target runner may have initialized the repository concurrently.
@@ -43,6 +45,9 @@ func (a Adapter) run(ctx context.Context, binary string, req engine.BackupReques
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 	message := strings.TrimSpace(string(output))
 	if len(message) > 4096 {

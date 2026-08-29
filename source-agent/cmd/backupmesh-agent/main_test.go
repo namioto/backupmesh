@@ -182,3 +182,31 @@ func TestRunSourceCommandRequiresReadyMapping(t *testing.T) {
 		t.Fatalf("error = %v, want not-ready mapping failure", err)
 	}
 }
+
+func TestPollCancellationCancelsRunningBackup(t *testing.T) {
+	requested := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/backup/status/job-1" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		requested <- struct{}{}
+		_, _ = w.Write([]byte(`{"jobId":"job-1","state":"CANCEL_REQUESTED"}`))
+	}))
+	defer srv.Close()
+
+	pollCtx, stop := context.WithCancel(context.Background())
+	defer stop()
+	backupCtx, cancelBackup := context.WithCancel(context.Background())
+	go pollCancellation(pollCtx, controlapi.Client{BaseURL: srv.URL}, "job-1", cancelBackup)
+
+	select {
+	case <-backupCtx.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("backup was not cancelled after Storage requested cancellation")
+	}
+	select {
+	case <-requested:
+	default:
+		t.Fatal("Storage status was not polled")
+	}
+}

@@ -1,13 +1,34 @@
 package restic
 
 import (
+	"context"
+	"errors"
+	"os/exec"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/namioto/backupmesh/source-agent/internal/engine"
 )
+
+func TestEnsureRepositoryPreservesCancellation(t *testing.T) {
+	binary := "sh"
+	if runtime.GOOS == "windows" {
+		binary = "cmd"
+	}
+	path, err := exec.LookPath(binary)
+	if err != nil {
+		t.Skipf("%s is unavailable: %v", binary, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = (Adapter{Binary: path}).EnsureRepository(ctx, engine.BackupRequest{Repository: "rest:http://localhost/repo"})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context cancellation", err)
+	}
+}
 
 func TestBuildBackupArgs(t *testing.T) {
 	req := engine.BackupRequest{Repository: "rest:https://host/repo", Paths: []string{"/home/a", "/srv/b"}, Includes: []string{"*.db"}, Excludes: []string{"cache/**"}, UploadLimitBPS: 1025}
