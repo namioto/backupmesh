@@ -637,6 +637,8 @@ public sealed class SourceAgentViewModel(Guid id, string displayName)
     public Guid Id { get; } = id;
     public string DisplayName { get; } = displayName;
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class BackupSetViewModel : ObservableObject
@@ -655,6 +657,9 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
     }
+
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class DeviceViewModel : ObservableObject
@@ -678,6 +683,9 @@ public sealed class DeviceViewModel : ObservableObject
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
     public int ArrivalDelayMinutes { get; set; }
     public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt, ArrivalDelayMinutes);
+
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device)
@@ -696,6 +704,11 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
 {
     public string DisplayName => $"{HardwareName} — {VolumeLabel} ({Root}), {AvailableBytes / 1_073_741_824d:0.0} GB free";
+
+    // Without this the compiler-generated record ToString() becomes the UI Automation Name, leaking
+    // StableId and volume serials to screen readers. DisplayMemberPath does not affect the UIA Name.
+    public override string ToString() => DisplayName;
+
     public static AvailableDriveViewModel FromDrive(DriveInfo drive)
     {
         var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? "Local disk" : drive.VolumeLabel;
