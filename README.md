@@ -62,7 +62,7 @@ The Linux installer creates `/etc/backupmesh/restic-password` for repository enc
 
 For the normal Windows experience, build `BackupMesh-Storage-0.1.1-win-x64-Setup.exe` with `pwsh -NoProfile -File scripts/build-windows-installer.ps1`, then run the installer. It installs the service, tray app, firewall rules, bundled tools, automatic startup, and uninstaller, and launches BackupMesh when setup finishes. Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 
-The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher**. Verify the SHA-256 checksum from the GitHub release before approving installation.
+The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher** (and Windows SmartScreen may warn before you can run it) — this is expected for an unsigned build, not a sign of tampering. The build script writes a `BackupMesh-Storage-<version>-win-x64-Setup.exe.sha256` file next to the installer; before approving installation, compare it with `Get-FileHash BackupMesh-Storage-<version>-win-x64-Setup.exe -Algorithm SHA256` (or `sha256sum` on the release archive) and only proceed if they match exactly.
 
 From PowerShell in the repository, build a self-contained test package:
 

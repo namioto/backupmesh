@@ -62,7 +62,7 @@ Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/res
 
 일반 Windows 사용자는 `pwsh -NoProfile -File scripts/build-windows-installer.ps1`로 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 만든 뒤 설치 프로그램을 실행하면 됩니다. 서비스, 트레이 앱, 방화벽 규칙, 번들 도구, 자동 시작, 제거 프로그램을 한 번에 설치하고 완료 후 BackupMesh를 실행합니다. 설치 프로그램 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다.
 
-현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시될 수 있습니다. 설치를 승인하기 전에 GitHub 릴리스의 SHA-256 체크섬과 비교하세요.
+현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 서명되지 않은 빌드에서 나타나는 정상적인 현상이며 변조의 증거가 아닙니다. 빌드 스크립트는 설치 프로그램 옆에 `BackupMesh-Storage-<버전>-win-x64-Setup.exe.sha256` 파일을 함께 생성합니다. 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-<버전>-win-x64-Setup.exe -Algorithm SHA256`(또는 릴리스 아카이브의 `sha256sum`) 결과를 이 파일과 정확히 일치하는지 비교하세요.
 
 저장소의 PowerShell에서 self-contained 테스트 패키지를 만듭니다.
 

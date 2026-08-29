@@ -35,4 +35,9 @@ $installer = Join-Path $outputRoot "BackupMesh-Storage-$version-win-x64-Setup.ex
 if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw "Installer was not created: $installer" }
 $versionInfo = (Get-Item -LiteralPath $installer).VersionInfo
 if ($versionInfo.ProductVersion -notlike "$version*") { throw "Installer version '$($versionInfo.ProductVersion)' does not match $version." }
+
+$checksumPath = "$installer.sha256"
+$hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath $checksumPath -Value "$hash *$(Split-Path -Leaf $installer)" -Encoding ascii -NoNewline
 Write-Host "Windows installer: $installer"
+Write-Host "SHA-256 checksum: $checksumPath ($hash)"
