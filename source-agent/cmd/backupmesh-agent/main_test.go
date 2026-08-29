@@ -60,6 +60,110 @@ func TestApplyPairingWritesIdentityAndProtectedFiles(t *testing.T) {
 	}
 }
 
+func TestApplyPairingGeneratesRepositoryPasswordWhenMissing(t *testing.T) {
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "backupmesh.json")
+	bundlePath := filepath.Join(directory, "bundle.json")
+	outputPath := filepath.Join(directory, "secrets")
+	agentID := "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+	// No storage.repositoryPasswordFile: a freshly authored config never sets one, since the user
+	// is not expected to generate or manage a repository password themselves.
+	configuration := `{"agent":{"name":"source"},"backupSets":[{"name":"docs","paths":["/data"]}]}`
+	if err := os.WriteFile(configPath, []byte(configuration), 0600); err != nil {
+		t.Fatal(err)
+	}
+	certPEM, keyPEM := testCertificate(t, agentID)
+	bundle, _ := json.Marshal(pairingBundleFile{AgentID: agentID, ControlEndpoint: "https://storage.example:7443", Credential: strings.Repeat("x", 43), CertificatePEM: certPEM, PrivateKeyPEM: keyPEM, AuthorityPEM: certPEM, ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339), IssuedAt: time.Now().Format(time.RFC3339)})
+	if err := os.WriteFile(bundlePath, bundle, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyPairing(configPath, bundlePath, outputPath); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := filepath.Join(outputPath, "repository-password.protected")
+	if cfg.Storage.RepositoryPasswordFile != wantPath {
+		t.Fatalf("RepositoryPasswordFile = %q, want %q", cfg.Storage.RepositoryPasswordFile, wantPath)
+	}
+	info, err := os.Stat(wantPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
+		t.Fatalf("repository-password.protected permissions = %o", info.Mode().Perm())
+	}
+	resolved, cleanup, err := resolveRepositoryPasswordFile(cfg.Storage.RepositoryPasswordFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	password, err := os.ReadFile(resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(strings.TrimSpace(string(password))) < 32 {
+		t.Fatalf("resolved repository password looks too short: %d bytes", len(password))
+	}
+}
+
+func TestResolveRepositoryPasswordFileFallsBackToPlaintextFiles(t *testing.T) {
+	// A user-authored plaintext password file (the only kind that exists on non-Windows, and still
+	// supported on Windows for migration) must be used unchanged, not treated as a DPAPI failure.
+	path := filepath.Join(t.TempDir(), "restic-password")
+	if err := os.WriteFile(path, []byte("a-user-chosen-password\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	resolved, cleanup, err := resolveRepositoryPasswordFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if resolved != path {
+		t.Fatalf("resolveRepositoryPasswordFile() = %q, want the original plaintext path %q unchanged", resolved, path)
+	}
+}
+
+func TestResolveRepositoryPasswordFileCleansUpTemporaryFile(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Protect() only produces a real DPAPI blob on Windows; elsewhere it is a no-op so there is nothing to decrypt into a temp file")
+	}
+	directory := t.TempDir()
+	path, err := generateRepositoryPassword(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, cleanup, err := resolveRepositoryPasswordFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved == path {
+		t.Fatalf("resolveRepositoryPasswordFile() should decrypt a DPAPI-protected password into a separate temporary file")
+	}
+	if _, err := os.Stat(resolved); err != nil {
+		t.Fatalf("temporary password file does not exist: %v", err)
+	}
+	cleanup()
+	if _, err := os.Stat(resolved); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cleanup() did not remove the temporary password file")
+	}
+}
+
+func TestValidateSucceedsBeforePairing(t *testing.T) {
+	// `validate` must be usable on a freshly authored config, before `pair` has ever run and filled
+	// in storage.controlEndpoint, so a user can catch backup-set mistakes early.
+	configPath := filepath.Join(t.TempDir(), "backupmesh.json")
+	configuration := `{"agent":{"name":"source"},"backupSets":[{"name":"docs","paths":["/data"]}]}`
+	if err := os.WriteFile(configPath, []byte(configuration), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"validate", "-config", configPath}); err != nil {
+		t.Fatalf("run(validate) error = %v, want nil for an unpaired-but-otherwise-valid config", err)
+	}
+}
+
 func testCertificate(t *testing.T, commonName string) (string, string) {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

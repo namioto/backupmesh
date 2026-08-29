@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -63,13 +65,31 @@ func run(args []string) error {
 	if args[0] == "pair" {
 		return pairWithCode(*configPath, *storageEndpoint, *pairingCode, *storageFingerprint, *pairingOutput)
 	}
+	if args[0] == "validate" {
+		// Uses the lenient check so a freshly authored config can be validated before pairing, not just after.
+		cfg, err := config.LoadUserConfig(*configPath)
+		if err != nil {
+			return err
+		}
+		if err := cfg.Validate(); err != nil {
+			fmt.Println("configuration is valid but not yet paired with a Storage Agent:")
+			fmt.Printf("  %v\n", err)
+			return nil
+		}
+		fmt.Println("configuration is valid and paired")
+		return nil
+	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
 	}
-	if args[0] == "validate" {
-		fmt.Println("configuration is valid")
-		return nil
+	if args[0] == "backup" || args[0] == "watch" {
+		resolvedPasswordFile, cleanupPasswordFile, err := resolveRepositoryPasswordFile(cfg.Storage.RepositoryPasswordFile)
+		if err != nil {
+			return fmt.Errorf("resolve repository password: %w", err)
+		}
+		defer cleanupPasswordFile()
+		cfg.Storage.RepositoryPasswordFile = resolvedPasswordFile
 	}
 	authToken, err := loadAuthenticationToken(cfg.Storage.AuthenticationTokenFile)
 	if err != nil {
@@ -252,6 +272,13 @@ func applyPairingBundle(configPath, outputDirectory string, cfg config.Config, b
 	cfg.Storage.TLSCertificateFile = filepath.Join(outputDirectory, "source.crt")
 	cfg.Storage.TLSKeyFile = filepath.Join(outputDirectory, "source.key")
 	cfg.Storage.TLSCAFile = filepath.Join(outputDirectory, "storage-ca.pem")
+	if strings.TrimSpace(cfg.Storage.RepositoryPasswordFile) == "" {
+		passwordPath, err := generateRepositoryPassword(outputDirectory)
+		if err != nil {
+			return fmt.Errorf("generate repository password: %w", err)
+		}
+		cfg.Storage.RepositoryPasswordFile = passwordPath
+	}
 	if err := config.SaveIdentityState(configPath, cfg); err != nil {
 		return err
 	}
@@ -267,6 +294,62 @@ func applyPairingBundle(configPath, outputDirectory string, cfg config.Config, b
 	}
 	fmt.Printf("pairing applied for Source Agent %s\n", bundle.AgentID)
 	return nil
+}
+
+// generateRepositoryPassword creates a random restic repository password so users never type or
+// choose one, and stores it protected (Windows DPAPI, current-user scope; on other platforms the
+// 0600 file mode from writePrivateFile is the only protection, matching a Linux root-only file).
+func generateRepositoryPassword(outputDirectory string) (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generate repository password: %w", err)
+	}
+	plaintext := []byte(base64.RawURLEncoding.EncodeToString(raw))
+	protected, err := config.Protect(plaintext)
+	if err != nil {
+		return "", fmt.Errorf("protect repository password: %w", err)
+	}
+	path := filepath.Join(outputDirectory, "repository-password.protected")
+	if err := writePrivateFile(path, protected); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// resolveRepositoryPasswordFile returns a path restic can read RESTIC_PASSWORD_FILE from. A
+// DPAPI-protected password (from generateRepositoryPassword) is decrypted into a private temporary
+// file that the returned cleanup func removes; a user-authored plaintext password file (the only
+// kind on non-Windows platforms) is used unchanged, so existing manual configurations keep working.
+func resolveRepositoryPasswordFile(path string) (resolvedPath string, cleanup func(), err error) {
+	noop := func() {}
+	raw, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", noop, fmt.Errorf("read repository password file: %w", err)
+	}
+	plaintext, wasProtected := config.TryUnprotect(raw)
+	if !wasProtected {
+		return path, noop, nil
+	}
+	temporary, err := os.CreateTemp("", "backupmesh-repo-password-*")
+	if err != nil {
+		return "", noop, fmt.Errorf("create temporary repository password file: %w", err)
+	}
+	cleanup = func() { _ = os.Remove(temporary.Name()) }
+	if err := temporary.Chmod(0o600); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", noop, fmt.Errorf("protect temporary repository password file: %w", err)
+	}
+	if _, err := temporary.Write(plaintext); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", noop, fmt.Errorf("write temporary repository password file: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		cleanup()
+		return "", noop, fmt.Errorf("close temporary repository password file: %w", err)
+	}
+	return temporary.Name(), cleanup, nil
 }
 
 func writePrivateFile(path string, contents []byte) error {
