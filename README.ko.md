@@ -10,17 +10,7 @@ BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 
 
 예를 들어 평소에는 안전하게 분리해 둔 외장 HDD를 Windows PC에 연결하면 BackupMesh가 저장장치를 확인하고, 등록된 Linux 서버의 데이터를 자동으로 백업합니다. 매번 명령을 실행하거나 네트워크 드라이브를 직접 연결할 필요가 없습니다.
 
-```text
-외장 HDD 연결
-    ↓
-저장장치 식별 및 검증
-    ↓
-등록된 Source와 정책 확인
-    ↓
-자동 백업
-    ↓
-완료 확인 후 안전 제거
-```
+![BackupMesh 흐름: 저장장치를 연결하고 검증한 뒤 Source 정책에 따라 자동 백업하고 안전하게 제거](docs/images/backup-workflow.ko.png)
 
 ## 왜 BackupMesh인가요?
 

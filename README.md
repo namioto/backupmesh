@@ -10,17 +10,7 @@ BackupMesh is a storage-aware backup orchestrator. It detects when trusted stora
 
 For example, keep an external HDD safely disconnected most of the time. When you attach it to a Windows PC, BackupMesh verifies the drive and automatically backs up your Linux server. There is no backup command to remember and no network drive to mount by hand.
 
-```text
-External HDD connected
-    ↓
-Storage identified and verified
-    ↓
-Registered source and policy checked
-    ↓
-Backup started automatically
-    ↓
-Completion confirmed and drive safely ejected
-```
+![BackupMesh workflow: connect storage, verify it, check the Source policy, back up automatically, and safely eject](docs/images/backup-workflow.en.png)
 
 ## Why BackupMesh?
 
