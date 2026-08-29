@@ -68,17 +68,18 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 ## 5. Source 페어링
 
-Windows 트레이 앱에서 **Pair Source Agent**를 선택해 `backupmesh-pairing.json`을 저장하고 Linux 장비로 안전하게 옮깁니다.
+Windows 트레이 앱에서 **Pair Source Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
 
 ```sh
-sudo /opt/backupmesh/backupmesh-agent apply-pairing \
+sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -bundle /path/to/backupmesh-pairing.json \
+  -storage https://STORAGE-PC:7443 \
+  -code TRAY에_표시된_코드 \
+  -fingerprint TRAY에_표시된_64자리_16진수_지문 \
   -output /etc/backupmesh/pairing
-rm -f /path/to/backupmesh-pairing.json
 ```
 
-번들에는 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서, Source ID, Control API 주소가 들어 있습니다. Windows 인증서 설치 창은 필요하지 않으며 다른 Source에서 번들을 재사용하면 안 됩니다.
+Source는 코드를 보내기 전에 표시된 인증서 지문을 고정 검증하고, 이후 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서를 소유자 전용 권한으로 설치합니다. 개인 키가 전송 파일에 기록되지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
 명령 감시 서비스를 시작합니다.
 

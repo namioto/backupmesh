@@ -27,7 +27,6 @@ try {
     $restoreRoot = Join-Path $workRoot 'restore'
     $passwordFile = Join-Path $workRoot 'repository.password'
     $configPath = Join-Path $workRoot 'backupmesh.json'
-    $bundlePath = Join-Path $workRoot 'backupmesh-pairing.json'
     $secretsRoot = Join-Path $workRoot 'pairing'
     if (-not $SourceArrival) {
         New-Item -ItemType Directory -Path $sourceData -Force | Out-Null
@@ -72,9 +71,8 @@ try {
         Invoke-RestMethod -Method Put -Uri 'http://127.0.0.1:7444/api/v1/automation/settings' -ContentType 'application/json' -Body '{"enabled":false}' | Out-Null
     }
 
-    $pairing = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:7444/api/v1/pairing/credential'
-    [IO.File]::WriteAllText($bundlePath, ($pairing | ConvertTo-Json -Depth 10))
-    & $sourceExe apply-pairing -config $configPath -bundle $bundlePath -output $secretsRoot
+    $pairing = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:7444/api/v1/pairing/sessions'
+    & $sourceExe pair -config $configPath -storage $pairing.control_endpoint -code $pairing.code -fingerprint $pairing.certificate_sha256 -output $secretsRoot
     if ($LASTEXITCODE -ne 0) { throw 'Source pairing failed.' }
 
     $driveRoot = [IO.Path]::GetPathRoot($workRoot)
@@ -129,7 +127,7 @@ try {
         expectedRevision = 0
         configuration = @{
             devices = $devices
-            backupSets = @(@{ id = $backupSetId; sourceAgentId = $pairing.agent_id; sourceAgentName = 'Local E2E Source'; name = 'e2e'; sourcePaths = @($sourceData) })
+            backupSets = @(@{ id = $backupSetId; sourceAgentId = $sourceId; sourceAgentName = 'Local E2E Source'; name = 'e2e'; sourcePaths = @($sourceData) })
             mappings = $mappings
         }
     }

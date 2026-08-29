@@ -68,17 +68,18 @@ The installer creates `/etc/backupmesh/restic-password` with owner-only permissi
 
 ## 5. Pair the Source
 
-In the Windows tray app choose **Pair Source Agent**, save `backupmesh-pairing.json`, and transfer it securely to the Linux machine. Then run:
+In the Windows tray app choose **Pair Source Agent**. It displays a Storage address, one-time code, and certificate SHA-256 fingerprint; the code expires after ten minutes and can be used once. On the Source run:
 
 ```sh
-sudo /opt/backupmesh/backupmesh-agent apply-pairing \
+sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -bundle /path/to/backupmesh-pairing.json \
+  -storage https://STORAGE-PC:7443 \
+  -code CODE-FROM-TRAY \
+  -fingerprint 64_HEX_CHARACTERS_FROM_TRAY \
   -output /etc/backupmesh/pairing
-rm -f /path/to/backupmesh-pairing.json
 ```
 
-The bundle installs an identity-bound token, client certificate, private key, pinned Storage certificate, Source ID, and Control API address. It avoids the Windows certificate-installation prompt and must not be reused for another Source.
+The Source verifies the pinned fingerprint before sending the code, then installs an identity-bound token, client certificate, private key, and pinned Storage certificate with owner-only permissions. No private key is placed in a transfer file and no certificate is added to the operating-system trust store.
 
 Start the Source command watcher:
 

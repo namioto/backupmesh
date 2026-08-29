@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -34,7 +37,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <apply-pairing|validate|sync|backup|watch|version>")
+		return fmt.Errorf("usage: backupmesh-agent <pair|apply-pairing|validate|sync|backup|watch|version>")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -46,12 +49,18 @@ func run(args []string) error {
 	resticBinary := fs.String("restic", "restic", "path to bundled restic binary")
 	pairingBundle := fs.String("bundle", "backupmesh-pairing.json", "path to pairing bundle")
 	pairingOutput := fs.String("output", "", "directory for protected pairing files")
+	pairingCode := fs.String("code", "", "one-time pairing code")
+	storageEndpoint := fs.String("storage", "", "Storage HTTPS endpoint shown by the tray app")
+	storageFingerprint := fs.String("fingerprint", "", "Storage certificate SHA-256 shown by the tray app")
 	pollInterval := fs.Duration("poll-interval", 5*time.Second, "Storage command polling interval")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
 	if args[0] == "apply-pairing" {
 		return applyPairing(*configPath, *pairingBundle, *pairingOutput)
+	}
+	if args[0] == "pair" {
+		return pairWithCode(*configPath, *storageEndpoint, *pairingCode, *storageFingerprint, *pairingOutput)
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -158,6 +167,52 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 	if err := decoder.Decode(&bundle); err != nil {
 		return fmt.Errorf("decode pairing bundle: %w", err)
 	}
+	return applyPairingBundle(configPath, outputDirectory, cfg, bundle)
+}
+
+func pairWithCode(configPath, endpoint, code, fingerprint, outputDirectory string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(code) == "" || strings.TrimSpace(endpoint) == "" || len(strings.TrimSpace(fingerprint)) != 64 {
+		return errors.New("storage endpoint, one-time code, and 64-character certificate fingerprint are required")
+	}
+	requestBody, err := json.Marshal(map[string]string{"code": strings.TrimSpace(code), "agent_id": cfg.Agent.ID, "agent_name": cfg.Agent.Name})
+	if err != nil {
+		return fmt.Errorf("encode pairing request: %w", err)
+	}
+	pinned := strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", "")
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true, VerifyConnection: func(state tls.ConnectionState) error {
+		if len(state.PeerCertificates) == 0 {
+			return errors.New("storage did not present a certificate")
+		}
+		actual := fmt.Sprintf("%X", sha256.Sum256(state.PeerCertificates[0].Raw))
+		if !strings.EqualFold(actual, pinned) {
+			return errors.New("storage certificate fingerprint does not match the tray app")
+		}
+		return nil
+	}}
+	client := &http.Client{Transport: transport, Timeout: 15 * time.Second}
+	response, err := client.Post(strings.TrimRight(endpoint, "/")+"/api/v1/pairing/exchange", "application/json", bytes.NewReader(requestBody))
+	if err != nil {
+		return fmt.Errorf("exchange pairing code: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("pairing exchange returned HTTP %d", response.StatusCode)
+	}
+	var bundle pairingBundleFile
+	decoder := json.NewDecoder(response.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&bundle); err != nil {
+		return fmt.Errorf("decode pairing response: %w", err)
+	}
+	return applyPairingBundle(configPath, outputDirectory, cfg, bundle)
+}
+
+func applyPairingBundle(configPath, outputDirectory string, cfg config.Config, bundle pairingBundleFile) error {
 	certBlock, _ := pem.Decode([]byte(bundle.CertificatePEM))
 	caBlock, _ := pem.Decode([]byte(bundle.AuthorityPEM))
 	keyBlock, _ := pem.Decode([]byte(bundle.PrivateKeyPEM))

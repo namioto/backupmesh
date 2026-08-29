@@ -4,7 +4,8 @@ info:
   version: 1.0.0
   description: |
     The language-neutral control-plane contract between a Source Agent and a
-    Storage Agent. All operations require mutually authenticated TLS. A peer
+    Storage Agent. Operational endpoints require mutually authenticated TLS. Pairing
+    bootstrap uses a short-lived one-time code and an explicitly pinned Storage certificate. A peer
     MUST additionally authorize the authenticated certificate identity for the
     requested agent and operation; possession of a trusted certificate alone is
     not authorization.
@@ -20,6 +21,49 @@ tags:
   - name: Backup
   - name: Source
 paths:
+  /pairing/sessions:
+    post:
+      tags: [Source]
+      operationId: createPairingSession
+      summary: Create a ten-minute one-time pairing session
+      description: Available only over the loopback endpoint to the local tray app. The returned certificate fingerprint must be transferred with the code and verified by the Source before exchange.
+      security: []
+      responses:
+        '200':
+          description: One-time pairing details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expires_at, control_endpoint, certificate_sha256]
+                properties:
+                  code: {type: string, minLength: 20, maxLength: 64}
+                  expires_at: {type: string, format: date-time}
+                  control_endpoint: {type: string, format: uri}
+                  certificate_sha256: {type: string, pattern: '^[0-9A-F]{64}$'}
+        '403': {$ref: '#/components/responses/Error'}
+  /pairing/exchange:
+    post:
+      tags: [Source]
+      operationId: exchangePairingCode
+      summary: Exchange a one-time code for Source credentials
+      description: The Source must pin the SHA-256 certificate fingerprint before sending the code. Codes expire after ten minutes and are consumed atomically once.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, agent_id, agent_name]
+              properties:
+                code: {type: string, minLength: 20, maxLength: 64}
+                agent_id: {type: string, format: uuid}
+                agent_name: {type: string, minLength: 1, maxLength: 128}
+      responses:
+        '200': {description: Identity-bound bearer credential and mTLS certificate bundle}
+        '401': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
   /service/shutdown:
     post:
       tags: [Storage]

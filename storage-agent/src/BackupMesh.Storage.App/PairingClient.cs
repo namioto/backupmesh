@@ -5,25 +5,21 @@ using System.Text.Json.Serialization;
 
 namespace BackupMesh.Storage.App;
 
-public sealed record PairingCredentialDto(
-    [property: JsonPropertyName("agent_id")] Guid AgentId,
+public sealed record PairingSessionDto(
+    [property: JsonPropertyName("code")] string Code,
     [property: JsonPropertyName("control_endpoint")] string ControlEndpoint,
-    [property: JsonPropertyName("credential")] string Credential,
-    [property: JsonPropertyName("certificate_pem")] string CertificatePem,
-    [property: JsonPropertyName("private_key_pem")] string PrivateKeyPem,
-    [property: JsonPropertyName("authority_pem")] string AuthorityPem,
-    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
-    [property: JsonPropertyName("issued_at")] DateTimeOffset IssuedAt);
-public interface IPairingClient { Task<PairingCredentialDto> IssueAsync(CancellationToken cancellationToken); }
+    [property: JsonPropertyName("certificate_sha256")] string CertificateSha256,
+    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt);
+public interface IPairingClient { Task<PairingSessionDto> CreateSessionAsync(CancellationToken cancellationToken); }
 public sealed class PairingClient : IPairingClient, IDisposable
 {
     private readonly HttpClient _client;
     public PairingClient(string endpoint = "http://127.0.0.1:7444/api/v1/") => _client = new() { BaseAddress = new(endpoint), Timeout = TimeSpan.FromSeconds(5) };
-    public async Task<PairingCredentialDto> IssueAsync(CancellationToken cancellationToken)
+    public async Task<PairingSessionDto> CreateSessionAsync(CancellationToken cancellationToken)
     {
-        using var response = await _client.PostAsync("pairing/credential", null, cancellationToken);
+        using var response = await _client.PostAsync("pairing/sessions", null, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PairingCredentialDto>(cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
+        return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
     }
     public void Dispose() => _client.Dispose();
 }
