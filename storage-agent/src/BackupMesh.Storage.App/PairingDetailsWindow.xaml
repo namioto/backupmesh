@@ -25,6 +25,12 @@
             <TextBlock TextWrapping="Wrap" Foreground="#7A5B12" Text="Your clipboard can be read by other processes on this PC. Only copy this pairing code when you are ready to paste it into the Source Agent, and avoid pasting it anywhere else."/>
         </Border>
 
+        <StackPanel x:Name="LocalPairPanel" Visibility="Collapsed" Margin="0,0,0,14">
+            <TextBlock Text="A Source Agent installed on this PC was detected." FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <Button x:Name="PairLocalButton" Content="Pair it automatically" Click="OnPairLocalSourceClick" HorizontalAlignment="Left" Padding="10,4" AutomationProperties.AutomationId="PairLocalSourceButton"/>
+            <TextBlock x:Name="LocalPairStatus" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#2E7D32" AutomationProperties.AutomationId="LocalPairStatusText"/>
+        </StackPanel>
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="CopyStatus" Foreground="#2E7D32" VerticalAlignment="Center" Margin="0,0,10,0" AutomationProperties.AutomationId="CopyPairingStatusText"/>
             <Button Content="Copy to clipboard" Click="OnCopyClick" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="CopyPairingCodeButton"/>

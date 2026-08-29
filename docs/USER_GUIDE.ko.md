@@ -12,6 +12,7 @@
 pwsh -NoProfile -File scripts/build-windows-test-package.ps1
 pwsh -NoProfile -File scripts/build-windows-installer.ps1
 pwsh -NoProfile -File scripts/build-linux-source-package.ps1
+pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 ```
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
@@ -19,6 +20,7 @@ pwsh -NoProfile -File scripts/build-linux-source-package.ps1
 - `artifacts\installer\BackupMesh-Storage-0.1.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
+- `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Source Agent)
 
 고정 버전 `restic`과 `rest-server`가 포함되므로 대상 장비에 .NET이나 Go를 별도로 설치할 필요가 없습니다.
 
@@ -67,6 +69,24 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 ```
 
 설치 프로그램은 소유자 전용 권한의 `/etc/backupmesh/restic-password`를 만듭니다. 이 암호를 잃으면 암호화된 snapshot을 복구할 수 없으므로 보호된 복구 사본을 별도로 보관하세요.
+
+대화형 터미널에서 `install.sh`를 실행하면(스크립트로 자동 실행하는 대신) 손으로 편집할 일반 템플릿 대신 Agent 이름과 첫 Backup Set을 직접 물어보고, 완료 후 바로 `pair`를 실행할지도 제안합니다.
+
+## 4b. 같은 PC의 파일 백업하기 (Windows Source Agent)
+
+Storage Agent를 실행 중인 같은 Windows PC의 로컬 파일을 백업하려면 `BackupMesh-Source-win-x64`를 원하는 위치에 복사하고 **관리자 권한이 아닌** 일반 PowerShell에서 `Install-BackupMeshSource.ps1`을 실행하세요. Storage Agent와 달리 이 설치는 전부 `%LOCALAPPDATA%\BackupMesh\Source` 아래에서 이루어지고 사용자별 예약 작업(Scheduled Task)을 등록합니다 — 자신의 파일을 백업하는 데 관리자 권한이 필요할 이유가 없기 때문입니다. 스크립트가 Agent 이름과 첫 Backup Set 경로를 물어보고 최소한의 `backupmesh.yaml`을 작성해 주며, `backupSets` 항목은 이후 직접 추가할 수 있습니다.
+
+이렇게 설치한 Windows Source Agent가 감지되면 트레이의 **Pair Source Agent** 대화상자에 "Pair it automatically" 버튼이 나타나 아래 명령과 동등한 작업을 대신 실행해 줍니다. 같은 PC에서는 endpoint/code/fingerprint를 직접 입력할 필요가 없습니다.
+
+```powershell
+& "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
+  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml" `
+  -storage https://STORAGE-PC:7443 `
+  -code TRAY에_표시된_코드 `
+  -fingerprint TRAY에_표시된_64자리_16진수_지문
+```
+
+`Uninstall-BackupMeshSource.ps1`은 예약 작업과 바이너리만 제거하고, `%LOCALAPPDATA%\BackupMesh\Source` 아래의 설정·페어링된 신원·repository 암호는 그대로 유지합니다.
 
 ## 5. Source 페어링
 

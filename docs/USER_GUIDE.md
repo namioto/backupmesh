@@ -12,6 +12,7 @@ From PowerShell at the repository root:
 pwsh -NoProfile -File scripts/build-windows-test-package.ps1
 pwsh -NoProfile -File scripts/build-windows-installer.ps1
 pwsh -NoProfile -File scripts/build-linux-source-package.ps1
+pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 ```
 
 The resulting self-contained packages are written to:
@@ -19,6 +20,7 @@ The resulting self-contained packages are written to:
 - `artifacts\installer\BackupMesh-Storage-0.1.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
+- `artifacts\BackupMesh-Source-win-x64` (Source Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
@@ -67,6 +69,24 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 ```
 
 The installer creates `/etc/backupmesh/restic-password` with owner-only permissions. Make a protected recovery copy. Losing this password makes the encrypted snapshots unrecoverable.
+
+Running `install.sh` from an interactive terminal (rather than a script) prompts for an Agent name and a first Backup Set instead of leaving a generic template to edit by hand, and offers to run `pair` immediately afterward.
+
+## 4b. Back up this PC's own files (Windows Source Agent)
+
+To back up local files on the same Windows PC that runs the Storage Agent, copy `BackupMesh-Source-win-x64` anywhere and run `Install-BackupMeshSource.ps1` from an ordinary (non-administrator) PowerShell prompt. Unlike the Storage Agent, this installs entirely under `%LOCALAPPDATA%\BackupMesh\Source` and registers a per-user Scheduled Task — no administrator rights are needed, since backing up your own files should not require them. The script asks for an Agent name and a first Backup Set path and writes a minimal `backupmesh.yaml`; add more `backupSets` entries by hand any time.
+
+Then, in the tray's **Pair Source Agent** dialog, a "Pair it automatically" button appears whenever a Windows Source Agent installed this way is detected — it runs the equivalent of the `pair` command below for you, so the endpoint, code, and fingerprint never need to be typed by hand on the same PC:
+
+```powershell
+& "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
+  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml" `
+  -storage https://STORAGE-PC:7443 `
+  -code CODE-FROM-TRAY `
+  -fingerprint 64_HEX_CHARACTERS_FROM_TRAY
+```
+
+`Uninstall-BackupMeshSource.ps1` removes the scheduled task and binaries while keeping the configuration, paired identity, and repository password under `%LOCALAPPDATA%\BackupMesh\Source`.
 
 ## 5. Pair the Source
 
