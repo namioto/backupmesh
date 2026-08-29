@@ -123,14 +123,24 @@ func ResolveIdentityState(configPath string, c *Config) error {
 		if isUUID(c.BackupSets[i].ID) {
 			continue
 		}
+		matchedIDs := map[string]bool{}
 		for _, saved := range state.BackupSets {
 			if saved.Name == c.BackupSets[i].Name || slicesEqual(saved.Paths, c.BackupSets[i].Paths) {
-				c.BackupSets[i].ID = saved.ID
-				break
+				matchedIDs[saved.ID] = true
 			}
 		}
-		if !isUUID(c.BackupSets[i].ID) {
+		switch len(matchedIDs) {
+		case 0:
 			c.BackupSets[i].ID = newUUID()
+		case 1:
+			for id := range matchedIDs {
+				c.BackupSets[i].ID = id
+			}
+		default:
+			// A simultaneous rename and path change matches one previous backup set by name and a
+			// different one by paths. Guessing here risks silently merging or splitting backup
+			// history, so this must be resolved by hand instead.
+			return fmt.Errorf("backupSets[%d] (name %q) matches more than one previously known backup set by name or paths; rename or move it back to match exactly one, or edit %s to resolve which existing backup set this is", i, c.BackupSets[i].Name, statePath)
 		}
 	}
 	return SaveIdentityState(configPath, *c)

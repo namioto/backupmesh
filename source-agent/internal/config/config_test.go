@@ -66,6 +66,53 @@ backupSets:
 	}
 }
 
+func TestResolveIdentityStateReusesIDAcrossARenameAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "backupmesh.json")
+	original := `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha","paths":["/data/alpha"]}]}`
+	if err := os.WriteFile(path, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	first, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renamed := `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha-renamed","paths":["/data/alpha"]}]}`
+	if err := os.WriteFile(path, []byte(renamed), 0600); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.BackupSets[0].ID != first.BackupSets[0].ID {
+		t.Fatalf("a rename alone should keep the same backup set ID: %q != %q", second.BackupSets[0].ID, first.BackupSets[0].ID)
+	}
+}
+
+func TestResolveIdentityStateRejectsAnAmbiguousSimultaneousRenameAndPathChange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "backupmesh.json")
+	original := `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha","paths":["/data/alpha"]},{"name":"beta","paths":["/data/beta"]}]}`
+	if err := os.WriteFile(path, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatal(err)
+	}
+	// "alpha" now points at what used to be beta's paths: the name matches one saved backup set and
+	// the paths match a different one, so which existing history this is cannot be inferred safely.
+	ambiguous := `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha","paths":["/data/beta"]},{"name":"beta","paths":["/data/beta-new"]}]}`
+	if err := os.WriteFile(path, []byte(ambiguous), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("Load() expected an error for an ambiguous simultaneous rename and path change")
+	}
+	if !strings.Contains(err.Error(), "matches more than one previously known backup set") {
+		t.Fatalf("Load() error = %v, want an ambiguous-match error", err)
+	}
+}
+
 func TestLoadYAMLRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "backupmesh.yml")
 	if err := os.WriteFile(path, []byte("unknown: true\n"), 0600); err != nil {
