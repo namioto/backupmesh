@@ -1,0 +1,19 @@
+[Unit]
+Description=BackupMesh Source Agent command watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/backupmesh/backupmesh-agent watch -config /etc/backupmesh/backupmesh.json -restic /opt/backupmesh/restic
+Restart=on-failure
+RestartSec=15s
+CacheDirectory=backupmesh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/cache/backupmesh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,10 @@
 # BackupMesh
 
-**한국어** | [English](README.md)
+**한국어** | [English](README.md) | [사용자 가이드](docs/USER_GUIDE.ko.md)
 
 **필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
+
+현재 릴리스: **0.1.0** — 첫 번째 end-to-end MVP입니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
 
 BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 있어도, 저장장치가 사용 가능한 순간을 감지해 백업을 자동으로 시작하는 오케스트레이터입니다.
 
@@ -64,24 +66,40 @@ Linux 홈서버                         Windows PC
 
 ## Windows Storage Agent
 
-Windows 트레이 앱을 통해 오프라인 백업 저장소를 상시 연결된 위험한 대상으로 만들지 않고도 편리하게 운영할 수 있습니다. 고정식 또는 이동식 저장장치를 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 원하는 장치와 대상 폴더에 매핑합니다.
+Windows 트레이 앱에서 물리 저장장치 또는 일반 로컬·네트워크 폴더를 논리 저장장치로 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
 
-여러 Source를 하나의 장치 안에서 서로 다른 폴더에 보관하거나, Source마다 다른 장치를 사용하거나, 하나의 Source와 Backup Set을 여러 장치에 동시에 백업하는 실용적인 다대다 구성을 지원합니다.
+Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 생성된 `backupmesh-pairing.json` 번들을 저장합니다. 안전하게 Source 장치로 옮긴 뒤 `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`을 실행합니다. 이 명령은 Source ID와 TLS 경로를 갱신하고, 해당 Source에 결속된 토큰·클라이언트 인증서·개인 키·Storage Agent CA와 원격 Control API 주소를 설치하며 Linux에서는 소유자 전용 권한으로 보호합니다. 적용 후 전송용 번들은 삭제하세요. Source마다 독립된 신원과 credential이 발급됩니다.
 
-![여러 Source와 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
+Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/restic-password`를 생성합니다. 이 암호를 잃으면 snapshot을 복원할 수 없으므로 별도의 안전한 위치에 복구 사본을 보관하세요.
+
+![여러 Source와 이동식 저장장치를 매핑하는 BackupMesh Storage Agent](docs/images/storage-agent-mappings.jpg)
+
+### 현재 Windows 빌드 사용해 보기
+
+저장소의 PowerShell에서 self-contained 테스트 패키지를 만듭니다.
+
+```powershell
+pwsh -NoProfile -File scripts/build-windows-test-package.ps1
+```
+
+그다음 `artifacts\BackupMesh-Storage-win-x64\Start-BackupMesh.ps1`을 실행합니다. 런처가 로컬 Storage Service의 준비를 기다린 뒤 트레이 앱을 열며, 트레이 앱을 종료하면 테스트 서비스도 함께 종료합니다. 설정은 `%LOCALAPPDATA%\BackupMesh`에 보관됩니다.
+
+상시 실행 형태로 설치하려면 관리자 권한 PowerShell에서 빌드된 패키지의 `Install-BackupMesh.ps1`을 실행합니다. Storage Agent가 자동 재시작되는 Windows 서비스로 등록되어 즉시 시작되고, 현재 사용자의 다음 로그인부터 트레이 앱도 자동 실행됩니다. `Uninstall-BackupMesh.ps1`은 설정과 repository를 보존하면서 서비스와 자동 시작 항목만 제거합니다.
+
+Linux Source Agent 자체 포함 패키지는 `pwsh -NoProfile -File scripts/build-linux-source-package.ps1`로 빌드합니다. `artifacts/BackupMesh-Source-linux-x64`를 Source 장치로 복사해 `sudo sh install.sh`을 실행하면 됩니다. 고정 버전 restic과 systemd 서비스·타이머 템플릿이 포함되며, 설치 프로그램은 `/etc/backupmesh/backupmesh.json`을 보존하거나 새로 만든 뒤 검증 및 타이머 활성화 명령을 안내합니다.
 
 ## 현재 상태
 
-BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.
+End-to-end MVP 구현을 마쳤습니다. 저장소의 테스트 흐름은 실제 파일을 인증된 방식으로 두 개의 폴더 저장 대상에 백업하고, 양쪽 snapshot을 복원한 뒤 SHA-256 일치를 검증합니다. 현재 릴리스에는 다음 구성이 포함됩니다.
 
 - Linux용 Go Source Agent
 - Windows용 .NET Storage Agent
 - Restic 및 rest-server 기반 암호화 백업
-- 지정된 외장 저장장치의 연결 감지와 identity 검증
+- 고정식·이동식·폴더 기반 저장장치 등록과 안정적인 identity
 - 지연 실행, 진행률 표시, 안전 제거
 - Agent 간 인증된 Control API
 
-> BackupMesh는 아직 중요한 데이터의 유일한 백업 수단으로 사용할 준비가 되지 않았습니다.
+[사용자 가이드](docs/USER_GUIDE.ko.md)에서 설치, 페어링, 매핑, 복원 시험, 문제 해결 방법을 확인할 수 있습니다. 운영에 사용하기 전 실제 Windows·Linux 장비에서 인수 테스트를 반복하고, 직접 복원을 검증하기 전까지 BackupMesh를 중요한 데이터의 유일한 사본으로 사용하지 마세요.
 
 ## 라이선스
 

@@ -1,0 +1,27 @@
+{
+  "agent": {
+    "id": "f91436ac-0ca9-4bcb-b0d0-42bc7181f611",
+    "name": "Example source"
+  },
+  "storage": {
+    "controlEndpoint": "https://storage.example:7443",
+    "authenticationTokenFile": "/run/secrets/backupmesh-control-token",
+    "tlsCaFile": "/run/secrets/backupmesh-storage-ca.pem",
+    "tlsCertificateFile": "/run/secrets/backupmesh-source.crt",
+    "tlsKeyFile": "/run/secrets/backupmesh-source.key",
+    "repositoryPasswordFile": "/etc/backupmesh/restic-password",
+    "resticCacheDirectory": "/var/cache/backupmesh/restic"
+  },
+  "uploadLimitBps": 10485760,
+  "backupSets": [
+    {
+      "id": "7d750726-97ab-4f81-9f09-f06c34f524d1",
+      "name": "documents",
+      "paths": ["/home/example/Documents"],
+      "exclude": ["**/.cache/**"],
+      "hooks": {
+        "before": [["/usr/local/bin/prepare-backup", "documents"]]
+      }
+    }
+  ]
+}

@@ -2,10 +2,12 @@
 bin/
 *.test
 coverage.out
+.gocache/
 
 # .NET
 **/bin/
 **/obj/
+.dotnet/
 *.user
 *.suo
 
@@ -27,3 +29,5 @@ secrets/
 artifacts/
 coverage/
 TestResults/
+.tmp/
+.e2e/
