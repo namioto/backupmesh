@@ -84,7 +84,7 @@ public sealed class PairingAttemptThrottle(TimeProvider? clock = null)
     }
 
     // Test seam: how many remote addresses are currently being tracked.
-    public int TrackedAddressCount { get { lock (_gate) return _windows.Count; } }
+    internal int TrackedAddressCount { get { lock (_gate) return _windows.Count; } }
 
     public void RecordSuccess(System.Net.IPAddress? remote)
     {
