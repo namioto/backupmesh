@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -106,7 +107,9 @@ type backupSetIdentityState struct {
 func ResolveIdentityState(configPath string, c *Config) error {
 	statePath := configPath + ".state.json"
 	var state identityState
+	var onDisk []byte
 	if contents, err := os.ReadFile(filepath.Clean(statePath)); err == nil {
+		onDisk = contents
 		if err := json.Unmarshal(contents, &state); err != nil {
 			return fmt.Errorf("decode identity state: %w", err)
 		}
@@ -143,24 +146,43 @@ func ResolveIdentityState(configPath string, c *Config) error {
 			return fmt.Errorf("backupSets[%d] (name %q) matches more than one previously known backup set by name or paths; rename or move it back to match exactly one, or edit %s to resolve which existing backup set this is", i, c.BackupSets[i].Name, statePath)
 		}
 	}
+	// Only write when the resolved identity actually differs from what is already on disk. The Linux
+	// units run with ProtectSystem=strict and ReadWritePaths=/var/cache/backupmesh, so /etc/backupmesh
+	// is read-only in the unit's mount namespace; rewriting <config>.state.json on every load fails
+	// with EROFS and stops watch and backup from starting at all.
+	encoded, err := encodeIdentityState(*c)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(onDisk, encoded) {
+		return nil
+	}
 	return SaveIdentityState(configPath, *c)
 }
 
-func SaveIdentityState(configPath string, c Config) error {
+func encodeIdentityState(c Config) ([]byte, error) {
 	state := identityState{AgentID: c.Agent.ID, BackupSets: make([]backupSetIdentityState, 0, len(c.BackupSets))}
 	for _, set := range c.BackupSets {
 		state.BackupSets = append(state.BackupSets, backupSetIdentityState{ID: set.ID, Name: set.Name, Paths: append([]string(nil), set.Paths...)})
 	}
 	contents, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode identity state: %w", err)
+		return nil, fmt.Errorf("encode identity state: %w", err)
+	}
+	return append(contents, '\n'), nil
+}
+
+func SaveIdentityState(configPath string, c Config) error {
+	contents, err := encodeIdentityState(c)
+	if err != nil {
+		return err
 	}
 	statePath := configPath + ".state.json"
 	if err := os.MkdirAll(filepath.Dir(statePath), 0700); err != nil {
 		return fmt.Errorf("create identity state directory: %w", err)
 	}
 	temporary := statePath + ".tmp"
-	if err := os.WriteFile(temporary, append(contents, '\n'), 0600); err != nil {
+	if err := os.WriteFile(temporary, contents, 0600); err != nil {
 		return fmt.Errorf("write identity state: %w", err)
 	}
 	if err := os.Rename(temporary, statePath); err != nil {
