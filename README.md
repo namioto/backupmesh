@@ -4,6 +4,8 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
+Current release: **0.1.0** — the first end-to-end MVP. See the [changelog](CHANGELOG.md).
+
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
 For example, keep an external HDD safely disconnected most of the time. When you attach it to a Windows PC, BackupMesh verifies the drive and automatically backs up your Linux server. There is no backup command to remember and no network drive to mount by hand.

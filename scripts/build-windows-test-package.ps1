@@ -32,6 +32,7 @@ Copy-Item (Join-Path $repoRoot 'packaging\windows\Install-BackupMesh.ps1') $outp
 Copy-Item (Join-Path $repoRoot 'packaging\windows\Uninstall-BackupMesh.ps1') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'LICENSE') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') $outputRoot -Force
+Copy-Item (Join-Path $repoRoot 'VERSION') $outputRoot -Force
 Copy-Item (Join-Path $repoRoot 'licenses') (Join-Path $outputRoot 'licenses') -Recurse -Force
 
 $requiredPackageFiles = @(
@@ -44,6 +45,7 @@ $requiredPackageFiles = @(
     'Uninstall-BackupMesh.ps1'
     'LICENSE'
     'THIRD_PARTY_NOTICES.md'
+    'VERSION'
 )
 foreach ($relativePath in $requiredPackageFiles) {
     $packageFile = Join-Path $outputRoot $relativePath
