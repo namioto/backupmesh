@@ -40,13 +40,7 @@ Source Agent의 평상시 권한을 백업 생성에 필요한 범위로 제한�
 
 ## 첫 번째 사용 시나리오
 
-```text
-Linux 홈서버                         Windows PC
-┌────────────────┐                 ┌────────────────────┐
-│ Source Agent   │ ─── backup ───▶ │ Storage Agent      │
-│ 사진·문서·데이터 │                 │ 외장 HDD 감지 및 관리 │
-└────────────────┘                 └────────────────────┘
-```
+![BackupMesh 사용 시나리오: Linux Source Agent가 상호 인증된 암호화 백업을 Windows Storage Agent와 외장 HDD로 전송](docs/images/reference-scenario.ko.png)
 
 1. Linux 서버에 Source Agent를 설치하고 백업할 경로를 등록합니다.
 2. Windows PC에 Storage Agent를 설치하고 사용할 외장 HDD를 등록합니다.

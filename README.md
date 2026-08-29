@@ -40,13 +40,7 @@ The first version builds on the proven Restic ecosystem. BackupMesh itself is an
 
 ## First reference scenario
 
-```text
-Linux home server                    Windows PC
-┌────────────────┐                 ┌────────────────────┐
-│ Source Agent   │ ─── backup ───▶ │ Storage Agent      │
-│ Photos & data  │                 │ External HDD       │
-└────────────────┘                 └────────────────────┘
-```
+![BackupMesh reference scenario: a Linux Source Agent sends an authenticated encrypted backup to a Windows Storage Agent and external HDD](docs/images/reference-scenario.en.png)
 
 1. Install the Source Agent on a Linux server and register the paths to protect.
 2. Install the Storage Agent on a Windows PC and register an external HDD.
