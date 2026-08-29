@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current release: **0.1.1** — the first end-to-end MVP with a guided Windows installer. See the [changelog](CHANGELOG.md).
+Upcoming release: **0.1.1** — the first end-to-end MVP with a guided Windows installer. The installer is available from source builds while elevated install/uninstall acceptance testing remains pending. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 

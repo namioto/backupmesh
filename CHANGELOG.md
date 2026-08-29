@@ -2,7 +2,7 @@
 
 All notable changes to BackupMesh are documented in this file.
 
-## [0.1.1] - 2026-08-29
+## [Unreleased] - 0.1.1
 
 ### Added
 
@@ -38,4 +38,4 @@ First end-to-end MVP release.
 - Windows package build, Linux package build and installation under Ubuntu, .NET tests, Go tests and vet, protocol validation, and systemd unit validation.
 
 [0.1.0]: https://github.com/namioto/backupmesh/releases/tag/v0.1.0
-[0.1.1]: https://github.com/namioto/backupmesh/releases/tag/v0.1.1
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.1.0...HEAD
