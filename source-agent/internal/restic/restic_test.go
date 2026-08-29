@@ -26,10 +26,10 @@ func TestBuildBackupArgsOmitsRepository(t *testing.T) {
 }
 
 func TestBuildEnvCarriesRepositorySecretsOutsideArguments(t *testing.T) {
-	req := engine.BackupRequest{Repository: "rest:https://user:secret@host/repo", PasswordFile: "/run/secrets/restic-password", CacheDirectory: "/var/cache/backupmesh/restic"}
+	req := engine.BackupRequest{Repository: "rest:https://user:secret@host/repo", PasswordFile: "/run/secrets/restic-password", CacheDirectory: "/var/cache/backupmesh/restic", CACertificateFile: "/etc/backupmesh/pairing/storage-ca.pem"}
 	env := BuildEnv([]string{"PATH=/bin"}, nil, req)
 	joined := strings.Join(env, "\n")
-	for _, want := range []string{"RESTIC_REPOSITORY=" + req.Repository, "RESTIC_PASSWORD_FILE=" + req.PasswordFile, "RESTIC_CACHE_DIR=" + req.CacheDirectory} {
+	for _, want := range []string{"RESTIC_REPOSITORY=" + req.Repository, "RESTIC_PASSWORD_FILE=" + req.PasswordFile, "RESTIC_CACHE_DIR=" + req.CacheDirectory, "RESTIC_CACERT=" + req.CACertificateFile} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("environment does not contain %q", want)
 		}

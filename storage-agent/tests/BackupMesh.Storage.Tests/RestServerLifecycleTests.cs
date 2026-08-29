@@ -65,6 +65,15 @@ public sealed class RestServerLifecycleTests
     }
 
     [Fact]
+    public void RepositoryEndpoint_UsesTlsWhenRequested()
+    {
+        var endpoint = RepositoryServerManager.BuildEndpoint(
+            "storage.local", 18000, "repo", "backupmesh", "secret", useTls: true);
+
+        Assert.Equal("rest:https://backupmesh:secret@storage.local:18000/repo/", endpoint.OriginalString);
+    }
+
+    [Fact]
     public void RepositoryPublicHostDefaultsToTheWindowsComputerName()
     {
         Assert.Equal(Environment.MachineName, RepositoryServerManager.ResolvePublicHost(null));

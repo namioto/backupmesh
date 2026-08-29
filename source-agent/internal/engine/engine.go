@@ -6,13 +6,14 @@ import (
 )
 
 type BackupRequest struct {
-	Repository     string
-	PasswordFile   string
-	CacheDirectory string
-	Paths          []string
-	Includes       []string
-	Excludes       []string
-	UploadLimitBPS int64
+	Repository        string
+	PasswordFile      string
+	CacheDirectory    string
+	CACertificateFile string
+	Paths             []string
+	Includes          []string
+	Excludes          []string
+	UploadLimitBPS    int64
 }
 
 type Progress struct {

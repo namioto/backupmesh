@@ -100,6 +100,9 @@ func BuildEnv(base, extra []string, req engine.BackupRequest) []string {
 	if req.CacheDirectory != "" {
 		env = append(env, "RESTIC_CACHE_DIR="+req.CacheDirectory)
 	}
+	if req.CACertificateFile != "" {
+		env = append(env, "RESTIC_CACERT="+req.CACertificateFile)
+	}
 	return env
 }
 

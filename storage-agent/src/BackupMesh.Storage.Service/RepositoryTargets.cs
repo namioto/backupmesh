@@ -84,6 +84,9 @@ public sealed class RepositoryServerOptions
     public int BasePort { get; set; } = 18000;
     public bool NoAuthentication { get; set; }
     public bool AppendOnly { get; set; } = true;
+    public bool UseTls { get; set; }
+    public string? TlsCertificatePem { get; set; }
+    public string? TlsPrivateKeyPem { get; set; }
     public string? CredentialDirectory { get; set; }
 }
 
@@ -105,37 +108,40 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     public async Task<Uri> GetEndpointAsync(ResolvedBackupTarget target, CancellationToken cancellationToken)
     {
         await PrepareDirectoryAsync(target.DestinationFolder, cancellationToken);
+        (string CertificatePath, string KeyPath)? tlsFiles = options.UseTls ? WriteTlsFiles(target.MappingId, options) : null;
         Session session;
-        lock (_gate)
+        try
         {
-            if (_sessions.TryGetValue(target.MappingId, out session!) && !session.Process.HasExited)
-                return Endpoint(session);
-            var port = options.BasePort + _sessions.Count;
-            var credential = options.NoAuthentication ? null : CreateCredential(target.MappingId, options.CredentialDirectory);
-            var startInfo = new ProcessStartInfo
+            lock (_gate)
             {
-                FileName = options.ExecutablePath,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            startInfo.ArgumentList.Add("--path");
-            startInfo.ArgumentList.Add(target.DestinationFolder);
-            startInfo.ArgumentList.Add("--listen");
-            startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
-            if (options.AppendOnly) startInfo.ArgumentList.Add("--append-only");
-            if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
-            else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
-            IManagedProcess process;
-            try { process = processFactory.Start(startInfo); }
-            catch (Exception exception) when (exception is IOException or InvalidOperationException)
-            {
-                throw new IOException($"Could not start rest-server for repository '{target.DestinationFolder}': {exception.Message}", exception);
+                if (_sessions.TryGetValue(target.MappingId, out session!) && !session.Process.HasExited)
+                    return Endpoint(session);
+                var port = options.BasePort + _sessions.Count;
+                var credential = options.NoAuthentication ? null : CreateCredential(target.MappingId, options.CredentialDirectory);
+                var startInfo = new ProcessStartInfo { FileName = options.ExecutablePath, UseShellExecute = false, CreateNoWindow = true };
+                startInfo.ArgumentList.Add("--path"); startInfo.ArgumentList.Add(target.DestinationFolder);
+                startInfo.ArgumentList.Add("--listen"); startInfo.ArgumentList.Add($"{options.ListenHost}:{port}");
+                if (options.AppendOnly) startInfo.ArgumentList.Add("--append-only");
+                if (options.UseTls)
+                {
+                    startInfo.ArgumentList.Add("--tls");
+                    startInfo.ArgumentList.Add("--tls-cert"); startInfo.ArgumentList.Add(tlsFiles!.Value.CertificatePath);
+                    startInfo.ArgumentList.Add("--tls-key"); startInfo.ArgumentList.Add(tlsFiles.Value.KeyPath);
+                    startInfo.ArgumentList.Add("--tls-min-ver"); startInfo.ArgumentList.Add("1.2");
+                }
+                if (options.NoAuthentication) startInfo.ArgumentList.Add("--no-auth");
+                else { startInfo.ArgumentList.Add("--htpasswd-file"); startInfo.ArgumentList.Add(credential!.FilePath); }
+                IManagedProcess process;
+                try { process = processFactory.Start(startInfo); }
+                catch (Exception exception) when (exception is IOException or InvalidOperationException)
+                { throw new IOException($"Could not start rest-server for repository '{target.DestinationFolder}': {exception.Message}", exception); }
+                session = new(target.DeviceId, port, target.DestinationFolder, process, credential);
+                _sessions[target.MappingId] = session;
             }
-            session = new(target.DeviceId, port, target.DestinationFolder, process, credential);
-            _sessions[target.MappingId] = session;
+            await WaitUntilListeningAsync(session, cancellationToken);
+            return Endpoint(session);
         }
-        await WaitUntilListeningAsync(session, cancellationToken);
-        return Endpoint(session);
+        finally { if (tlsFiles is { } files) DeleteTlsFiles(files); }
     }
 
     private static async Task PrepareDirectoryAsync(string path, CancellationToken cancellationToken)
@@ -180,15 +186,15 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
     }
 
     private Uri Endpoint(Session session)
-        => BuildEndpoint(ResolvePublicHost(options.PublicHost), session.Port, ".", session.Credential?.Username, session.Credential?.Password);
+        => BuildEndpoint(ResolvePublicHost(options.PublicHost), session.Port, ".", session.Credential?.Username, session.Credential?.Password, options.UseTls);
 
     internal static string ResolvePublicHost(string? configuredHost)
         => string.IsNullOrWhiteSpace(configuredHost) ? Environment.MachineName : configuredHost.Trim();
 
-    internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null)
+    internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null, bool useTls = false)
     {
         var path = repositoryPath == "." ? "/" : "/" + string.Join('/', repositoryPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString)) + "/";
-        var endpoint = new UriBuilder(Uri.UriSchemeHttp, publicHost, port, path).Uri;
+        var endpoint = new UriBuilder(useTls ? Uri.UriSchemeHttps : Uri.UriSchemeHttp, publicHost, port, path).Uri;
         var builder = new UriBuilder(endpoint) { UserName = username ?? string.Empty, Password = password ?? string.Empty };
         // restic distinguishes its REST backend from an ordinary HTTP URL with
         // the `rest:` transport prefix.
@@ -207,6 +213,28 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         var path = Path.Combine(directory, $"{deviceId:N}.htpasswd");
         File.WriteAllText(path, $"{username}:{{SHA}}{digest}{Environment.NewLine}");
         return new(username, password, path);
+    }
+
+    private static (string CertificatePath, string KeyPath) WriteTlsFiles(Guid mappingId, RepositoryServerOptions configured)
+    {
+        if (string.IsNullOrWhiteSpace(configured.TlsCertificatePem) || string.IsNullOrWhiteSpace(configured.TlsPrivateKeyPem))
+            throw new InvalidOperationException("Repository TLS certificate material is missing.");
+        var directory = string.IsNullOrWhiteSpace(configured.CredentialDirectory)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BackupMesh", "credentials")
+            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(configured.CredentialDirectory));
+        Directory.CreateDirectory(directory);
+        var nonce = Guid.NewGuid().ToString("N");
+        var certificatePath = Path.Combine(directory, $"{mappingId:N}.{nonce}.crt.pem");
+        var keyPath = Path.Combine(directory, $"{mappingId:N}.{nonce}.key.pem");
+        File.WriteAllText(certificatePath, configured.TlsCertificatePem);
+        File.WriteAllText(keyPath, configured.TlsPrivateKeyPem);
+        return (certificatePath, keyPath);
+    }
+
+    private static void DeleteTlsFiles((string CertificatePath, string KeyPath) files)
+    {
+        if (File.Exists(files.CertificatePath)) File.Delete(files.CertificatePath);
+        if (File.Exists(files.KeyPath)) File.Delete(files.KeyPath);
     }
 
     private static async Task WaitUntilListeningAsync(Session session, CancellationToken cancellationToken)

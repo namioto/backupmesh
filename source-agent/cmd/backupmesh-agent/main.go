@@ -327,7 +327,7 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	defer cancelPoll()
 	go pollCancellation(pollCtx, api, jobID, cancelBackup)
 	adapter := restic.Adapter{Binary: resticBinary}
-	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
+	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, CACertificateFile: cfg.Storage.TLSCAFile, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
 	var sequence int64
 	var reportErr error
 	var result engine.Result

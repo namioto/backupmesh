@@ -19,6 +19,10 @@ if (mutualTls.Enabled)
             : throw new InvalidOperationException("MutualTls server certificate path must reference an existing file.");
     var clientAuthority = pairingCertificateAuthority.GetAuthorityCertificate();
     mutualTls.ServerTrustPem = serverCertificate.ExportCertificatePem();
+    repositoryServer.UseTls = true;
+    repositoryServer.TlsCertificatePem = mutualTls.ServerTrustPem;
+    using (var repositoryKey = serverCertificate.GetRSAPrivateKey())
+        repositoryServer.TlsPrivateKeyPem = repositoryKey?.ExportPkcs8PrivateKeyPem() ?? throw new InvalidOperationException("The Storage server certificate must have an RSA private key.");
     builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(mutualTls.Port, listen => listen.UseHttps(https =>
     {
         https.ServerCertificate = serverCertificate;
