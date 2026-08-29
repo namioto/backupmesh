@@ -83,6 +83,8 @@ sudo /opt/backupmesh/backupmesh-agent pair \
 
 The Source verifies the pinned fingerprint before sending the code, then installs an identity-bound token, client certificate, private key, and pinned Storage certificate with owner-only permissions. No private key is placed in a transfer file and no certificate is added to the operating-system trust store.
 
+If a Source Agent loses its private key or certificate (for example, its `pairing` directory was deleted), select it in the tray's Connections list and choose **Re-pair** instead of **Pair Source Agent**. That code can only reissue credentials for that specific, already-known Source — it cannot be used to create a new one or claim a different Source's identity.
+
 Start the Source command watcher:
 
 ```sh

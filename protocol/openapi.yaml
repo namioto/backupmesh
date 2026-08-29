@@ -26,8 +26,16 @@ paths:
       tags: [Source]
       operationId: createPairingSession
       summary: Create a ten-minute one-time pairing session
-      description: Available only over the loopback endpoint to the local tray app. The returned certificate fingerprint must be transferred with the code and verified by the Source before exchange.
+      description: Available only over the loopback endpoint to the local tray app. The returned certificate fingerprint must be transferred with the code and verified by the Source before exchange. When rebind_agent_id is set, the resulting code can only re-pair that existing Source Agent; otherwise it can only mint a brand new one, since agent_id is shown in the tray's Connections list and is not itself a secret.
       security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rebind_agent_id: {type: string, format: uuid, nullable: true}
       responses:
         '200':
           description: One-time pairing details
@@ -41,13 +49,14 @@ paths:
                   expires_at: {type: string, format: date-time}
                   control_endpoint: {type: string, format: uri}
                   certificate_sha256: {type: string, pattern: '^[0-9A-F]{64}$'}
+                  rebind_agent_id: {type: string, format: uuid, nullable: true}
         '403': {$ref: '#/components/responses/Error'}
   /pairing/exchange:
     post:
       tags: [Source]
       operationId: exchangePairingCode
       summary: Exchange a one-time code for Source credentials
-      description: The Source must pin the SHA-256 certificate fingerprint before sending the code. Codes expire after ten minutes and are consumed atomically once.
+      description: The Source must pin the SHA-256 certificate fingerprint before sending the code. Codes expire after ten minutes and are consumed atomically once. If the code was bound to a specific agent_id by /pairing/sessions, only that agent_id may be exchanged; otherwise agent_id must not already belong to a paired Source.
       security: []
       requestBody:
         required: true
@@ -63,6 +72,7 @@ paths:
       responses:
         '200': {description: Identity-bound bearer credential and mTLS certificate bundle}
         '401': {$ref: '#/components/responses/Error'}
+        '409': {description: The code is not authorized to identify as the given agent_id}
         default: {$ref: '#/components/responses/Error'}
   /service/shutdown:
     post:

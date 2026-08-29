@@ -66,6 +66,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand CancelJobCommand { get; }
     public ICommand EjectDeviceCommand { get; }
     public ICommand PairSourceCommand { get; }
+    public ICommand RePairSourceCommand { get; }
     public ICommand RevokeSourceCommand { get; }
     public ICommand UnrevokeSourceCommand { get; }
 
@@ -90,7 +91,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
-        PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync());
+        PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: null));
+        RePairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: SelectedSourceConnection));
         RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
         UnrevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: false));
         _deviceTimer.Tick += (_, _) => RefreshDrives();
@@ -178,13 +180,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (TaskCanceledException) { FooterStatus = "Safe-removal request timed out."; }
     }
 
-    private async Task PairSourceAsync()
+    private async Task PairSourceAsync(SourceConnectionViewModel? rebind)
     {
         try
         {
-            var pairing = await _pairingClient.CreateSessionAsync(_shutdown.Token);
-            new PairingDetailsWindow(pairing).ShowDialog();
-            FooterStatus = "One-time pairing details generated. The code expires in 10 minutes and works once.";
+            var pairing = await _pairingClient.CreateSessionAsync(rebind?.AgentId, _shutdown.Token);
+            new PairingDetailsWindow(pairing, rebind?.AgentName).ShowDialog();
+            FooterStatus = rebind is null
+                ? "One-time pairing details generated. The code expires in 10 minutes and works once."
+                : $"One-time re-pairing details generated for {rebind.AgentName}. The code expires in 10 minutes and works once.";
             NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
         }
         catch (HttpRequestException exception) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
@@ -241,6 +245,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             await RefreshConnectionsAsync();
         }
         catch (HttpRequestException exception) { FooterStatus = $"Could not update {connection.AgentName}'s access: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = $"The request to update {connection.AgentName}'s access timed out."; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 

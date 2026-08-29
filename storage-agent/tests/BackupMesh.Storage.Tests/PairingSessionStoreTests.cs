@@ -10,8 +10,8 @@ public sealed class PairingSessionStoreTests
         var store = new PairingSessionStore();
         var session = store.Create();
 
-        Assert.True(store.Consume(session.Code));
-        Assert.False(store.Consume(session.Code));
+        Assert.True(store.TryConsume(session.Code, out _));
+        Assert.False(store.TryConsume(session.Code, out _));
     }
 
     [Fact]
@@ -22,7 +22,30 @@ public sealed class PairingSessionStoreTests
         var session = store.Create();
         clock.Advance(TimeSpan.FromMinutes(11));
 
-        Assert.False(store.Consume(session.Code));
+        Assert.False(store.TryConsume(session.Code, out _));
+    }
+
+    [Fact]
+    public void ANewSessionIsNotBoundToAnyAgentId()
+    {
+        var store = new PairingSessionStore();
+        var session = store.Create();
+
+        Assert.Null(session.RebindAgentId);
+        Assert.True(store.TryConsume(session.Code, out var rebindAgentId));
+        Assert.Null(rebindAgentId);
+    }
+
+    [Fact]
+    public void ARebindingSessionCarriesItsAgentIdThroughConsumption()
+    {
+        var store = new PairingSessionStore();
+        var existingAgentId = Guid.NewGuid();
+        var session = store.Create(existingAgentId);
+
+        Assert.Equal(existingAgentId, session.RebindAgentId);
+        Assert.True(store.TryConsume(session.Code, out var rebindAgentId));
+        Assert.Equal(existingAgentId, rebindAgentId);
     }
 
     [Fact]

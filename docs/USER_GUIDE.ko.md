@@ -83,6 +83,8 @@ sudo /opt/backupmesh/backupmesh-agent pair \
 
 Source는 코드를 보내기 전에 표시된 인증서 지문을 고정 검증하고, 이후 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서를 소유자 전용 권한으로 설치합니다. 개인 키가 전송 파일에 기록되지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
+Source Agent의 개인 키나 인증서를 잃어버렸다면(예: `pairing` 디렉터리를 삭제한 경우) **Pair Source Agent** 대신 트레이의 Connections 목록에서 해당 Source를 선택하고 **Re-pair**를 사용하세요. 이 코드는 그 특정 Source의 자격 증명만 재발급할 수 있으며, 새 Source를 만들거나 다른 Source의 신원을 대신 차지할 수 없습니다.
+
 명령 감시 서비스를 시작합니다.
 
 ```sh

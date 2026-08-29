@@ -9,17 +9,19 @@ public sealed record PairingSessionDto(
     [property: JsonPropertyName("code")] string Code,
     [property: JsonPropertyName("control_endpoint")] string ControlEndpoint,
     [property: JsonPropertyName("certificate_sha256")] string CertificateSha256,
-    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt);
-public interface IPairingClient { Task<PairingSessionDto> CreateSessionAsync(CancellationToken cancellationToken); }
+    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
+    [property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
+public sealed record PairingSessionRequestDto([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
+public interface IPairingClient { Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken); }
 public sealed class PairingClient : IPairingClient, IDisposable
 {
     private readonly HttpClient _client;
     public PairingClient(string endpoint = "http://127.0.0.1:7444/api/v1/") => _client = new() { BaseAddress = new(endpoint), Timeout = TimeSpan.FromSeconds(5) };
-    public async Task<PairingSessionDto> CreateSessionAsync(CancellationToken cancellationToken)
+    public async Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken)
     {
-        using var response = await _client.PostAsync("pairing/sessions", null, cancellationToken);
+        using var response = await _client.PostAsJsonAsync("pairing/sessions", new PairingSessionRequestDto(rebindAgentId), cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
+        return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
     }
     public void Dispose() => _client.Dispose();
 }

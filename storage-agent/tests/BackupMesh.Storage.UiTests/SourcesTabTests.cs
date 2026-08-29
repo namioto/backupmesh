@@ -73,4 +73,10 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("RevokeSourceButton").AsButton());
         Assert.NotNull(Find("UnrevokeSourceButton").AsButton());
     }
+
+    [Fact]
+    public void RePairSourceButton_IsPresent()
+    {
+        Assert.NotNull(Find("RePairSourceButton").AsButton());
+    }
 }

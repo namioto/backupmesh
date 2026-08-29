@@ -2,6 +2,23 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## [Unreleased]
+
+### Security
+
+- `/pairing/exchange` no longer accepts an arbitrary caller-supplied `agent_id`. A one-time code either mints a brand new Source identity, or - only when the tray's new **Re-pair** action created it - reissues credentials for one specific, already-paired Source. Previously any valid code could claim an unrelated Source's `agent_id` (visible in the tray's Connections list, not a secret) and take over its identity and catalog.
+- `/pairing/exchange`'s per-address failure table is now pruned as it grows, so a remote attacker sending one invalid code from each address in a large IPv6 range can no longer grow it without bound; an address's lockout now survives its counting window rolling over.
+- A malformed line in the revoked-agents file is now skipped with a logged warning instead of crashing the control API's dependency injection and returning 500 to every request, including the tray's own.
+
+### Fixed
+
+- The Source Agent no longer rewrites `<config>.state.json` on every load when nothing changed. Combined with the systemd units' `ProtectSystem=strict`, this previously made `watch` and `backup` fail outright once `/etc` became read-only.
+- The tray's **Revoke**/**Restore access** actions no longer disappear silently on a timeout; a timed-out request now reports an error on the footer status like other tray actions.
+
+### Added
+
+- A **Re-pair** action in the tray's Connections list issues a one-time code scoped to reissuing credentials for that specific Source only - for recovering a Source that lost its private key or certificate, without exposing every other paired Source to identity takeover.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

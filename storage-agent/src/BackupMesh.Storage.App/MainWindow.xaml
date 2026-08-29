@@ -71,6 +71,7 @@
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
                                         <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
                                         <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
+                                        <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" Margin="6,0,0,0" ToolTip="Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>

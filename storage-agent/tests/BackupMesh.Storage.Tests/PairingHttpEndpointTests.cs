@@ -163,6 +163,58 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task ExchangeRejectsAnAgentIdThatIsAlreadyPairedWhenTheSessionDoesNotRebindIt()
+    {
+        // agent_id is shown in the tray's Connections list, so it is not a secret. A code issued for a
+        // brand new Source must not let anyone claim an unrelated, already-paired Source's identity.
+        var (existingAgentId, existingCertificate, _) = IssuePairedIdentity();
+        using var _cert = existingCertificate;
+
+        var session = _sessions.Create();
+        var response = await ExchangeAsync(session.Code, existingAgentId, "attacker-claimed-name");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ARebindingSessionRejectsAnyAgentIdOtherThanTheOneItIsBoundTo()
+    {
+        var (existingAgentId, existingCertificate, _) = IssuePairedIdentity();
+        using var _cert = existingCertificate;
+
+        var session = await CreateSessionAsync(existingAgentId);
+        var response = await ExchangeAsync(session, Guid.NewGuid(), "source-1");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ARebindingSessionSucceedsForTheAgentIdItIsBoundTo()
+    {
+        var (existingAgentId, existingCertificate, _) = IssuePairedIdentity();
+        using var _cert = existingCertificate;
+
+        var session = await CreateSessionAsync(existingAgentId);
+        var response = await ExchangeAsync(session, existingAgentId, "source-1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SessionCreationEchoesTheRebindAgentIdItWasBoundTo()
+    {
+        var existingAgentId = Guid.NewGuid();
+        using var handler = _server.CreateHandler(ctx => ctx.Connection.RemoteIpAddress = IPAddress.Loopback);
+        using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
+
+        using var response = await client.PostAsJsonAsync("/api/v1/pairing/sessions", new { rebind_agent_id = existingAgentId });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(existingAgentId, payload.GetProperty("rebind_agent_id").GetGuid());
+    }
+
+    [Fact]
     public async Task RemoteCallersWithoutPairingCannotReachGeneralControlApi()
     {
         // No client certificate, no bearer token, no loopback: the general control API must stay closed
@@ -286,6 +338,16 @@ public sealed class PairingHttpEndpointTests : IDisposable
         ctx.Request.Path = path;
         ctx.Connection.RemoteIpAddress = remoteAddress;
     });
+
+    private async Task<string> CreateSessionAsync(Guid rebindAgentId)
+    {
+        using var handler = _server.CreateHandler(ctx => ctx.Connection.RemoteIpAddress = IPAddress.Loopback);
+        using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
+        using var response = await client.PostAsJsonAsync("/api/v1/pairing/sessions", new { rebind_agent_id = rebindAgentId });
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return payload.GetProperty("code").GetString()!;
+    }
 
     private Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName) => ExchangeAsync(code, agentId, agentName, IPAddress.Parse("203.0.113.10"));
 

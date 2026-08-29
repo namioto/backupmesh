@@ -7,6 +7,7 @@
     <StackPanel Margin="20">
         <TextBlock Text="One-time pairing details" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
         <TextBlock Text="Enter these in the Source Agent pairing screen. The code expires in 10 minutes and works once." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
+        <TextBlock x:Name="IntentText" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,10" AutomationProperties.AutomationId="PairingIntentText"/>
 
         <TextBlock Text="Storage endpoint" Foreground="#607086"/>
         <TextBox x:Name="EndpointText" IsReadOnly="True" Margin="0,2,0,10" AutomationProperties.AutomationId="PairingEndpointText"/>
