@@ -100,6 +100,26 @@ public sealed class StoragePresenceStoreTests
         Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]));
     }
 
+    [Fact]
+    public void ArrivalDoesNotTreatARemotePosixSourcePathAsLocal()
+    {
+        // A Linux Source Agent's backup-set paths are POSIX absolute paths. Path.GetFullPath resolves
+        // a leading '/' against the current drive's root on Windows (e.g. "/home/user/Documents" ->
+        // "C:\home\user\Documents"), which used to coincidentally fall under any connected device's
+        // root and make Storage believe a remote Source's data "arrived" locally.
+        var driveRoot = Path.GetPathRoot(Directory.GetCurrentDirectory())!;
+        var sourceDeviceId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(sourceDeviceId, driveRoot), Device(targetId, Path.Combine(Path.GetTempPath(), "target"))],
+            [new(setId, Guid.NewGuid(), "Remote Linux Source", "Documents", ["/home/user/Documents"])], [mapping]);
+        var presence = new[] { Presence(sourceDeviceId, driveRoot, true), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+
+        Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]));
+    }
+
     private static RegisteredDevice Device(Guid id, string root) =>
         new(id, FolderStorageIdentity.Create(root), root, "Folder", root, DateTimeOffset.UtcNow, null, 0);
 

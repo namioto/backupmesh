@@ -115,7 +115,12 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
 
     private static bool IsWithin(string root, string candidate)
     {
-        if (!Path.IsPathRooted(candidate)) return false;
+        // A Backup Set's source paths can belong to a remote (e.g. Linux) Source Agent and be POSIX
+        // paths like "/home/user/Documents". Path.IsPathRooted treats a leading '/' as rooted on
+        // Windows too, and Path.GetFullPath resolves it against the current drive's root (e.g. to
+        // "C:\home\user\Documents"), which can coincidentally fall under a connected device's root.
+        // Only a path that already looks like a real Windows path can be a same-host source arrival.
+        if (!LooksLikeWindowsPath(candidate)) return false;
         try
         {
             var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -125,6 +130,10 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
     }
+
+    private static bool LooksLikeWindowsPath(string candidate) =>
+        (candidate.Length >= 3 && candidate[1] == ':' && (candidate[2] == '\\' || candidate[2] == '/') && char.IsAsciiLetter(candidate[0]))
+        || (candidate.Length >= 2 && candidate[0] == '\\' && candidate[1] == '\\');
 
     private static void UpdateAggregateState(StorageStateMachine state, IReadOnlyList<RegisteredDevicePresence> devices)
     {
