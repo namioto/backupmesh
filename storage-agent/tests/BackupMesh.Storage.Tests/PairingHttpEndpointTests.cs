@@ -22,6 +22,8 @@ public sealed class PairingHttpEndpointTests : IDisposable
     private readonly RevokedSourceStore _revocations = new();
     private readonly SourceCatalogStore _catalogs = new(new() { PersistencePath = string.Empty });
     private readonly PairingCertificateAuthority _certificateAuthority;
+    private readonly IssuedCertificateStore _issuedCertificates = new();
+    private readonly SourceDisplayNameStore _displayNames = new();
     private readonly IHost _host;
     private readonly TestServer _server;
 
@@ -48,6 +50,8 @@ public sealed class PairingHttpEndpointTests : IDisposable
                 services.AddSingleton(_credentials);
                 services.AddSingleton(_revocations);
                 services.AddSingleton(_certificateAuthority);
+                services.AddSingleton(_issuedCertificates);
+                services.AddSingleton(_displayNames);
                 services.AddSingleton<ControlApiAuthenticationFilter>();
                 services.AddSingleton(new ControlApiOptions());
                 services.AddSingleton(new StorageStateMachine());
@@ -301,6 +305,119 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task ListSourcesReportsTheRenamedDisplayNameAndTheOriginalReportedName()
+    {
+        var agentId = Guid.NewGuid();
+        _catalogs.Upsert(new SourceCatalog(agentId, "reported-name", DateTimeOffset.UtcNow, []));
+        _displayNames.Set(agentId, "My renamed source");
+
+        var context = await PostOrGetAsync("GET", "/api/v1/sources", IPAddress.Loopback);
+        var payload = await ReadJsonAsync(context);
+        var entry = payload.EnumerateArray().Single(item => item.GetProperty("agent_id").GetGuid() == agentId);
+
+        Assert.Equal("My renamed source", entry.GetProperty("agent_name").GetString());
+        Assert.Equal("reported-name", entry.GetProperty("reported_agent_name").GetString());
+    }
+
+    [Fact]
+    public async Task ListSourcesReportsTheCertificateExpiryRecordedAtExchange()
+    {
+        var session = _sessions.Create();
+        var agentId = Guid.NewGuid();
+        var exchange = await ExchangeAsync(session.Code, agentId, "source-1");
+        exchange.EnsureSuccessStatusCode();
+        var exchangePayload = await exchange.Content.ReadFromJsonAsync<JsonElement>();
+        _catalogs.Upsert(new SourceCatalog(agentId, "source-1", DateTimeOffset.UtcNow, []));
+
+        var context = await PostOrGetAsync("GET", "/api/v1/sources", IPAddress.Loopback);
+        var payload = await ReadJsonAsync(context);
+        var entry = payload.EnumerateArray().Single(item => item.GetProperty("agent_id").GetGuid() == agentId);
+
+        Assert.Equal(exchangePayload.GetProperty("expires_at").GetDateTimeOffset(), entry.GetProperty("certificate_expires_at").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task RenamingASourceIsLoopbackOnly()
+    {
+        var agentId = Guid.NewGuid();
+        var remote = await PutJsonAsync($"/api/v1/sources/{agentId}/name", new { display_name = "New name" }, IPAddress.Parse("203.0.113.10"));
+        Assert.True(remote.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
+        Assert.Null(_displayNames.Get(agentId));
+
+        var loopback = await PutJsonAsync($"/api/v1/sources/{agentId}/name", new { display_name = "New name" }, IPAddress.Loopback);
+        Assert.Equal(HttpStatusCode.OK, loopback.StatusCode);
+        Assert.Equal("New name", _displayNames.Get(agentId));
+    }
+
+    [Fact]
+    public async Task ForgettingASourceRevokesItAndRemovesItsCatalogButNotAnythingElse()
+    {
+        var agentId = Guid.NewGuid();
+        _catalogs.Upsert(new SourceCatalog(agentId, "source-1", DateTimeOffset.UtcNow, []));
+
+        var context = await PostOrGetAsync("POST", $"/api/v1/sources/{agentId}/forget", IPAddress.Loopback);
+
+        Assert.Equal(200, context.Response.StatusCode);
+        Assert.True(_revocations.IsRevoked(agentId));
+        Assert.DoesNotContain(_catalogs.List(), catalog => catalog.SourceAgentId == agentId);
+    }
+
+    [Fact]
+    public async Task ForgetEndpointIsLoopbackOnly()
+    {
+        var agentId = Guid.NewGuid();
+        _catalogs.Upsert(new SourceCatalog(agentId, "source-1", DateTimeOffset.UtcNow, []));
+
+        var remote = await PostOrGetAsync("POST", $"/api/v1/sources/{agentId}/forget", IPAddress.Parse("203.0.113.10"));
+
+        Assert.True(remote.Response.StatusCode is 401 or 403);
+        Assert.Contains(_catalogs.List(), catalog => catalog.SourceAgentId == agentId);
+    }
+
+    [Fact]
+    public async Task RotateAuthorityEndpointIsLoopbackOnly()
+    {
+        var remote = await PostOrGetAsync("POST", "/api/v1/pairing/rotate-authority", IPAddress.Parse("203.0.113.10"));
+        Assert.Equal(403, remote.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RotatingTheAuthorityMakesPreviouslyIssuedClientCertificatesFailChainValidation()
+    {
+        var (agentId, certificate, token) = IssuePairedIdentity();
+        using var _cert = certificate;
+
+        var rotate = await PostOrGetAsync("POST", "/api/v1/pairing/rotate-authority", IPAddress.Loopback);
+        Assert.Equal(200, rotate.Response.StatusCode);
+
+        using var newAuthority = _certificateAuthority.GetAuthorityCertificate();
+        Assert.False(MutualTlsCertificateValidator.Validate(certificate, newAuthority));
+    }
+
+    [Fact]
+    public async Task CertificateRenewalIssuesAFreshCertificateForTheAuthenticatedAgent()
+    {
+        var (agentId, certificate, token) = IssuePairedIdentity();
+        using var _cert = certificate;
+
+        var context = await _server.SendAsync(ctx =>
+        {
+            ctx.Request.Method = HttpMethods.Post;
+            ctx.Request.Path = "/api/v1/certificate/renew";
+            ctx.Request.Headers["X-BackupMesh-Agent-ID"] = agentId.ToString();
+            ctx.Request.Headers.Authorization = $"Bearer {token}";
+            ctx.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+            ctx.Connection.ClientCertificate = certificate;
+        });
+
+        Assert.Equal(200, context.Response.StatusCode);
+        var payload = await ReadJsonAsync(context);
+        using var renewed = X509Certificate2.CreateFromPem(payload.GetProperty("certificate_pem").GetString());
+        Assert.NotEqual(certificate.Thumbprint, renewed.Thumbprint);
+        Assert.True(MutualTlsCertificateValidator.Validate(renewed, _certificateAuthority.GetAuthorityCertificate()));
+    }
+
+    [Fact]
     public async Task RevokeAndUnrevokeEndpointsAreLoopbackOnly()
     {
         var agentId = Guid.NewGuid();
@@ -338,6 +455,13 @@ public sealed class PairingHttpEndpointTests : IDisposable
         ctx.Request.Path = path;
         ctx.Connection.RemoteIpAddress = remoteAddress;
     });
+
+    private async Task<HttpResponseMessage> PutJsonAsync(string path, object body, IPAddress remoteAddress)
+    {
+        using var handler = _server.CreateHandler(ctx => ctx.Connection.RemoteIpAddress = remoteAddress);
+        using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
+        return await client.PutAsJsonAsync(path, body);
+    }
 
     private async Task<string> CreateSessionAsync(Guid rebindAgentId)
     {

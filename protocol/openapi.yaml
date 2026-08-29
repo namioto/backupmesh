@@ -74,6 +74,34 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '409': {description: The code is not authorized to identify as the given agent_id}
         default: {$ref: '#/components/responses/Error'}
+  /pairing/rotate-authority:
+    post:
+      tags: [Source]
+      operationId: rotateStorageAuthority
+      summary: Discard the Storage pairing CA and server certificate
+      description: Available only over the loopback endpoint to the local tray app. Takes effect only after the Storage Service restarts; every currently paired Source Agent must be re-paired afterward, but its agent_id, catalog, and revocation status are unaffected.
+      security: []
+      responses:
+        '200':
+          description: Authority material discarded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [restart_required]
+                properties:
+                  restart_required: {type: boolean}
+        '403': {$ref: '#/components/responses/Error'}
+  /certificate/renew:
+    post:
+      tags: [Source]
+      operationId: renewCertificate
+      summary: Reissue the authenticated Source Agent's client certificate
+      description: Requires the caller's current, still-valid client certificate and bearer token - no one-time code or tray interaction is needed. Each call mints a fresh key rather than reusing the current one.
+      responses:
+        '200': {description: Fresh mTLS certificate bundle for the authenticated Source Agent}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
   /service/shutdown:
     post:
       tags: [Storage]
@@ -509,13 +537,71 @@ paths:
                 type: array
                 items:
                   type: object
-                  required: [agent_id, agent_name, last_seen_at, backup_set_count, revoked]
+                  required: [agent_id, agent_name, reported_agent_name, last_seen_at, backup_set_count, revoked]
                   properties:
                     agent_id: {type: string, format: uuid}
-                    agent_name: {type: string}
+                    agent_name: {type: string, description: The tray's display name - a rename override if one was set, otherwise the same as reported_agent_name.}
+                    reported_agent_name: {type: string, description: The name the Source Agent itself reports in its catalog sync, unaffected by tray renames.}
                     last_seen_at: {type: string, format: date-time}
                     backup_set_count: {type: integer, minimum: 0}
                     revoked: {type: boolean}
+                    certificate_expires_at: {type: string, format: date-time, nullable: true, description: 'Null if this Source paired only through the deprecated file-bundle path.'}
+        '403': {$ref: '#/components/responses/Error'}
+  /sources/{agent_id}/name:
+    put:
+      tags: [Source]
+      operationId: renameSource
+      summary: Override the tray's display name for a Source Agent
+      description: Available only over the loopback endpoint to the local tray app. Never changes the name the Source Agent reports in its own catalog sync.
+      security: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: {type: string, maxLength: 128, nullable: true, description: Empty or null clears the override.}
+      responses:
+        '200':
+          description: Display name updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_id]
+                properties:
+                  agent_id: {type: string, format: uuid}
+                  display_name: {type: string, nullable: true}
+        '403': {$ref: '#/components/responses/Error'}
+  /sources/{agent_id}/forget:
+    post:
+      tags: [Source]
+      operationId: forgetSource
+      summary: Revoke a Source Agent and remove it from the Connections list
+      description: Available only over the loopback endpoint to the local tray app. Backup Set mappings that reference this Source are preserved unresolved rather than deleted, and resolve again if it is later re-paired and unrevoked under the same agent_id.
+      security: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Source forgotten
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_id, forgotten]
+                properties:
+                  agent_id: {type: string, format: uuid}
+                  forgotten: {type: boolean}
         '403': {$ref: '#/components/responses/Error'}
   /sources/{agent_id}/revoke:
     post:

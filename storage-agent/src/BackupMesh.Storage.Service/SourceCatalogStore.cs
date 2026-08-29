@@ -62,6 +62,23 @@ public sealed class SourceCatalogStore
             && pair.First.Name == pair.Second.Name
             && pair.First.SourcePaths.SequenceEqual(pair.Second.SourcePaths, StringComparer.Ordinal));
 
+    // Removes a Source's catalog entry so the tray stops listing it as connected and its Backup Sets
+    // report as unavailable everywhere they are mapped - without touching StorageConfigurationStore, so
+    // existing mappings and repository paths survive untouched and resolve again if the Source returns
+    // (see ControlApi's /sources/{agent_id}/forget, which also revokes it).
+    public bool Remove(Guid sourceAgentId)
+    {
+        lock (_gate)
+        {
+            if (!_catalogs.ContainsKey(sourceAgentId)) return false;
+            var updated = new Dictionary<Guid, SourceCatalog>(_catalogs);
+            updated.Remove(sourceAgentId);
+            Persist(_persistencePath, updated.Values);
+            _catalogs = updated;
+            return true;
+        }
+    }
+
     public IReadOnlyList<SourceCatalog> List()
     {
         lock (_gate)

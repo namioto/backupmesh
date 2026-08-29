@@ -12,7 +12,11 @@ public sealed record PairingSessionDto(
     [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
     [property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
 public sealed record PairingSessionRequestDto([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
-public interface IPairingClient { Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken); }
+public interface IPairingClient
+{
+    Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken);
+    Task RotateAuthorityAsync(CancellationToken cancellationToken);
+}
 public sealed class PairingClient : IPairingClient, IDisposable
 {
     private readonly HttpClient _client;
@@ -22,6 +26,11 @@ public sealed class PairingClient : IPairingClient, IDisposable
         using var response = await _client.PostAsJsonAsync("pairing/sessions", new PairingSessionRequestDto(rebindAgentId), cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
+    }
+    public async Task RotateAuthorityAsync(CancellationToken cancellationToken)
+    {
+        using var response = await _client.PostAsync("pairing/rotate-authority", null, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
     public void Dispose() => _client.Dispose();
 }

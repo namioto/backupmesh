@@ -41,7 +41,7 @@ foreach ($reference in $references) {
 
 $operationIds = [regex]::Matches($text, '(?m)^      operationId: (?<id>[A-Za-z][A-Za-z0-9]+)\r?$') |
     ForEach-Object { $_.Groups['id'].Value }
-$expectedOperationCount = 27
+$expectedOperationCount = 31
 if ($operationIds.Count -ne $expectedOperationCount) {
     throw "Expected $expectedOperationCount operations, found $($operationIds.Count)."
 }

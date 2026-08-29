@@ -95,6 +95,40 @@ public sealed class SourceCatalogStoreTests
         Assert.Equal(StoreOutcome.Conflict, store.Upsert(changed));
     }
 
+    [Fact]
+    public void RemoveDeletesOnlyTheNamedCatalogAndPersists()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-catalog-test-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "catalogs.json");
+
+        try
+        {
+            var options = new SourceCatalogOptions { PersistencePath = path };
+            var store = new SourceCatalogStore(options);
+            var removedId = Guid.NewGuid();
+            var keptId = Guid.NewGuid();
+            store.Upsert(Catalog(removedId, "Zulu", "Photos"));
+            store.Upsert(Catalog(keptId, "Alpha", "Projects"));
+
+            Assert.True(store.Remove(removedId));
+            Assert.Equal(keptId, store.List().Single().SourceAgentId);
+
+            var restored = new SourceCatalogStore(options).List();
+            Assert.Equal(keptId, restored.Single().SourceAgentId);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void RemovingAnUnknownSourceReportsFalse()
+    {
+        var store = new SourceCatalogStore(new SourceCatalogOptions { PersistencePath = string.Empty });
+        Assert.False(store.Remove(Guid.NewGuid()));
+    }
+
     private static SourceCatalog Catalog(Guid id, string name, string setName) =>
         new(id, name, DateTimeOffset.UtcNow, [new(Guid.NewGuid(), setName, ["/data"])]);
 }

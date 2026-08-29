@@ -79,4 +79,11 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     {
         Assert.NotNull(Find("RePairSourceButton").AsButton());
     }
+
+    [Fact]
+    public void RenameAndForgetSourceButtons_ArePresent()
+    {
+        Assert.NotNull(Find("RenameSourceButton").AsButton());
+        Assert.NotNull(Find("ForgetSourceButton").AsButton());
+    }
 }

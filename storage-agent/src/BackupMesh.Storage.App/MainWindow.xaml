@@ -65,6 +65,7 @@
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Source" Binding="{Binding AgentName}" Width="2*"/>
                                             <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="2*"/>
+                                            <DataGridTextColumn Header="Certificate expires" Binding="{Binding CertificateExpiresDisplay}" Width="2*"/>
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="*"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
@@ -72,6 +73,8 @@
                                         <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
                                         <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
                                         <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" Margin="6,0,0,0" ToolTip="Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
+                                        <Button Content="Rename" Command="{Binding RenameSourceCommand}" Margin="6,0,0,0" ToolTip="Change only what the tray displays for this Source Agent." AutomationProperties.AutomationId="RenameSourceButton"/>
+                                        <Button Content="Forget" Command="{Binding ForgetSourceCommand}" Margin="6,0,0,0" ToolTip="Revoke this Source Agent and remove it from this list. Its Backup Set mappings are kept but stop being reported until it is re-paired." AutomationProperties.AutomationId="ForgetSourceButton"/>
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
@@ -148,6 +151,12 @@
                     <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Fixed drives, removable storage, and registered local or network folders are supported." TextWrapping="Wrap" Foreground="#526276"/>
                     <Button Content="Save settings" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,18,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
+                    <Separator Margin="0,18"/>
+                    <TextBlock Text="Security" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#526276" Margin="0,0,0,10">
+                        Rotating the Storage identity regenerates its certificate authority and server certificate. Every currently paired Source Agent loses access until it is re-paired, and the change only takes effect after the BackupMesh Storage service is restarted.
+                    </TextBlock>
+                    <Button Content="Rotate Storage identity" Command="{Binding RotateStorageIdentityCommand}" HorizontalAlignment="Left" AutomationProperties.AutomationId="RotateStorageIdentityButton"/>
                 </StackPanel>
             </TabItem>
         </TabControl>

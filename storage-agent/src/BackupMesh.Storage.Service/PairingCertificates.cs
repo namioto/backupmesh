@@ -46,9 +46,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
         lock (_gate)
         {
-            var serverPath = !string.IsNullOrWhiteSpace(options.ProtectedServerCertificatePath)
-                ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(options.ProtectedServerCertificatePath))
-                : _path + ".server.dpapi";
+            var serverPath = ResolveServerPath();
             if (File.Exists(serverPath))
             {
                 var protectedPfx = File.ReadAllBytes(serverPath);
@@ -103,6 +101,29 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         try { File.WriteAllBytes(temporary, protectedBytes); File.Move(temporary, _path, true); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
         return X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+    }
+
+    private string ResolveServerPath() => !string.IsNullOrWhiteSpace(options.ProtectedServerCertificatePath)
+        ? Path.GetFullPath(Environment.ExpandEnvironmentVariables(options.ProtectedServerCertificatePath))
+        : _path + ".server.dpapi";
+
+    // Deletes the CA and server certificate material so a fresh CA and server certificate are generated
+    // the next time the Storage Service starts. This does not affect the currently running process -
+    // Kestrel already bound the old server certificate and client-certificate trust policy at startup -
+    // so it only takes effect after a service restart. Every Source Agent's client certificate was
+    // signed by the CA being discarded, so each must use the tray's Re-pair action afterward; their
+    // agent_id, catalog, and revocation status are untouched and Re-pair restores them under the same
+    // identity.
+    public void RotateAuthority()
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Pairing certificate issuance requires Windows DPAPI.");
+        lock (_gate)
+        {
+            _authority = null;
+            if (File.Exists(_path)) File.Delete(_path);
+            var serverPath = ResolveServerPath();
+            if (File.Exists(serverPath)) File.Delete(serverPath);
+        }
     }
 
     private static string ResolvePath(string? path) => !string.IsNullOrWhiteSpace(path)

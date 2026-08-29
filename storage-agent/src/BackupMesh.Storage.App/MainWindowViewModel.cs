@@ -69,6 +69,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RePairSourceCommand { get; }
     public ICommand RevokeSourceCommand { get; }
     public ICommand UnrevokeSourceCommand { get; }
+    public ICommand RenameSourceCommand { get; }
+    public ICommand ForgetSourceCommand { get; }
+    public ICommand RotateStorageIdentityCommand { get; }
 
     public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null)
     {
@@ -95,6 +98,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RePairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: SelectedSourceConnection));
         RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
         UnrevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: false));
+        RenameSourceCommand = new RelayCommand(() => _ = RenameSelectedSourceAsync());
+        ForgetSourceCommand = new RelayCommand(() => _ = ForgetSelectedSourceAsync());
+        RotateStorageIdentityCommand = new RelayCommand(() => _ = RotateStorageIdentityAsync());
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
@@ -246,6 +252,61 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (HttpRequestException exception) { FooterStatus = $"Could not update {connection.AgentName}'s access: {exception.Message}"; }
         catch (TaskCanceledException) { FooterStatus = $"The request to update {connection.AgentName}'s access timed out."; }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+    }
+
+    private async Task RenameSelectedSourceAsync()
+    {
+        var connection = SelectedSourceConnection;
+        if (connection is null) return;
+        var dialog = new RenameSourceWindow(connection.AgentName == connection.ReportedAgentName ? string.Empty : connection.AgentName, connection.ReportedAgentName);
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            await _connectionsClient.RenameAsync(connection.AgentId, dialog.ResultDisplayName, _shutdown.Token);
+            FooterStatus = "Source Agent renamed.";
+            await RefreshConnectionsAsync();
+        }
+        catch (HttpRequestException exception) { FooterStatus = $"Could not rename {connection.AgentName}: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = $"The rename request for {connection.AgentName} timed out."; }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+    }
+
+    private async Task ForgetSelectedSourceAsync()
+    {
+        var connection = SelectedSourceConnection;
+        if (connection is null) return;
+        var confirmed = System.Windows.MessageBox.Show(
+            $"Forget \"{connection.AgentName}\"? It will be revoked immediately. Backup Set mappings that reference it are kept but stop being reported until it is re-paired.",
+            "Forget Source Agent", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+        if (!confirmed) return;
+        try
+        {
+            await _connectionsClient.ForgetAsync(connection.AgentId, _shutdown.Token);
+            FooterStatus = $"Forgot {connection.AgentName}. Its mappings are preserved as unresolved.";
+            NotificationRequested?.Invoke(this, new("Source Agent connection", FooterStatus));
+            await RefreshConnectionsAsync();
+            await RefreshCatalogsAsync();
+        }
+        catch (HttpRequestException exception) { FooterStatus = $"Could not forget {connection.AgentName}: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = $"The request to forget {connection.AgentName} timed out."; }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+    }
+
+    private async Task RotateStorageIdentityAsync()
+    {
+        var confirmed = System.Windows.MessageBox.Show(
+            "This regenerates the Storage's certificate authority and server certificate. Every currently paired Source Agent will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?",
+            "Rotate Storage identity", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+        if (!confirmed) return;
+        try
+        {
+            await _pairingClient.RotateAuthorityAsync(_shutdown.Token);
+            FooterStatus = "Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every Source Agent.";
+            NotificationRequested?.Invoke(this, new("Storage identity rotated", FooterStatus));
+        }
+        catch (HttpRequestException exception) { FooterStatus = $"Could not rotate the Storage identity: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = "The Storage identity rotation request timed out."; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -693,10 +754,13 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
 {
     public Guid AgentId { get; } = model.AgentId;
     public string AgentName { get; } = model.AgentName;
+    public string ReportedAgentName { get; } = model.ReportedAgentName;
     public DateTimeOffset LastSeenAt { get; } = model.LastSeenAt;
     public string LastSeenDisplay { get; } = model.LastSeenAt.LocalDateTime.ToString("g");
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
+    public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
+    public string CertificateExpiresDisplay => CertificateExpiresAt is { } expires ? expires.LocalDateTime.ToString("g") : "Unknown";
     public string StatusDisplay => IsRevoked ? "Revoked" : "Allowed";
     public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.

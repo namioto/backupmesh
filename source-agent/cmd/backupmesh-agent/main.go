@@ -117,6 +117,11 @@ func run(args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
 		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, AgentID: cfg.Agent.ID, HTTPClient: httpClient}
+		if renewedClient, err := renewCertificateIfNeeded(ctx, api, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "certificate renewal check failed: %v\n", err)
+		} else if renewedClient != nil {
+			api.HTTPClient = renewedClient
+		}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -152,6 +157,11 @@ func run(args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
 		api := controlapi.Client{BaseURL: strings.TrimRight(cfg.Storage.ControlEndpoint, "/") + "/api/v1", AuthToken: authToken, AgentID: cfg.Agent.ID, HTTPClient: httpClient}
+		if renewedClient, err := renewCertificateIfNeeded(ctx, api, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "certificate renewal check failed: %v\n", err)
+		} else if renewedClient != nil {
+			api.HTTPClient = renewedClient
+		}
 		if err := publishCatalog(ctx, api, cfg); err != nil {
 			return fmt.Errorf("publish Source catalog: %w", err)
 		}
@@ -352,6 +362,65 @@ func resolveRepositoryPasswordFile(path string) (resolvedPath string, cleanup fu
 	return temporary.Name(), cleanup, nil
 }
 
+// certificateRenewalThreshold controls how long before its expiry (certificates are issued for one
+// year, see PairingCertificateAuthority.Issue) the Source Agent proactively renews its mTLS client
+// certificate, so a Source that is online at least this often never has to be re-paired for expiry alone.
+const certificateRenewalThreshold = 30 * 24 * time.Hour
+
+// renewCertificateIfNeeded reissues the Source Agent's mTLS client certificate shortly before it
+// expires. Renewal is authenticated with the Source's current, still-valid certificate and bearer
+// token (see /certificate/renew), so it never needs a new one-time code or tray interaction, and the
+// Storage Service mints a fresh key each time rather than letting the same one be reused indefinitely.
+// On success it returns a fresh HTTP client built from the newly written files, since the caller's
+// existing client keeps using the certificate that was loaded into it at construction time.
+func renewCertificateIfNeeded(ctx context.Context, api controlapi.Client, cfg config.Config) (*http.Client, error) {
+	certPEM, err := os.ReadFile(filepath.Clean(cfg.Storage.TLSCertificateFile))
+	if err != nil {
+		return nil, fmt.Errorf("read current certificate: %w", err)
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, errors.New("current certificate file does not contain a PEM certificate")
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse current certificate: %w", err)
+	}
+	if time.Until(certificate.NotAfter) > certificateRenewalThreshold {
+		return nil, nil
+	}
+	renewed, err := api.RenewCertificate(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("renew certificate: %w", err)
+	}
+	renewedBlock, _ := pem.Decode([]byte(renewed.CertificatePEM))
+	if renewedBlock == nil {
+		return nil, errors.New("renewal response did not contain a PEM certificate")
+	}
+	renewedCertificate, err := x509.ParseCertificate(renewedBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse renewed certificate: %w", err)
+	}
+	if renewedCertificate.Subject.CommonName != cfg.Agent.ID {
+		return nil, errors.New("renewed certificate identity does not match agent_id")
+	}
+	if err := writePrivateFile(cfg.Storage.TLSCertificateFile, []byte(renewed.CertificatePEM)); err != nil {
+		return nil, err
+	}
+	if err := writePrivateFile(cfg.Storage.TLSKeyFile, []byte(renewed.PrivateKeyPEM)); err != nil {
+		return nil, err
+	}
+	if err := writePrivateFile(cfg.Storage.TLSCAFile, []byte(renewed.AuthorityPEM)); err != nil {
+		return nil, err
+	}
+	fmt.Printf("renewed Source Agent certificate, now valid until %s\n", renewed.ExpiresAt.Format(time.RFC3339))
+	newClient, err := loadMTLSClient(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("reload mTLS client after renewal: %w", err)
+	}
+	return newClient, nil
+}
+
 func writePrivateFile(path string, contents []byte) error {
 	temporary := path + ".tmp"
 	if err := os.WriteFile(temporary, contents, 0600); err != nil {
@@ -527,11 +596,21 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 func watchSourceCommands(ctx context.Context, api controlapi.Client, cfg config.Config, resticBinary string, pollInterval time.Duration) error {
 	backoff := pollInterval
 	maxBackoff := 30 * time.Second
+	const renewalCheckInterval = 24 * time.Hour
+	nextRenewalCheck := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
+		}
+		if !nextRenewalCheck.After(time.Now()) {
+			if renewedClient, err := renewCertificateIfNeeded(ctx, api, cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "certificate renewal check failed: %v\n", err)
+			} else if renewedClient != nil {
+				api.HTTPClient = renewedClient
+			}
+			nextRenewalCheck = time.Now().Add(renewalCheckInterval)
 		}
 		command, err := api.ClaimBackupCommand(ctx, cfg.Agent.ID)
 		if err != nil {
