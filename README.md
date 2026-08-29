@@ -1,6 +1,6 @@
 # BackupMesh
 
-[한국어](README.ko.md) | **English**
+[한국어](README.ko.md) | **English** | [User guide](docs/USER_GUIDE.md)
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
@@ -88,16 +88,16 @@ Build the self-contained Linux Source Agent package with `pwsh -NoProfile -File 
 
 ## Project status
 
-BackupMesh is in the early implementation stage. The first release focuses on:
+The end-to-end MVP is implemented. The repository test flow performs a real authenticated backup to two folder-backed targets, restores both snapshots, and verifies SHA-256 equality. The current release includes:
 
 - A Go Source Agent for Linux
 - A .NET Storage Agent for Windows
 - Encrypted backups through Restic and rest-server
-- Connection detection and identity verification for a designated removable drive
+- Fixed, removable, and folder-backed storage registration with stable identity
 - Delayed execution, progress reporting, and safe ejection
 - An authenticated Control API between Agents
 
-> BackupMesh is not yet ready to be the only backup solution for important data.
+See the [user guide](docs/USER_GUIDE.md) for installation, pairing, mapping, restore testing, and troubleshooting. Before production use, repeat the acceptance tests on your actual Windows and Linux machines. BackupMesh should not be the only copy of important data until you have verified restoration yourself.
 
 ## License
 

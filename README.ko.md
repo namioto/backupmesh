@@ -1,6 +1,6 @@
 # BackupMesh
 
-**한국어** | [English](README.md)
+**한국어** | [English](README.md) | [사용자 가이드](docs/USER_GUIDE.ko.md)
 
 **필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
 
@@ -88,16 +88,16 @@ Linux Source Agent 자체 포함 패키지는 `pwsh -NoProfile -File scripts/bui
 
 ## 현재 상태
 
-BackupMesh는 초기 구현 단계입니다. 첫 번째 릴리스는 다음 구성에 집중합니다.
+End-to-end MVP 구현을 마쳤습니다. 저장소의 테스트 흐름은 실제 파일을 인증된 방식으로 두 개의 폴더 저장 대상에 백업하고, 양쪽 snapshot을 복원한 뒤 SHA-256 일치를 검증합니다. 현재 릴리스에는 다음 구성이 포함됩니다.
 
 - Linux용 Go Source Agent
 - Windows용 .NET Storage Agent
 - Restic 및 rest-server 기반 암호화 백업
-- 지정된 외장 저장장치의 연결 감지와 identity 검증
+- 고정식·이동식·폴더 기반 저장장치 등록과 안정적인 identity
 - 지연 실행, 진행률 표시, 안전 제거
 - Agent 간 인증된 Control API
 
-> BackupMesh는 아직 중요한 데이터의 유일한 백업 수단으로 사용할 준비가 되지 않았습니다.
+[사용자 가이드](docs/USER_GUIDE.ko.md)에서 설치, 페어링, 매핑, 복원 시험, 문제 해결 방법을 확인할 수 있습니다. 운영에 사용하기 전 실제 Windows·Linux 장비에서 인수 테스트를 반복하고, 직접 복원을 검증하기 전까지 BackupMesh를 중요한 데이터의 유일한 사본으로 사용하지 마세요.
 
 ## 라이선스
 
