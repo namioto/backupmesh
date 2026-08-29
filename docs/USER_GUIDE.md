@@ -55,7 +55,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-Define each Backup Set with a stable UUID, a user-facing name, source paths, and optional include/exclude patterns. Validate the file:
+Define each Backup Set with a user-facing name, source paths, and optional include/exclude patterns. The Source Agent generates stable Agent and Backup Set UUIDs automatically and preserves them in an owner-only `*.state.json` file next to the configuration. Do not edit or copy IDs between Sources. Validate the file:
+
+The Source Agent accepts strict JSON (`.json`) and YAML (`.yaml` or `.yml`). A Backup Set's `paths` list may contain any number of files or directories; see `source-agent/example.config.yaml` for a multi-path example. Unknown YAML and JSON fields are rejected so spelling mistakes cannot silently disable a setting.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -96,6 +98,8 @@ After the Source synchronizes, open **Sources & mappings** in the tray app.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
 
+Source and Storage Agents may run on the same computer by using the Storage Agent's local HTTPS endpoint. Local fixed drives and registered folders are valid destination devices, not only USB media. This supports both local-data-to-external-storage and external-source-to-local-storage layouts. For the latter, register the external source volume with Storage as a device. Storage detects its arrival, finds Backup Sets whose source paths are inside that volume, and sends commands for every ready mapped destination. The Source Agent only executes Storage-authorized commands; it does not own device detection or policy.
+
 ## 7. Run and monitor a backup
 
 Connect the registered device and wait for its arrival delay. BackupMesh requests the mapped Source backup automatically. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run. A running job can be cancelled from the UI; the Source terminates restic and reports `CANCELLED`.
@@ -129,7 +133,7 @@ Restore into an empty test directory and compare file hashes or open representat
 ## Troubleshooting
 
 - **Source does not appear:** check `systemctl status backupmesh-source-watch.service`, confirm TCP 7443 is reachable, and verify the Storage hostname/IP is included in its certificate names before issuing a new pairing bundle.
-- **No target is ready:** confirm the device is connected, the mapping is saved, the Backup Set UUID matches the Source configuration, and the arrival delay has elapsed.
+- **No target is ready:** confirm the device is connected, the mapping is saved, the Source has synchronized its catalog, and the arrival delay has elapsed.
 - **Certificate error:** re-pair after correcting the Storage Agent's advertised hostname. Do not install the private BackupMesh CA into the Windows system trust store.
 - **Insufficient space:** free space or choose another mapped device. A failed target does not prevent another ready target from being attempted.
 - **Interrupted run:** reconnect the device and retry. BackupMesh releases stale jobs after service recovery; restic safely reuses already stored content.

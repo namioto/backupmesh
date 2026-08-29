@@ -6,6 +6,9 @@ All notable changes to BackupMesh are documented in this file.
 
 ### Added
 
+- Strict YAML Source Agent configuration with multiple source paths, alongside the existing JSON format.
+- Storage-owned source-volume arrival detection so an external source drive can automatically back up to ready local or removable destinations without moving policy into the Source Agent.
+
 - A bilingual Inno Setup wizard that installs the Windows service, tray app, bundled tools, firewall rules, automatic startup, Start menu shortcuts, and uninstaller from one executable.
 - A reproducible `build-windows-installer.ps1` entry point with package and version validation.
 

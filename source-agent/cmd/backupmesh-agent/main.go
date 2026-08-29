@@ -196,10 +196,13 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 	cfg.Storage.TLSCertificateFile = filepath.Join(outputDirectory, "source.crt")
 	cfg.Storage.TLSKeyFile = filepath.Join(outputDirectory, "source.key")
 	cfg.Storage.TLSCAFile = filepath.Join(outputDirectory, "storage-ca.pem")
+	if err := config.SaveIdentityState(configPath, cfg); err != nil {
+		return err
+	}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("paired configuration: %w", err)
 	}
-	encoded, err := json.MarshalIndent(cfg, "", "  ")
+	encoded, err := config.Marshal(cfg, configPath)
 	if err != nil {
 		return fmt.Errorf("encode paired configuration: %w", err)
 	}
@@ -296,7 +299,7 @@ func loadAuthenticationToken(path string) (string, error) {
 	}
 	token := strings.TrimSpace(string(b))
 	if len(token) < 32 {
-		return "", fmt.Errorf("Control API authentication token must contain at least 32 characters")
+		return "", fmt.Errorf("control API authentication token must contain at least 32 characters")
 	}
 	return token, nil
 }
@@ -429,7 +432,7 @@ func sleepContext(ctx context.Context, delay time.Duration) bool {
 
 func executeSourceCommand(ctx context.Context, api controlapi.Client, cfg config.Config, command controlapi.BackupCommand, resticBinary string) error {
 	if strings.TrimSpace(command.CommandID) == "" {
-		return errors.New("Storage command is missing command_id")
+		return errors.New("storage command is missing command_id")
 	}
 	outcome := "SUCCEEDED"
 	message := ""

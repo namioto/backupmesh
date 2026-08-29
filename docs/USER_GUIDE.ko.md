@@ -55,7 +55,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-각 Backup Set에 고정 UUID, 표시 이름, 원본 경로, 필요한 include/exclude 패턴을 설정합니다. 설정 파일을 검증합니다.
+각 Backup Set에는 표시 이름, 원본 경로, 필요한 include/exclude 패턴만 설정합니다. Source Agent가 Agent와 Backup Set의 고정 UUID를 자동 생성하고 설정 파일 옆의 소유자 전용 `*.state.json` 파일에 보존합니다. 사용자가 ID를 편집하거나 Source 사이에 복사하면 안 됩니다. 설정 파일을 검증합니다.
+
+Source Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths` 목록에는 파일과 디렉터리를 원하는 만큼 지정할 수 있습니다. 다중 경로 예시는 `source-agent/example.config.yaml`을 참고하세요. YAML과 JSON 모두 알 수 없는 필드를 거부하므로 오타가 조용히 무시되지 않습니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -96,6 +98,8 @@ Source가 동기화되면 트레이 앱의 **Sources & mappings**를 엽니다.
 
 매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요.
 
+Source Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용해 같은 PC에서 실행할 수 있습니다. USB뿐 아니라 로컬 고정 드라이브와 등록 폴더도 대상 장치로 사용할 수 있으므로 로컬 데이터→외장 저장장치와 외장 원본→로컬 저장장치 구성을 모두 만들 수 있습니다. 후자의 경우 외장 원본 볼륨을 Storage 장치로 등록합니다. Storage가 도착을 감지하고 그 볼륨 안에 원본 경로가 있는 Backup Set을 찾아 준비된 모든 대상 매핑의 명령을 보냅니다. Source Agent는 Storage가 승인한 명령만 실행하며 장치 감지나 정책을 소유하지 않습니다.
+
 ## 7. 백업 실행과 확인
 
 등록된 장치를 연결하고 장치별 arrival delay가 끝날 때까지 기다립니다. BackupMesh가 매핑된 Source에 자동으로 백업을 요청합니다. 트레이 앱에서 대기·실행 상태, 처리 파일과 바이트, 진행률, 결과, 최근 성공 시각을 확인할 수 있습니다. 실행 중인 작업을 취소하면 Source가 restic을 종료하고 `CANCELLED` 결과를 보고합니다.
@@ -129,7 +133,7 @@ artifacts\BackupMesh-Storage-win-x64\Service\restic.exe `
 ## 문제 해결
 
 - **Source가 보이지 않음:** `systemctl status backupmesh-source-watch.service`를 확인하고 TCP 7443 연결과 Storage 인증서의 호스트명/IP를 점검한 뒤 필요하면 다시 페어링합니다.
-- **준비된 대상이 없음:** 장치 연결, 저장된 매핑, Source 설정의 Backup Set UUID, arrival delay 경과 여부를 확인합니다.
+- **준비된 대상이 없음:** 장치 연결, 저장된 매핑, Source catalog 동기화, arrival delay 경과 여부를 확인합니다.
 - **인증서 오류:** Storage Agent가 광고하는 호스트명을 수정한 뒤 다시 페어링합니다. BackupMesh 사설 CA를 Windows 시스템 신뢰 저장소에 설치하지 마세요.
 - **공간 부족:** 공간을 확보하거나 다른 매핑 장치를 선택합니다. 한 대상의 실패가 준비된 다른 대상의 시도까지 막지는 않습니다.
 - **중단된 실행:** 장치를 다시 연결하고 재시도합니다. 서비스 복구 후 오래된 작업 상태가 해제되며 restic은 이미 저장한 데이터를 안전하게 재사용합니다.

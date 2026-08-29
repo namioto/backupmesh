@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,42 +9,44 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Agent          Agent       `json:"agent"`
-	Storage        Storage     `json:"storage"`
-	BackupSets     []BackupSet `json:"backupSets"`
-	UploadLimitBPS int64       `json:"uploadLimitBps,omitempty"`
+	Agent          Agent       `json:"agent" yaml:"agent"`
+	Storage        Storage     `json:"storage" yaml:"storage"`
+	BackupSets     []BackupSet `json:"backupSets" yaml:"backupSets"`
+	UploadLimitBPS int64       `json:"uploadLimitBps,omitempty" yaml:"uploadLimitBps,omitempty"`
 }
 
 type Agent struct {
-	ID   string `json:"id"`
-	Name string `json:"name,omitempty"`
+	ID   string `json:"id,omitempty" yaml:"-"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
 type Storage struct {
-	ControlEndpoint         string `json:"controlEndpoint"`
-	RepositoryPasswordFile  string `json:"repositoryPasswordFile"`
-	ResticCacheDirectory    string `json:"resticCacheDirectory,omitempty"`
-	AuthenticationTokenFile string `json:"authenticationTokenFile,omitempty"`
-	TLSCAFile               string `json:"tlsCaFile,omitempty"`
-	TLSCertificateFile      string `json:"tlsCertificateFile,omitempty"`
-	TLSKeyFile              string `json:"tlsKeyFile,omitempty"`
+	ControlEndpoint         string `json:"controlEndpoint" yaml:"controlEndpoint"`
+	RepositoryPasswordFile  string `json:"repositoryPasswordFile" yaml:"repositoryPasswordFile"`
+	ResticCacheDirectory    string `json:"resticCacheDirectory,omitempty" yaml:"resticCacheDirectory,omitempty"`
+	AuthenticationTokenFile string `json:"authenticationTokenFile,omitempty" yaml:"authenticationTokenFile,omitempty"`
+	TLSCAFile               string `json:"tlsCaFile,omitempty" yaml:"tlsCaFile,omitempty"`
+	TLSCertificateFile      string `json:"tlsCertificateFile,omitempty" yaml:"tlsCertificateFile,omitempty"`
+	TLSKeyFile              string `json:"tlsKeyFile,omitempty" yaml:"tlsKeyFile,omitempty"`
 }
 
 type BackupSet struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Paths   []string `json:"paths"`
-	Include []string `json:"include,omitempty"`
-	Exclude []string `json:"exclude,omitempty"`
-	Hooks   Hooks    `json:"hooks,omitempty"`
+	ID      string   `json:"id,omitempty" yaml:"-"`
+	Name    string   `json:"name" yaml:"name"`
+	Paths   []string `json:"paths" yaml:"paths"`
+	Include []string `json:"include,omitempty" yaml:"include,omitempty"`
+	Exclude []string `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	Hooks   Hooks    `json:"hooks,omitempty" yaml:"hooks,omitempty"`
 }
 
 type Hooks struct {
-	Before [][]string `json:"before,omitempty"`
-	After  [][]string `json:"after,omitempty"`
+	Before [][]string `json:"before,omitempty" yaml:"before,omitempty"`
+	After  [][]string `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -51,16 +54,138 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("read config: %w", err)
 	}
-	var c Config
-	d := json.NewDecoder(strings.NewReader(string(b)))
-	d.DisallowUnknownFields()
-	if err := d.Decode(&c); err != nil {
+	c, err := decode(b, filepath.Ext(path))
+	if err != nil {
 		return Config{}, fmt.Errorf("decode config: %w", err)
+	}
+	if err := ResolveIdentityState(path, &c); err != nil {
+		return Config{}, err
 	}
 	if err := c.Validate(); err != nil {
 		return Config{}, err
 	}
 	return c, nil
+}
+
+type identityState struct {
+	AgentID    string                   `json:"agentId"`
+	BackupSets []backupSetIdentityState `json:"backupSets"`
+}
+
+type backupSetIdentityState struct {
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	Paths []string `json:"paths"`
+}
+
+func ResolveIdentityState(configPath string, c *Config) error {
+	statePath := configPath + ".state.json"
+	var state identityState
+	if contents, err := os.ReadFile(filepath.Clean(statePath)); err == nil {
+		if err := json.Unmarshal(contents, &state); err != nil {
+			return fmt.Errorf("decode identity state: %w", err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read identity state: %w", err)
+	}
+	if strings.TrimSpace(c.Agent.ID) == "" {
+		c.Agent.ID = state.AgentID
+	}
+	if !isUUID(c.Agent.ID) {
+		c.Agent.ID = newUUID()
+	}
+	for i := range c.BackupSets {
+		if isUUID(c.BackupSets[i].ID) {
+			continue
+		}
+		for _, saved := range state.BackupSets {
+			if saved.Name == c.BackupSets[i].Name || slicesEqual(saved.Paths, c.BackupSets[i].Paths) {
+				c.BackupSets[i].ID = saved.ID
+				break
+			}
+		}
+		if !isUUID(c.BackupSets[i].ID) {
+			c.BackupSets[i].ID = newUUID()
+		}
+	}
+	return SaveIdentityState(configPath, *c)
+}
+
+func SaveIdentityState(configPath string, c Config) error {
+	state := identityState{AgentID: c.Agent.ID, BackupSets: make([]backupSetIdentityState, 0, len(c.BackupSets))}
+	for _, set := range c.BackupSets {
+		state.BackupSets = append(state.BackupSets, backupSetIdentityState{ID: set.ID, Name: set.Name, Paths: append([]string(nil), set.Paths...)})
+	}
+	contents, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode identity state: %w", err)
+	}
+	statePath := configPath + ".state.json"
+	if err := os.MkdirAll(filepath.Dir(statePath), 0700); err != nil {
+		return fmt.Errorf("create identity state directory: %w", err)
+	}
+	temporary := statePath + ".tmp"
+	if err := os.WriteFile(temporary, append(contents, '\n'), 0600); err != nil {
+		return fmt.Errorf("write identity state: %w", err)
+	}
+	if err := os.Rename(temporary, statePath); err != nil {
+		if removeErr := os.Remove(statePath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			_ = os.Remove(temporary)
+			return fmt.Errorf("replace identity state: %w", removeErr)
+		}
+		if retryErr := os.Rename(temporary, statePath); retryErr != nil {
+			_ = os.Remove(temporary)
+			return fmt.Errorf("replace identity state: %w", retryErr)
+		}
+	}
+	return os.Chmod(statePath, 0600)
+}
+
+func newUUID() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		panic(fmt.Sprintf("generate UUID: %v", err))
+	}
+	bytes[6] = (bytes[6] & 0x0f) | 0x40
+	bytes[8] = (bytes[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+}
+
+func slicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func decode(contents []byte, extension string) (Config, error) {
+	var c Config
+	if strings.EqualFold(extension, ".yaml") || strings.EqualFold(extension, ".yml") {
+		d := yaml.NewDecoder(strings.NewReader(string(contents)))
+		d.KnownFields(true)
+		if err := d.Decode(&c); err != nil {
+			return Config{}, err
+		}
+		return c, nil
+	}
+	d := json.NewDecoder(strings.NewReader(string(contents)))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&c); err != nil {
+		return Config{}, err
+	}
+	return c, nil
+}
+
+func Marshal(c Config, path string) ([]byte, error) {
+	if strings.EqualFold(filepath.Ext(path), ".yaml") || strings.EqualFold(filepath.Ext(path), ".yml") {
+		return yaml.Marshal(c)
+	}
+	return json.MarshalIndent(c, "", "  ")
 }
 
 func (c Config) Validate() error {

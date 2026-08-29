@@ -23,6 +23,7 @@ Thumbs.db
 .env.*
 !.env.example
 *.local.json
+*.state.json
 secrets/
 
 # Build and test output
