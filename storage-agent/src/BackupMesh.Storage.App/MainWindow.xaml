@@ -40,7 +40,7 @@
                                     <DataGridTextColumn Header="Updated" Binding="{Binding Updated}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Text="No backup jobs yet. Jobs appear here once a mapped device is ready and a backup starts." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Jobs.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                            <TextBlock Text="No backup jobs yet. Jobs appear here once a mapped device is ready and a backup starts." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding Jobs.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <Button Grid.Row="1" Content="Cancel selected backup" Command="{Binding CancelJobCommand}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.AutomationId="CancelBackupButton"/>
                         </Grid>
                     </GroupBox>
@@ -71,7 +71,7 @@
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="*"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <TextBlock Text="No paired Source Agents yet. Choose Pair Source Agent below to connect one." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding SourceConnections.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                                    <TextBlock Text="No paired Source Agents yet. Choose Pair Source Agent below to connect one." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding SourceConnections.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
                                         <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
                                         <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
@@ -103,7 +103,7 @@
                                     <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Text="No backup target mappings yet. Choose a Backup Set and a device below, then Add mapping." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                            <TextBlock Text="No backup target mappings yet. Choose a Backup Set and a device below, then Add mapping." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <Grid Grid.Row="1" Margin="0,12,0,0">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
@@ -149,7 +149,7 @@
                             <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Text="No devices registered yet. Pick a detected drive below and Register selected device, or Register folder…" TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                    <TextBlock Text="No devices registered yet. Pick a detected drive below and Register selected device, or Register folder…" TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                     <StackPanel Grid.Row="1" Margin="0,12,0,0">
                         <StackPanel Orientation="Horizontal">
                             <ComboBox Width="360" ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedAvailableDrive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="AvailableDrivesCombo"/>
