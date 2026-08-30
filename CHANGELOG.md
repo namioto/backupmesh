@@ -117,6 +117,20 @@ A code review of the same tab found two things a Backup Set could carry that no 
 - The per-Backup-Set "Start automatically for..." trigger-device picker is removed from this screen. Its default - start when the mapped destination connects, with no explicit devices chosen - already covers the ordinary case and needed no user decision; the underlying per-Backup-Set trigger configuration is unchanged; there is simply no longer an in-tray editor for it.
 - A **New…** button beside the destination-device picker opens a small dialog to register a drive or folder without leaving this tab or first knowing to visit the Devices tab - the newly registered device is selected automatically, same as registering from the Devices tab itself.
 
+The previous commit removed the Trigger-devices editor on the assumption that its default (no explicit trigger device) covers the ordinary case. A review caught that this silently broke Backup Sets that already name an explicit trigger device - e.g. the external-source-arrival pattern from USER_GUIDE 6 ("insert this card and it backs up wherever it's mapped") - since those still only start for that specific device, and the grid otherwise implies "starts when Target connects" for every row alike:
+
+- Last backup now shows a read-only note for such rows - "Starts when Camera card connects", or "...Camera card and Backup USB are all connected" for an AllAvailable policy with more than one trigger device. No editor was added back; this only makes the existing, still-in-effect behavior visible.
+
+The Devices tab is removed. Registering a device already moved to the Backups tab's inline dialog in the previous commit, so a standalone tab for it had no remaining reason to exist:
+
+- Its registered-device grid, **Stop using this device**, and **Safely remove selected device** move to a new "Connected storage" group on Overview.
+- The per-device arrival-delay editor (tied to the removed tab) is replaced by one global default in Settings, applied at registration time; an already-registered device keeps whatever delay it was given and is not retroactively changed.
+- "Sources & mappings" splits into two tabs - **Backups** (the grid and the New-backup form) and **Computers** (pairing, connections, local Backup Sets) - keeping the tab count at 4 (Overview | Backups | Computers | Settings), matching the earlier measured finding that 5 tabs performed worse than 4 for this project's evaluators.
+
+A Source's network address, previously seen by the server on every request but never recorded:
+
+- The Storage Service now records the caller's address at the same event `last_seen_at` is already derived from (a Source's most recent catalog upload), so the two describe the same moment rather than two different ones. `GET /sources` gained an `address` field (nullable - null until a Source has published a catalog at least once), and the Computers tab's grid shows it. DHCP-mutable and shown for context only; it is not this Source's stable identity.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
