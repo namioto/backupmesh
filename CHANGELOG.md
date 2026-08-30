@@ -50,6 +50,12 @@ The Overview tab's Backup jobs grid could not tell two concurrent jobs apart ("3
 - Jobs now show which Backup Set is going to which device (e.g. `Home Server / Photos → Archive drive`), and an estimated time remaining once enough progress has been reported. `JobStatus` gained optional `target_mapping_id`, `source_agent_id`, and `started_at` fields (existing required fields unchanged) so this can be resolved without a second request.
 - The Storage Service now keeps at most the 20 most recent finished jobs per destination mapping (every still-running job is always kept); job history previously grew without bound, and every progress update of any job rewrote the entire history to disk.
 
+A follow-up round of the same study, re-run against the new wording, confirmed each replaced term measured as understood; it also surfaced a few strings this pass had missed:
+
+- The Sources & mappings tab had two buttons labeled just "Remove", one deleting a local folder's backup and the other a device mapping, distinguishable only by position; they now read "Remove folder" and "Remove backup".
+- "Device" and "drive" were used interchangeably for the same concept (Trigger devices' explainer used "drive", its own checkbox and the Devices tab's grid used "device"); everything about a *registered* device now consistently says "device" ("drive" is kept only where the tray is listing physically detected drives that aren't registered yet, e.g. "Refresh drives").
+- The destination-device picker now shows "Registered in the Devices tab" beneath it while empty, until inline registration (tracked separately) removes the need to leave the tab at all.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

@@ -399,7 +399,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         set.UpdateTriggers(triggerDeviceIds, policy);
         RefreshDeviceTriggerRoles();
-        FooterStatus = "Automatic-start drives updated. Save settings to persist this change.";
+        FooterStatus = "Automatic-start devices updated. Save settings to persist this change.";
     }
 
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
@@ -756,7 +756,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         var confirmed = System.Windows.MessageBox.Show(
             $"Stop using \"{SelectedDevice.DisplayName}\"? Backup data already stored on it is not deleted - only Storage stops sending new backups to it, until you register it again.",
-            "Stop using this drive", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+            "Stop using this device", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
         if (!confirmed) return;
         var displayName = SelectedDevice.DisplayName;
         Devices.Remove(SelectedDevice);
@@ -904,8 +904,8 @@ public sealed class BackupSetViewModel : ObservableObject
     }
 
     public string TriggerSummary => Model.TriggerDeviceIds.Count == 0
-        ? "Starts automatically when its saved-to drive connects"
-        : $"Starts when {Model.TriggerDeviceIds.Count} chosen drive(s) connect — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
+        ? "Starts automatically when its saved-to device connects"
+        : $"Starts when {Model.TriggerDeviceIds.Count} chosen device(s) connect — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
