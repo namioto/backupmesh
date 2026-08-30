@@ -1,20 +1,22 @@
+using System.Linq;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Tools;
 using Xunit;
 
 namespace BackupMesh.Storage.UiTests;
 
-// Renamed from SourcesTabTests when the former "Sources & mappings" tab split into this tab and
-// BackupsTab (peer review) - the Computers grid, pairing, and local-backup-set actions all stayed
-// together since they're all about a computer's own identity, not about where its backups land.
-public sealed class ComputersTabTests : IClassFixture<StorageAppFixture>
+// Renamed from ComputersTabTests when the tab itself was renamed "Computers" -> "Source Agents" (peer
+// review, a deliberate reversal of an earlier measured finding - this product's real users install a
+// Linux agent and edit its YAML config, so the measured evaluator pool likely underestimated the actual
+// audience for the exact technical term).
+public sealed class SourceAgentsTabTests : IClassFixture<StorageAppFixture>
 {
     private readonly StorageAppFixture _fixture;
 
-    public ComputersTabTests(StorageAppFixture fixture)
+    public SourceAgentsTabTests(StorageAppFixture fixture)
     {
         _fixture = fixture;
-        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("ComputersTab")).AsTabItem().Select();
+        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SourceAgentsTab")).AsTabItem().Select();
     }
 
     private AutomationElement Find(string automationId)
@@ -48,7 +50,7 @@ public sealed class ComputersTabTests : IClassFixture<StorageAppFixture>
         var footer = Find("FooterStatusText");
         Retry.WhileFalse(() => footer.Name.Contains("Pairing session could not be created", StringComparison.Ordinal), TimeSpan.FromSeconds(10));
 
-        _fixture.TrySaveScreenshot("computers-after-pair-attempt.png");
+        _fixture.TrySaveScreenshot("source-agents-after-pair-attempt.png");
         Assert.Contains("Pairing session could not be created", footer.Name, StringComparison.Ordinal);
     }
 
@@ -87,21 +89,40 @@ public sealed class ComputersTabTests : IClassFixture<StorageAppFixture>
 
     /// <summary>
     /// "This PC" is always shown as a computer, even with no local Backup Sets configured yet. The
-    /// Computers grid merges what used to be a separate tree (unused by evaluators in a first-click
+    /// Source Agents grid merges what used to be a separate tree (unused by evaluators in a first-click
     /// study: 0/4) and a Connections grid that never listed "This PC" at all - so this now checks the
     /// one merged grid instead of a tree that no longer exists.
     /// </summary>
     [Fact]
-    public void ThisPCIsAlwaysListedInTheComputersGrid()
+    public void ThisPCIsAlwaysListedInTheGrid()
     {
         var grid = Find("SourceConnectionsGrid");
         Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC");
     }
 
     [Fact]
-    public void AddressColumnIsPresentInTheComputersGrid()
+    public void AddressAndPathsServedColumnsArePresent()
     {
         var grid = Find("SourceConnectionsGrid");
-        Assert.Contains(grid.FindAllDescendants(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.HeaderItem)), header => header.Name == "Address");
+        var headers = grid.FindAllDescendants(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.HeaderItem)).Select(header => header.Name).ToArray();
+        Assert.Contains("Address", headers);
+        Assert.Contains("Paths served", headers);
+    }
+
+    /// <summary>
+    /// The certificate summary line only makes sense once a row is selected - it names IP address as
+    /// context-only and the fingerprint as the real identity, since a Source's address can change (DHCP)
+    /// but its certificate cannot without a re-pair.
+    /// </summary>
+    [Fact]
+    public void SelectingASourceAgentShowsItsCertificateSummary()
+    {
+        var grid = Find("SourceConnectionsGrid");
+        var row = Retry.WhileNull(() => grid.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.DataItem)), TimeSpan.FromSeconds(10)).Result;
+        Assert.NotNull(row);
+        row!.Patterns.SelectionItem.Pattern.Select();
+
+        var summary = Find("SelectedSourceCertificateSummaryText");
+        Assert.False(string.IsNullOrWhiteSpace(summary.Name));
     }
 }

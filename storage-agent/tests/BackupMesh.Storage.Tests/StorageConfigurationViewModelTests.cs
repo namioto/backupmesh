@@ -282,6 +282,31 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public void CertificateFingerprintDisplaysColonGroupedHex()
+    {
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75), "AABBCC"));
+        Assert.Equal("AA:BB:CC", connection.CertificateFingerprintDisplay);
+    }
+
+    [Fact]
+    public void CertificateFingerprintIsADashWithoutOne()
+    {
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75)));
+        Assert.Equal("—", connection.CertificateFingerprintDisplay);
+    }
+
+    [Fact]
+    public void CertificateSummaryNamesTheFingerprintAsTheRealIdentity()
+    {
+        var agent = new SourceAgentViewModel(Guid.NewGuid(), "Home Server")
+        {
+            Connection = new(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75), "AABBCC"))
+        };
+        Assert.Contains("AA:BB:CC", agent.CertificateSummaryDisplay);
+        Assert.Contains("expires", agent.CertificateSummaryDisplay);
+    }
+
+    [Fact]
     public void ComputerUnseenSinceItsRenewalWindowOpenedNeedsRePairing()
     {
         var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Studio Workstation", "Studio Workstation", DateTimeOffset.UtcNow.AddDays(-45), null, 1, false, DateTimeOffset.UtcNow.AddDays(5)));
@@ -347,8 +372,12 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
-    public void ConsecutiveMappingsSharingASourceFolderCollapseToADittoMark()
+    public void ConsecutiveMappingsSharingASourceOrSourceFolderAreFlaggedAsRepeats()
     {
+        // Measured: collapsing the repeat to a "″" ditto mark read as a typo or an empty cell, and made
+        // the Enabled checkbox's per-row scope ambiguous (two rows sharing a mark read as one unit). The
+        // fix is visual dimming in the view (MainWindow.xaml), not a text substitution here - the real
+        // text is always the bound value; only these two flags change.
         var sourceId = Guid.NewGuid();
         var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
         var otherSet = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Photos", ["C:\\Photos"]));
@@ -364,16 +393,16 @@ public sealed class StorageConfigurationViewModelTests
         viewModel.Mappings.Add(unrelated);
 
         Assert.False(first.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("Studio", first.SourceCellText);
+        Assert.Equal("Studio", first.SourceAgentName);
         Assert.True(second.IsRepeatOfPreviousSource);
         Assert.True(second.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("″", second.SourceCellText);
-        Assert.Equal("″", second.SourceFolderNameCellText);
+        Assert.Equal("Studio", second.SourceAgentName);
+        Assert.Equal("Documents", second.BackupSetOnlyName);
         // Same computer, different Backup Set: the Source repeats but the folder does not, so only the
-        // Source half collapses.
+        // Source half is flagged.
         Assert.True(unrelated.IsRepeatOfPreviousSource);
         Assert.False(unrelated.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("Photos", unrelated.SourceFolderNameCellText);
+        Assert.Equal("Photos", unrelated.BackupSetOnlyName);
     }
 
     [Fact]

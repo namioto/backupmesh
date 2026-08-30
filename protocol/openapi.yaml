@@ -547,6 +547,7 @@ paths:
                     backup_set_count: {type: integer, minimum: 0}
                     revoked: {type: boolean}
                     certificate_expires_at: {type: string, format: date-time, nullable: true, description: 'Null if this Source paired only through the deprecated file-bundle path.'}
+                    certificate_fingerprint: {type: string, nullable: true, description: 'SHA-256 fingerprint (hex) of this Source''s current client certificate, recorded when it was issued or last renewed. This, not address or agent_name, is this Source''s actual identity. Null under the same condition as certificate_expires_at.'}
         '403': {$ref: '#/components/responses/Error'}
   /sources/{agent_id}/name:
     put:

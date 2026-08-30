@@ -10,33 +10,41 @@ public sealed class IssuedCertificateStore
 {
     private readonly object _gate = new();
     private readonly string? _path;
-    private readonly Dictionary<Guid, DateTimeOffset> _expiresAt;
+    private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, string? Fingerprint)> _issued;
 
     public IssuedCertificateStore(IssuedCertificateOptions? options = null)
     {
         _path = options is null ? null : ResolvePath(options.RecordPath);
-        _expiresAt = _path is not null && File.Exists(_path) ? Parse(File.ReadAllLines(_path)) : [];
+        _issued = _path is not null && File.Exists(_path) ? Parse(File.ReadAllLines(_path)) : [];
     }
 
-    public void Record(Guid agentId, DateTimeOffset expiresAt)
+    // fingerprint is optional so every existing caller (and every line in a file persisted before this
+    // field existed) keeps working unchanged - a Source paired before this shows an expiry with no
+    // fingerprint until it next renews or re-pairs, rather than losing its expiry record outright.
+    public void Record(Guid agentId, DateTimeOffset expiresAt, string? fingerprint = null)
     {
-        lock (_gate) { _expiresAt[agentId] = expiresAt; Persist(); }
+        lock (_gate) { _issued[agentId] = (expiresAt, fingerprint); Persist(); }
     }
 
     public DateTimeOffset? GetExpiry(Guid agentId)
     {
-        lock (_gate) return _expiresAt.TryGetValue(agentId, out var expiresAt) ? expiresAt : null;
+        lock (_gate) return _issued.TryGetValue(agentId, out var record) ? record.ExpiresAt : null;
     }
 
-    private static Dictionary<Guid, DateTimeOffset> Parse(IEnumerable<string> lines)
+    public string? GetFingerprint(Guid agentId)
     {
-        var result = new Dictionary<Guid, DateTimeOffset>();
+        lock (_gate) return _issued.TryGetValue(agentId, out var record) ? record.Fingerprint : null;
+    }
+
+    private static Dictionary<Guid, (DateTimeOffset, string?)> Parse(IEnumerable<string> lines)
+    {
+        var result = new Dictionary<Guid, (DateTimeOffset, string?)>();
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var parts = line.Trim().Split('|', 2);
-            if (parts.Length == 2 && Guid.TryParse(parts[0], out var agentId) && DateTimeOffset.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
-                result[agentId] = expiresAt;
+            var parts = line.Trim().Split('|', 3);
+            if (parts.Length >= 2 && Guid.TryParse(parts[0], out var agentId) && DateTimeOffset.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
+                result[agentId] = (expiresAt, parts.Length == 3 && parts[2].Length > 0 ? parts[2] : null);
         }
         return result;
     }
@@ -46,7 +54,7 @@ public sealed class IssuedCertificateStore
         if (_path is null) return;
         Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? throw new InvalidOperationException("Issued certificate record path must include a directory."));
         var temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
-        try { File.WriteAllLines(temporary, _expiresAt.Select(entry => $"{entry.Key}|{entry.Value:O}")); File.Move(temporary, _path, true); }
+        try { File.WriteAllLines(temporary, _issued.Select(entry => $"{entry.Key}|{entry.Value.ExpiresAt:O}|{entry.Value.Fingerprint}")); File.Move(temporary, _path, true); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 

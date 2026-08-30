@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
 namespace BackupMesh.Storage.App;
@@ -9,6 +11,10 @@ public partial class App : System.Windows.Application
 {
     private Forms.NotifyIcon? _trayIcon;
     private MainWindow? _window;
+    private TrayFlyoutWindow? _flyout;
+    private string _baseTrayText = "BackupMesh Storage Agent — starting";
+    private bool _wasBackingUp;
+    private readonly DispatcherTimer _flyoutAutoHideTimer = new() { Interval = TimeSpan.FromSeconds(6) };
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -29,15 +35,66 @@ public partial class App : System.Windows.Application
         _trayIcon = new Forms.NotifyIcon
         {
             Icon = new Icon(iconPath),
-            Text = "BackupMesh Storage Agent — starting",
+            Text = _baseTrayText,
             Visible = true,
             ContextMenuStrip = menu
         };
         _trayIcon.DoubleClick += (_, _) => ShowWindow();
         _window.ViewModel.NotificationRequested += OnNotificationRequested;
-        _window.ViewModel.StatusChanged += (_, status) => _trayIcon.Text = status.Length > 63 ? status[..63] : status;
+        _window.ViewModel.StatusChanged += (_, status) => { _baseTrayText = status; UpdateTrayText(); };
+
+        var flyoutViewModel = new TrayFlyoutViewModel(_window.ViewModel);
+        _flyout = new TrayFlyoutWindow(flyoutViewModel);
+        flyoutViewModel.OpenMainWindowRequested += (_, _) => { _flyout?.Hide(); ShowWindow(); };
+        _flyoutAutoHideTimer.Tick += (_, _) => { _flyoutAutoHideTimer.Stop(); _flyout?.Hide(); };
+        _window.ViewModel.Jobs.CollectionChanged += (_, _) => OnJobsChanged();
+
         _window.ViewModel.StartDeviceMonitoring();
         ShowWindow();
+    }
+
+    // Fires on every 2-second job-list refresh, not only on a real state transition, so _wasBackingUp
+    // gates the flyout's "show on start" behavior to the RUNNING edge specifically - otherwise it would
+    // reappear on every poll tick for the whole duration of a backup instead of once at the start.
+    private void OnJobsChanged()
+    {
+        if (_window is null) return;
+        var isBackingUp = _window.ViewModel.Jobs.Any(job => job.State == "RUNNING");
+        if (isBackingUp && !_wasBackingUp && _window.ViewModel.ShowFlyoutOnBackupStart && !IsFullScreenAppActive())
+        {
+            _flyout?.ShowNearTray();
+            _flyoutAutoHideTimer.Stop();
+            _flyoutAutoHideTimer.Start();
+        }
+        _wasBackingUp = isBackingUp;
+        UpdateTrayText();
+    }
+
+    // The tray tooltip normally mirrors OverallStatus ("N devices connected"), but a running backup is
+    // more specific and more useful news - shown in its place for as long as one is active, then reverting
+    // to the base status text on its own via the same code path (OnJobsChanged fires again once the job
+    // list no longer has a RUNNING entry).
+    private void UpdateTrayText()
+    {
+        if (_trayIcon is null || _window is null) return;
+        var running = _window.ViewModel.Jobs.FirstOrDefault(job => job.State == "RUNNING");
+        var text = running is null ? _baseTrayText : $"{running.Target} · {running.Progress}";
+        _trayIcon.Text = text.Length > 63 ? text[..63] : text;
+    }
+
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+    [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
+
+    // A backup-start popup that covers a video call or a game would be actively harmful, not just
+    // unwelcome - approximated here as "the foreground window's bounds exactly cover its screen", which
+    // catches real exclusive/borderless-fullscreen apps without needing a window-style inspection API.
+    private static bool IsFullScreenAppActive()
+    {
+        var hWnd = GetForegroundWindow();
+        if (hWnd == IntPtr.Zero || !GetWindowRect(hWnd, out var rect)) return false;
+        var screen = Forms.Screen.FromHandle(hWnd).Bounds;
+        return rect.Left <= screen.Left && rect.Top <= screen.Top && rect.Right >= screen.Right && rect.Bottom >= screen.Bottom;
     }
 
     private void ShowWindow()
@@ -60,6 +117,9 @@ public partial class App : System.Windows.Application
     private void ExitApplication()
     {
         if (_trayIcon is not null) { _trayIcon.Visible = false; _trayIcon.Dispose(); }
+        _flyoutAutoHideTimer.Stop();
+        _flyout?.ViewModel.Dispose();
+        _flyout?.Close();
         _window?.ViewModel.Dispose();
         Shutdown();
     }

@@ -297,7 +297,7 @@ public static class ControlApi
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing sessions can only be created from the local tray app.");
             var session = sessions.Create(request?.RebindAgentId);
             var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
-            return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = ServerFingerprint(mutualTls.ServerTrustPem), rebind_agent_id = session.RebindAgentId });
+            return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = CertificateFingerprint(mutualTls.ServerTrustPem), rebind_agent_id = session.RebindAgentId });
         });
         pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, IssuedCertificateStore issuedCertificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
@@ -328,7 +328,7 @@ public static class ControlApi
             }
             throttle.RecordSuccess(remote);
             var certificate = certificates.Issue(request.AgentId);
-            issuedCertificates.Record(request.AgentId, certificate.ExpiresAt);
+            issuedCertificates.Record(request.AgentId, certificate.ExpiresAt, CertificateFingerprint(certificate.CertificatePem));
             var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
             var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
             logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
@@ -352,7 +352,7 @@ public static class ControlApi
             ct.ThrowIfCancellationRequested();
             var agentId = (Guid)http.Items["BackupMesh.AgentId"]!;
             var certificate = certificates.Issue(agentId);
-            issuedCertificates.Record(agentId, certificate.ExpiresAt);
+            issuedCertificates.Record(agentId, certificate.ExpiresAt, CertificateFingerprint(certificate.CertificatePem));
             logger.LogInformation("Renewed the client certificate for Source Agent {AgentId}.", agentId);
             return Results.Ok(new { certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt });
         });
@@ -543,7 +543,8 @@ public static class ControlApi
                 address = catalog.Address,
                 backup_set_count = catalog.BackupSets.Length,
                 revoked = revoked.Contains(catalog.SourceAgentId),
-                certificate_expires_at = issuedCertificates.GetExpiry(catalog.SourceAgentId)
+                certificate_expires_at = issuedCertificates.GetExpiry(catalog.SourceAgentId),
+                certificate_fingerprint = issuedCertificates.GetFingerprint(catalog.SourceAgentId)
             }));
         });
         api.MapPost("/sources/{agent_id:guid}/revoke", (Guid agent_id, HttpContext http, RevokedSourceStore revocations, CancellationToken ct) =>
@@ -598,7 +599,7 @@ public static class ControlApi
         return endpoints;
     }
 
-    private static string ServerFingerprint(string certificatePem)
+    private static string CertificateFingerprint(string certificatePem)
     {
         using var certificate = X509Certificate2.CreateFromPem(certificatePem);
         return Convert.ToHexString(SHA256.HashData(certificate.RawData));

@@ -175,6 +175,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // changed would silently disagree with what the screen says (the same failure mode the removed
     // trigger-device editor had). SaveAsync() enforces this by writing this value onto every device.
     public int DefaultArrivalDelayMinutes { get; set; } = 30;
+    // Controls the tray flyout popup (App.xaml.cs) - shown briefly near the tray icon when a backup
+    // starts, skipped entirely under a fullscreen app. A person who finds it distracting can turn it off
+    // without losing the information: Overview's Backup jobs grid and the removal banner already show
+    // the same facts.
+    public bool ShowFlyoutOnBackupStart { get; set; } = true;
 
     public void StartDeviceMonitoring()
     {
@@ -614,6 +619,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyOnDeviceArrival = state.NotifyOnDeviceArrival;
         AutomaticBackups = state.AutomaticBackups;
         DefaultArrivalDelayMinutes = state.DefaultArrivalDelayMinutes;
+        ShowFlyoutOnBackupStart = state.ShowFlyoutOnBackupStart;
 
         foreach (var device in state.Topology.Devices) Devices.Add(new(device));
         foreach (var group in state.Topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
@@ -706,7 +712,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {
-                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes));
+                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes, ShowFlyoutOnBackupStart));
                 ConfigureStartup(StartWithWindows);
             }
             FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
@@ -1105,11 +1111,30 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
     public SourceConnectionViewModel? Connection
     {
         get => _connection;
-        set { if (Set(ref _connection, value)) { OnPropertyChanged(nameof(LastSeenDisplay)); OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(AddressDisplay)); } }
+        set
+        {
+            if (!Set(ref _connection, value)) return;
+            OnPropertyChanged(nameof(LastSeenDisplay));
+            OnPropertyChanged(nameof(StatusDisplay));
+            OnPropertyChanged(nameof(AddressDisplay));
+            OnPropertyChanged(nameof(CertificateFingerprintDisplay));
+            OnPropertyChanged(nameof(CertificateSummaryDisplay));
+        }
     }
     public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
     public string StatusDisplay => Connection?.StatusDisplay ?? "—";
     public string AddressDisplay => Connection?.AddressDisplay ?? "—";
+    public string CertificateFingerprintDisplay => Connection?.CertificateFingerprintDisplay ?? "—";
+    // The names of this computer's own Backup Sets, for the Source Agents grid's "Paths served" column -
+    // "paths" because that's what a person configuring the other end sees; "Backup Set" is this tray's own
+    // internal grouping of them.
+    public string PathsServedDisplay => BackupSets.Count == 0 ? "—" : string.Join(", ", BackupSets.Select(set => set.Model.Name));
+    // IP address is DHCP-mutable and shown only for context (AddressDisplay above); this is the identity
+    // that actually matters, so it lives below the grid rather than as a column no one would read closely
+    // enough to compare against a real threat model there.
+    public string CertificateSummaryDisplay => Connection?.CertificateExpiresAt is { } expires
+        ? $"Certificate {CertificateFingerprintDisplay} · expires {expires.LocalDateTime:d}"
+        : "No certificate on record - paired only through the deprecated file-bundle path.";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -1128,6 +1153,12 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     // the two describe the same event rather than two different points in time. DHCP-mutable and shown for
     // context only - the certificate fingerprint below is this Source's actual identity.
     public string AddressDisplay => model.Address ?? "—";
+    // A colon-grouped hex fingerprint (openssl/browser convention) reads as a fingerprint on sight,
+    // unlike a bare 64-character hex run - null only for a Source that paired through the deprecated
+    // file-bundle path and has not yet renewed or re-paired since certificate_fingerprint was added.
+    public string CertificateFingerprintDisplay => model.CertificateFingerprint is { Length: > 0 } fingerprint
+        ? string.Join(':', Enumerable.Range(0, fingerprint.Length / 2).Select(i => fingerprint.Substring(i * 2, 2)))
+        : "—";
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
@@ -1289,14 +1320,14 @@ public sealed class MappingViewModel : ObservableObject
     // after a mapping was created, so the column only ever displayed "true". Persists immediately, same
     // as every other in-screen edit this pass made auto-saving.
     public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) _onEnabledChanged?.Invoke(this); } }
-    // Consecutive rows sharing the same Source, or the same Source folder, collapse to a ditto mark -
-    // recomputed for the whole list by MainWindowViewModel.UpdateMappingRepeatMarkers() whenever Mappings
-    // changes, never inferred by the view itself.
+    // Consecutive rows sharing the same Source, or the same Source folder, are flagged here so the view
+    // can dim the repeated text - recomputed for the whole list by
+    // MainWindowViewModel.UpdateMappingRepeatMarkers() whenever Mappings changes, never inferred by the
+    // view itself. A study first tried collapsing the repeat to a "″" ditto mark; re-measured as read as a
+    // typo or an empty cell, and as making the Enabled checkbox's per-row scope ambiguous (two rows
+    // sharing a mark read as one unit). Repeating the real text, just visually muted, avoided both.
     public bool IsRepeatOfPreviousSource { get => _isRepeatOfPreviousSource; set => Set(ref _isRepeatOfPreviousSource, value); }
     public bool IsRepeatOfPreviousSourceFolder { get => _isRepeatOfPreviousSourceFolder; set => Set(ref _isRepeatOfPreviousSourceFolder, value); }
-    public string SourceCellText => IsRepeatOfPreviousSource ? "″" : SourceAgentName;
-    public string SourceFolderNameCellText => IsRepeatOfPreviousSourceFolder ? "″" : BackupSetOnlyName;
-    public string SourceFolderPathsCellText => IsRepeatOfPreviousSourceFolder ? string.Empty : SourcePathsDisplay;
     // Set by MainWindowViewModel.UpdateMappingLastBackupInfo() from the job list - a mapping does not hold
     // its own reference to Jobs, so this is pushed in rather than computed here.
     public string LastBackupDisplay { get => _lastBackupDisplay; set => Set(ref _lastBackupDisplay, value); }
@@ -1370,7 +1401,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
     }
 }
 
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30);
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true);
 
 internal sealed class ConfigurationStore
 {

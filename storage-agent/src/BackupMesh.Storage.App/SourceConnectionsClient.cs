@@ -12,7 +12,8 @@ public sealed record SourceConnectionDto(
     [property: JsonPropertyName("address")] string? Address,
     [property: JsonPropertyName("backup_set_count")] int BackupSetCount,
     [property: JsonPropertyName("revoked")] bool Revoked,
-    [property: JsonPropertyName("certificate_expires_at")] DateTimeOffset? CertificateExpiresAt);
+    [property: JsonPropertyName("certificate_expires_at")] DateTimeOffset? CertificateExpiresAt,
+    [property: JsonPropertyName("certificate_fingerprint")] string? CertificateFingerprint = null);
 public sealed record SourceRenameRequestDto([property: JsonPropertyName("display_name")] string? DisplayName);
 
 public interface ISourceConnectionsClient
