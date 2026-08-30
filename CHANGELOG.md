@@ -157,6 +157,10 @@ A follow-up review caught that Start now and Skip this time were false affordanc
 
 A terminology sweep finished what the Source Agents rename started: the Pair a Source Agent and Rename dialogs it opens still said "computer" throughout (title and body text) - the same mismatch already fixed on the tab itself, now fixed in the dialogs too.
 
+A second review of the Skip this time fix found it didn't survive an app restart: the persisted `Enabled=false` had no persisted record of *why*, so a crash or a forced close before the device disconnected left the mapping disabled forever with nothing on screen explaining it - a silently-disabled backup, arguably the worst failure mode this product could have. Fixed: the tracking is now saved alongside every other tray setting and restored unconditionally whenever configuration is (re)loaded from the Storage Service, which always happens once at startup - "this connection" was never meant to outlive the process that was tracking it in the first place.
+
+Also restored a regression test dropped (not moved) when the Devices tab was removed: the drive picker's items must expose only their display name to screen readers, not the record's own `ToString()` dump (which would leak `StableId`/volume serials) - re-created against its new home in the inline registration dialog.
+
 Stage 5 - documentation. `README.md`, `docs/USER_GUIDE.md`, and `docs/USER_GUIDE.ko.md` are updated to match the current tabs (`Overview | Backups | Source Agents | Settings`), the removed Devices tab (registration is the Backups tab's inline **New…** dialog now), the Backups tab's actual field labels, the global Settings arrival delay, Overview's Connected storage group and the cross-tab safe-removal banner, and the tray flyout. `README.ko.md` needed no changes - it never referenced a tab name or button label specifically enough to go stale. The `protocol/openapi.yaml` `/backup/jobs` description is corrected (job history is persisted to disk and reloaded on restart, retaining every non-terminal job plus the 20 most recent terminal jobs per mapping - it does not just live "in this process").
 
 ## [0.1.1] - 2026-08-30
