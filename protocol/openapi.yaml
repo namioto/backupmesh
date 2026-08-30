@@ -458,7 +458,7 @@ paths:
         - $ref: '#/components/parameters/AgentId'
       responses:
         '200':
-          description: Backup job history held by this Storage Service process
+          description: Backup job history, persisted to disk and reloaded on restart. Retains every non-terminal job plus the most recent 20 terminal (SUCCEEDED/FAILED/CANCELLED) jobs per destination mapping; older terminal jobs are pruned.
           content:
             application/json:
               schema:
