@@ -14,6 +14,7 @@ public partial class App : System.Windows.Application
     private TrayFlyoutWindow? _flyout;
     private string _baseTrayText = "BackupMesh Storage Agent — starting";
     private bool _wasBackingUp;
+    private bool _wasAwaitingDecision;
     private readonly DispatcherTimer _flyoutAutoHideTimer = new() { Interval = TimeSpan.FromSeconds(6) };
 
     protected override void OnStartup(StartupEventArgs e)
@@ -46,27 +47,50 @@ public partial class App : System.Windows.Application
         var flyoutViewModel = new TrayFlyoutViewModel(_window.ViewModel);
         _flyout = new TrayFlyoutWindow(flyoutViewModel);
         flyoutViewModel.OpenMainWindowRequested += (_, _) => { _flyout?.Hide(); ShowWindow(); };
+        // Neither Start now nor Skip this time has a real backend effect yet (no "force-start bypassing
+        // the arrival delay" API exists, and "skip" is deliberately flyout-local UI state per
+        // TrayFlyoutViewModel) - both just let the card update itself (RefreshPendingArrivals runs inside
+        // the view model already), which in turn drives UpdateFlyoutState below on the next tick.
         _flyoutAutoHideTimer.Tick += (_, _) => { _flyoutAutoHideTimer.Stop(); _flyout?.Hide(); };
-        _window.ViewModel.Jobs.CollectionChanged += (_, _) => OnJobsChanged();
+        _window.ViewModel.Jobs.CollectionChanged += (_, _) => UpdateFlyoutState();
+        flyoutViewModel.PendingArrivals.CollectionChanged += (_, _) => UpdateFlyoutState();
 
         _window.ViewModel.StartDeviceMonitoring();
         ShowWindow();
     }
 
-    // Fires on every 2-second job-list refresh, not only on a real state transition, so _wasBackingUp
-    // gates the flyout's "show on start" behavior to the RUNNING edge specifically - otherwise it would
-    // reappear on every poll tick for the whole duration of a backup instead of once at the start.
-    private void OnJobsChanged()
+    // Fires on every job-list/pending-arrival refresh, not only on a real state transition, so the two
+    // "_was..." fields gate auto-show to the actual edge - otherwise it would reappear on every poll tick
+    // for the whole duration of a backup instead of once at the start.
+    //
+    // Measured (peer review): treating "awaiting a decision" (a pending arrival's Start now/Skip this
+    // time) and "pure progress" as one auto-hide policy was wrong - both evaluators found a window that
+    // can disappear before they act on it actively anxiety-inducing, not just inconvenient, while the same
+    // few-seconds auto-hide on a window with nothing to click was fine. So a decision in progress
+    // (HasPendingArrivals) is a hard veto on the auto-hide timer, re-checked on every state change - not
+    // just suppressed at the moment the decision first appears - so it can never be left running
+    // underneath a decision that shows up while it's already ticking down.
+    private void UpdateFlyoutState()
     {
-        if (_window is null) return;
+        if (_window is null || _flyout is null) return;
         var isBackingUp = _window.ViewModel.Jobs.Any(job => job.State == "RUNNING");
-        if (isBackingUp && !_wasBackingUp && _window.ViewModel.ShowFlyoutOnBackupStart && !IsFullScreenAppActive())
+        var awaitingDecision = _flyout.ViewModel.HasPendingArrivals;
+        var justStartedNeedingAttention = (awaitingDecision && !_wasAwaitingDecision) || (isBackingUp && !_wasBackingUp);
+
+        if (justStartedNeedingAttention && _window.ViewModel.ShowFlyoutOnBackupStart && !IsFullScreenAppActive())
+            _flyout.ShowNearTray();
+
+        if (awaitingDecision) _flyoutAutoHideTimer.Stop();
+        else if (justStartedNeedingAttention || (_wasAwaitingDecision && isBackingUp))
         {
-            _flyout?.ShowNearTray();
+            // Either a fresh progress-only show, or a decision that just resolved into a running backup -
+            // both are now the auto-hiding kind of popup.
             _flyoutAutoHideTimer.Stop();
             _flyoutAutoHideTimer.Start();
         }
+
         _wasBackingUp = isBackingUp;
+        _wasAwaitingDecision = awaitingDecision;
         UpdateTrayText();
     }
 

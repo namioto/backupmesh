@@ -32,8 +32,8 @@
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,10">
                 <StackPanel>
-                    <TextBlock Text="Nothing to show right now." Foreground="#607086" Margin="4,18"
-                               HorizontalAlignment="Center"
+                    <TextBlock Text="No backups running. Connect a drive to start one." Foreground="#607086" Margin="4,18"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibleConverter}}"/>
 
                     <!-- Backing up now -->
@@ -53,7 +53,7 @@
                                                 <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" Foreground="#526276" FontSize="11"/>
                                             </DockPanel>
                                             <TextBlock Text="{Binding EtaDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,0"/>
-                                            <Button Content="Cancel" HorizontalAlignment="Right" Margin="0,4,0,0" Padding="10,4"
+                                            <Button Content="Cancel this backup" HorizontalAlignment="Right" Margin="0,4,0,0" Padding="10,4"
                                                     Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibleConverter}}"
                                                     Command="{Binding DataContext.CancelJobCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
@@ -64,24 +64,24 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- Queued -->
+                    <!-- "Queued" (section) + "Waiting to start…" (per item) measured as the same fact said
+                         twice ("both just mean 'not started yet'"); the section title alone now carries it. -->
                     <StackPanel Margin="0,4,0,0" Visibility="{Binding HasQueuedJobs, Converter={StaticResource BoolToVisibleConverter}}">
-                        <TextBlock Text="Queued" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                        <TextBlock Text="Up next" FontWeight="SemiBold" Margin="2,0,0,6"/>
                         <ItemsControl ItemsSource="{Binding QueuedJobs}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Target}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Waiting to start…" Foreground="#607086" FontSize="11" Margin="0,2,0,0"/>
-                                        </StackPanel>
+                                        <TextBlock Text="{Binding Target}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- Just arrived -->
+                    <!-- "Just arrived" alone left it unclear whether files or the device itself had
+                         arrived (measured); each card's own title now says "{device} connected" so the
+                         section header's exact wording no longer carries that on its own. -->
                     <StackPanel Margin="0,4,0,0" Visibility="{Binding HasPendingArrivals, Converter={StaticResource BoolToVisibleConverter}}">
                         <TextBlock Text="Just arrived" FontWeight="SemiBold" Margin="2,0,0,6"/>
                         <ItemsControl ItemsSource="{Binding PendingArrivals}">
@@ -89,7 +89,7 @@
                                 <DataTemplate>
                                     <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
                                         <StackPanel>
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding TitleDisplay}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             <TextBlock Text="{Binding StatusDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,6"/>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                 <Button Content="Skip this time" Padding="10,4"
@@ -99,6 +99,9 @@
                                                         Command="{Binding DataContext.StartNowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"/>
                                             </StackPanel>
+                                            <!-- Measured: both evaluators guessed "this time" correctly but weren't sure -
+                                                 stated directly rather than left to the button's wording alone. -->
+                                            <TextBlock Text="Skipping affects this connection only." Foreground="#8493A6" FontSize="10" Margin="0,4,0,0" HorizontalAlignment="Right"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -110,11 +113,11 @@
 
             <Border Grid.Row="2" Background="#E8EDF4" CornerRadius="0,0,10,10" Padding="12,10">
                 <DockPanel>
-                    <Button DockPanel.Dock="Left" Content="Cancel all" Padding="10,6"
+                    <Button DockPanel.Dock="Left" Content="Cancel all backups" Padding="10,6"
                             Style="{StaticResource DangerButtonStyle}"
                             IsEnabled="{Binding CanCancelAny}"
                             Command="{Binding CancelAllCommand}"/>
-                    <Button DockPanel.Dock="Right" Content="Open window" Padding="10,6"
+                    <Button DockPanel.Dock="Right" Content="Open BackupMesh" Padding="10,6"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Command="{Binding OpenMainWindowCommand}"/>
                 </DockPanel>

@@ -253,13 +253,17 @@ public sealed class PendingArrivalViewModel
     }
 
     public DeviceViewModel Device { get; }
-    public string DisplayName => Device.DisplayNameWithRoot;
+    // "connected" is stated explicitly (measured: "Just arrived" alone left both evaluators unsure whether
+    // this meant files had arrived or the device itself had) - true regardless of section header wording.
+    public string TitleDisplay => $"{Device.DisplayNameWithRoot} connected";
     public int EligibleMappingCount { get; }
     public bool IsEligibleNow => DateTimeOffset.UtcNow >= _eligibleAt;
 
     public string StatusDisplay => IsEligibleNow
         ? $"Ready to back up ({MainWindowViewModel.Pluralize(EligibleMappingCount, "backup")} queued)"
-        : $"Backing up in {FormatRemaining(_eligibleAt - DateTimeOffset.UtcNow)} unless started now";
+        // "Backing up in X unless started now" measured as ambiguous between "starts within X" and
+        // "starts after X" - a plain countdown to one specific, named event reads as neither.
+        : $"Starts automatically in {FormatRemaining(_eligibleAt - DateTimeOffset.UtcNow)}";
 
     private static string FormatRemaining(TimeSpan remaining) =>
         remaining <= TimeSpan.Zero ? "under a minute" : remaining.TotalMinutes >= 1 ? $"{Math.Ceiling(remaining.TotalMinutes):0} min" : "under a minute";
