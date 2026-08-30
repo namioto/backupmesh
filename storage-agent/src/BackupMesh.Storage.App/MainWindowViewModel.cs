@@ -238,7 +238,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             // gating - and it must win over "safe", never the reverse: this is a same-line status swap
             // (never disappear, never show both), so it's checked and added first, before anything that
             // could otherwise report "safe" for a device that is, right now, being written to.
-            if (jobsForDevice.Any(job => !job.IsTerminal)) { RemovalBanners.Add(DeviceRemovalBannerViewModel.BackingUp(device)); continue; }
+            if (jobsForDevice.FirstOrDefault(job => !job.IsTerminal) is { } activeJob) { RemovalBanners.Add(DeviceRemovalBannerViewModel.BackingUp(device, activeJob.EstimatedTimeRemaining)); continue; }
             if (device.ConnectedAt is not { } connectedAt) continue;
             var completedSinceConnecting = jobsForDevice.Where(job => job.StartedAt is { } startedAt && startedAt >= connectedAt).ToArray();
             if (completedSinceConnecting.Length == 0) continue; // nothing happened on this device during this connection - stay quiet rather than claim old history "just finished".
@@ -286,8 +286,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             // differently.
             FooterStatus = exception.Code switch
             {
-                "STORAGE_BUSY" => $"Can't remove {device.DisplayName} yet - Storage still considers a backup active. Wait a moment and try again.",
-                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message}",
+                "STORAGE_BUSY" => $"Can't remove {device.DisplayName} yet — a backup is still running. Wait a moment and try again.",
+                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message} Close any window or program using the drive, then try again.",
                 _ => $"Safe removal was refused: {exception.Message}"
             };
         }
@@ -1161,6 +1161,10 @@ public sealed class DeviceViewModel : ObservableObject
     public string DisplayNameWithDetails => CurrentRoot is { Length: > 0 } root
         ? AvailableBytes is { } bytes ? $"{DisplayName} ({root}), {bytes / 1_073_741_824d:0.0} GB free" : $"{DisplayName} ({root})"
         : DisplayName;
+    // Name + drive letter only, no capacity - capacity matters when *choosing* a device (the combo box,
+    // the Devices grid), not when deciding whether it's safe to remove one already chosen; measured as
+    // making the removal banner read as "a bit long" with no benefit to the decision it supports.
+    public string DisplayNameWithRoot => CurrentRoot is { Length: > 0 } root ? $"{DisplayName} ({root})" : DisplayName;
     public string Status => IsConnected ? "Connected" : "Offline";
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
     public int ArrivalDelayMinutes { get; set; }
@@ -1226,12 +1230,20 @@ public sealed class DeviceRemovalBannerViewModel
     public string Message { get; }
     public bool ShowRemoveButton { get; }
 
-    public static DeviceRemovalBannerViewModel BackingUp(DeviceViewModel device) =>
-        new(device, DeviceRemovalBannerKind.BackingUp, $"{device.DisplayNameWithDetails} — backing up now. Do not remove.", showRemoveButton: false);
+    // The discriminating word comes first in every line - measured: with the device name (the longest,
+    // identical-looking part) leading instead, evaluators skimming quickly read past it before reaching
+    // the one word that actually differs between states.
+    public static DeviceRemovalBannerViewModel BackingUp(DeviceViewModel device, TimeSpan? remaining)
+    {
+        var etaClause = remaining is { } eta
+            ? eta.TotalHours >= 1 ? $" (about {MainWindowViewModel.Pluralize((int)Math.Round(eta.TotalHours), "hour")} left)" : $" (about {MainWindowViewModel.Pluralize(Math.Max(1, (int)eta.TotalMinutes), "minute")} left)"
+            : string.Empty;
+        return new(device, DeviceRemovalBannerKind.BackingUp, $"Do not remove — {device.DisplayNameWithRoot} is backing up now{etaClause}.", showRemoveButton: false);
+    }
 
     public static DeviceRemovalBannerViewModel Finished(DeviceViewModel device, bool anyDidNotFinish) => anyDidNotFinish
-        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"{device.DisplayNameWithDetails} — backup did not finish. Safe to remove, but nothing new was saved.", showRemoveButton: true)
-        : new(device, DeviceRemovalBannerKind.Safe, $"{device.DisplayNameWithDetails} — all backups finished. Safe to remove now.", showRemoveButton: true);
+        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"Safe to remove, but the backup did not finish — nothing new was saved to {device.DisplayNameWithRoot}. See Overview for details.", showRemoveButton: true)
+        : new(device, DeviceRemovalBannerKind.Safe, $"Safe to remove — {device.DisplayNameWithRoot} finished all backups.", showRemoveButton: true);
 }
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)

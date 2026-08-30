@@ -97,6 +97,13 @@ Every measured tab arrangement (18 first-click measurements across 6 candidate l
 - Multiple qualifying devices each get their own banner line.
 - The tray's eject failure message now distinguishes *why* Storage refused: "a backup is still active, wait" (`STORAGE_BUSY`) reads differently from "Windows itself refused, e.g. a file is still open" (`EJECT_REFUSED`), since the two need different next actions from the user - previously both showed the same generic `HttpRequestException` text with no explanation at all.
 
+The banner design measured well immediately (always-visible placement, no button while backing up, no one mistaking a failed backup for a successful one), but its wording didn't - every state opened with the same long device name, so the one word that actually distinguished "do not remove" from "safe to remove" sat at the end, past where a quick glance stops reading:
+
+- The discriminating phrase now leads every line: "Do not remove — {device} is backing up now.", "Safe to remove — {device} finished all backups.", "Safe to remove, but the backup did not finish — nothing new was saved to {device}. See Overview for details."
+- The banner names the device without its free space (e.g. "Archive drive (E:\)", not "..., 465.8 GB free") - capacity matters when *choosing* a device, not when deciding whether to remove one already chosen, and made the line read as needlessly long.
+- "Storage" - an internal name for this service - leaked into the STORAGE_BUSY eject-failure message; replaced with "a backup is still running", and the EJECT_REFUSED one now ends with a concrete next step ("Close any window or program using the drive, then try again.") instead of leaving the user to guess which program to close.
+- The backing-up banner now includes a rough time remaining when one can be estimated ("...is backing up now (about 4 minutes left)."), reusing the same estimate the Overview tab's job list already computes.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

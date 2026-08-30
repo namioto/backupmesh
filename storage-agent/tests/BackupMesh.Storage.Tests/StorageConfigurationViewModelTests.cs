@@ -137,8 +137,28 @@ public sealed class StorageConfigurationViewModelTests
 
         var banner = Assert.Single(viewModel.RemovalBanners);
         Assert.Equal(DeviceRemovalBannerKind.BackingUp, banner.Kind);
-        Assert.Contains("Do not remove", banner.Message);
+        Assert.StartsWith("Do not remove", banner.Message);
         Assert.False(banner.ShowRemoveButton);
+    }
+
+    [Fact]
+    public async Task BackingUpBannerNamesTheDeviceWithoutItsFreeSpace()
+    {
+        // Free space matters when choosing a device, not when deciding whether to pull one already
+        // chosen out - measured as making the banner read as unnecessarily long.
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        device.AvailableBytes = 5_000_000_000;
+        device.TotalBytes = 10_000_000_000;
+        var job = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, null, null, TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        var banner = Assert.Single(viewModel.RemovalBanners);
+        Assert.DoesNotContain("GB free", banner.Message);
+        Assert.Contains(device.DisplayName, banner.Message);
     }
 
     [Fact]
@@ -154,7 +174,8 @@ public sealed class StorageConfigurationViewModelTests
 
         var banner = Assert.Single(viewModel.RemovalBanners);
         Assert.Equal(DeviceRemovalBannerKind.Safe, banner.Kind);
-        Assert.Contains("all backups finished", banner.Message);
+        Assert.StartsWith("Safe to remove", banner.Message);
+        Assert.Contains("finished all backups", banner.Message);
         Assert.True(banner.ShowRemoveButton);
     }
 
@@ -171,8 +192,9 @@ public sealed class StorageConfigurationViewModelTests
 
         var banner = Assert.Single(viewModel.RemovalBanners);
         Assert.Equal(DeviceRemovalBannerKind.SafeButIncomplete, banner.Kind);
+        Assert.StartsWith("Safe to remove, but", banner.Message);
         Assert.Contains("did not finish", banner.Message);
-        Assert.DoesNotContain("all backups finished", banner.Message);
+        Assert.DoesNotContain("finished all backups", banner.Message);
         Assert.True(banner.ShowRemoveButton, "A failed backup still means nothing is actively writing to the device, so removal must remain offered.");
     }
 

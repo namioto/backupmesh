@@ -99,15 +99,25 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
     // cancellation still in flight is not yet safe to treat as "this device is done".
     public bool IsTerminal => State is "SUCCEEDED" or "FAILED" or "CANCELLED";
 
+    // Shared by the Progress column's compact "· ETA 4m" and the removal banner's descriptive
+    // "(about 4 minutes left)" - null whenever there isn't enough information yet to estimate.
+    public TimeSpan? EstimatedTimeRemaining
+    {
+        get
+        {
+            if (model.StartedAt is not { } startedAt || model.Progress is not { BytesTotal: > 0 } progress || progress.BytesDone <= 0) return null;
+            var fraction = progress.BytesDone / (double)progress.BytesTotal;
+            if (fraction is <= 0 or >= 1) return null;
+            var elapsed = DateTimeOffset.UtcNow - startedAt;
+            return TimeSpan.FromTicks((long)(elapsed.Ticks * (1 - fraction) / fraction));
+        }
+    }
+
     private string EtaSuffix
     {
         get
         {
-            if (model.StartedAt is not { } startedAt || model.Progress is not { BytesTotal: > 0 } progress || progress.BytesDone <= 0) return string.Empty;
-            var fraction = progress.BytesDone / (double)progress.BytesTotal;
-            if (fraction is <= 0 or >= 1) return string.Empty;
-            var elapsed = DateTimeOffset.UtcNow - startedAt;
-            var remaining = TimeSpan.FromTicks((long)(elapsed.Ticks * (1 - fraction) / fraction));
+            if (EstimatedTimeRemaining is not { } remaining) return string.Empty;
             var eta = remaining.TotalHours >= 1 ? $"{remaining.TotalHours:0.0}h" : remaining.TotalMinutes >= 1 ? $"{remaining.TotalMinutes:0}m" : "<1m";
             return $" · ETA {eta}";
         }
