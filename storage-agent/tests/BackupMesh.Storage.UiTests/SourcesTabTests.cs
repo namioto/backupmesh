@@ -83,16 +83,61 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
 
     /// <summary>
     /// Trigger devices are configured per selected row in the Backups grid, not the "what to back up"
-    /// creation combo (a study found evaluators expected the former). The demo fixture registers no
-    /// devices, so Mappings is empty and there is no row this black-box fixture can select - meaning only
-    /// the always-true "nothing selected" placeholder state is verified here; ListBox/radio
-    /// buttons/TriggerSummaryText are consequently Collapsed and absent from the automation tree.
+    /// creation combo (a study found evaluators expected the former). With no row selected, the trigger
+    /// controls are Collapsed and absent from the automation tree, and this placeholder shows instead.
     /// </summary>
     [Fact]
     public void TriggerControlsShowAPlaceholderWithNoBackupSelected()
     {
         Assert.Contains(_fixture.MainWindow.FindAllDescendants(), element => element.Name == "Select a backup above to choose which devices should start it automatically.");
         Assert.Null(_fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("TriggerDevicesListBox")));
+    }
+
+    /// <summary>
+    /// The Collapsed-by-default assertion above only proves the controls are correctly absent when they
+    /// should be - it says nothing about whether they're actually reachable once a backup *is* selected.
+    /// P0-2 (this project's own history) was exactly a control present in XAML but pushed off-screen and
+    /// found only by a human looking at a screenshot; this is the automated guard for that failure mode
+    /// on the controls this commit introduced. Creates a real device and mapping (RegisterDevice needs no
+    /// native dialog, unlike RegisterFolder) since the demo fixture starts with none, and removes the
+    /// mapping afterward - which also resets SelectedMapping to null - so it leaves the shared fixture's
+    /// state the way the placeholder test above expects to find it, regardless of run order.
+    /// </summary>
+    [Fact]
+    public void TriggerControlsAreReachableWithABackupSelected()
+    {
+        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("DevicesTab")).AsTabItem().Select();
+        var drives = Find("AvailableDrivesCombo").AsComboBox();
+        Retry.WhileEmpty(() => drives.Items, TimeSpan.FromSeconds(10));
+        drives.Select(0);
+        Find("RegisterDeviceButton").AsButton().Invoke();
+
+        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SourcesMappingsTab")).AsTabItem().Select();
+        var backupSets = Find("BackupSetCombo").AsComboBox();
+        Retry.WhileEmpty(() => backupSets.Items, TimeSpan.FromSeconds(10));
+        backupSets.Select(0);
+        var devices = Find("MappingDeviceCombo").AsComboBox();
+        Retry.WhileEmpty(() => devices.Items, TimeSpan.FromSeconds(10));
+        devices.Select(0);
+        Find("DestinationFolderInput").AsTextBox().Text = "BackupMesh\\UiTestTrigger";
+        Find("AddMappingButton").AsButton().Invoke();
+
+        var grid = Find("MappingsGrid");
+        var row = Retry.WhileNull(() => grid.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.DataItem)), TimeSpan.FromSeconds(10)).Result;
+        Assert.NotNull(row);
+        row!.Patterns.SelectionItem.Pattern.Select();
+
+        try
+        {
+            Assert.NotNull(Find("TriggerDevicesListBox").AsListBox());
+            Assert.NotNull(Find("AnyDeviceTriggerRadio"));
+            Assert.NotNull(Find("AllDevicesTriggerRadio"));
+            Assert.NotNull(Find("TriggerSummaryText"));
+        }
+        finally
+        {
+            Find("RemoveMappingButton").AsButton().Invoke();
+        }
     }
 
     [Fact]

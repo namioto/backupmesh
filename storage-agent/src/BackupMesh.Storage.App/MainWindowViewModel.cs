@@ -1132,7 +1132,10 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     // text alone (measured: both evaluators said they'd have misread the scope without that text either -
     // this highlight is a second, independent cue for the same fact, not a replacement for it).
     public bool IsSiblingOfSelection { get => _isSiblingOfSelection; set => Set(ref _isSiblingOfSelection, value); }
-    public string SavesToLine => $"Saves to {Device.DisplayNameWithDetails}.";
+    // "Already" is load-bearing, not filler: it's the cue that tells evaluators this configures a backup
+    // that already exists, not one being created - dropping it (while splitting this into two lines to
+    // shorten it) measurably reintroduced the confusion it had fixed.
+    public string SavesToLine => $"Already saves to {Device.DisplayNameWithDetails}.";
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 
