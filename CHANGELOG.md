@@ -56,6 +56,14 @@ A follow-up round of the same study, re-run against the new wording, confirmed e
 - "Device" and "drive" were used interchangeably for the same concept (Trigger devices' explainer used "drive", its own checkbox and the Devices tab's grid used "device"); everything about a *registered* device now consistently says "device" ("drive" is kept only where the tray is listing physically detected drives that aren't registered yet, e.g. "Refresh drives").
 - The destination-device picker now shows "Registered in the Devices tab" beneath it while empty, until inline registration (tracked separately) removes the need to leave the tab at all.
 
+A follow-up study (14 blind measurements across two proposed designs plus the original) found a task built entirely around it went unused by every evaluator (0/4), and that pairing a tree with a separate table for the same computers created its own ambiguity - a destructive action's target ("does this apply to the computer or the folder selected under it?") was unclear to both evaluators who saw it:
+
+- The Sources & mappings tab's computer tree and its separate Connections table are now one grid. Selecting a Backup Set (never done through the tree in the study) works the same as before, through the "What to back up" list, which now says where its entries come from ("Folders shared by the computers on the left").
+- "This PC" appears in the grid like any other computer, but its Status cell now reads "—" rather than "This PC" - a name is not a status, and evaluators read that placeholder as a broken value. Selecting "This PC" (or a computer that has never connected) now shows a plain-text reason its Block access/Re-pair/Rename/Remove computer buttons are disabled, not just a tooltip.
+- The "Certificate expires" column read as unexplained technical noise to every evaluator who saw it (4/4: "why does connecting a computer involve a certificate?") even when no certificate needed attention. It's gone; a computer's Allowed/Revoked status now says so directly only when its certificate is actually expiring within 30 days (e.g. "Allowed — certificate expires in 5 days").
+- A registered device's name now keeps the drive letter and free space it showed before registration (e.g. "Archive drive (E:\), 465.8 GB free") instead of reverting to a plain name evaluators couldn't confirm was the right physical drive; the Devices grid also gained its own "Free space" column.
+- Demo mode (used by this study and by UiTests) no longer contradicts itself: paired demo computers now appear in Connections too, instead of the tree showing computers with Backup Sets while Connections insisted none were paired.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

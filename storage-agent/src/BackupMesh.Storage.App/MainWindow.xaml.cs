@@ -24,15 +24,6 @@ public partial class MainWindow : Window
         SyncTriggerDevicesSelection();
     }
 
-    private void OnSourceSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-    {
-        if (e.NewValue is BackupSetViewModel backupSet) ViewModel.SelectedBackupSet = backupSet;
-        // A source-level tree node (e.g. "This PC") is not a row in the separate Connections grid below
-        // it, so its Revoke/Re-pair/Rename/Forget buttons must not appear to still apply to whatever
-        // connection happened to be selected before.
-        else if (e.NewValue is SourceAgentViewModel) ViewModel.SelectedSourceConnection = null;
-    }
-
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainWindowViewModel.SelectedBackupSet) or nameof(MainWindowViewModel.Devices))
@@ -69,5 +60,13 @@ public partial class MainWindow : Window
         var deviceIds = TriggerDevicesListBox.SelectedItems.Cast<DeviceViewModel>().Select(device => device.Id).ToArray();
         var policy = RequireAllTriggerDevicesCheckBox.IsChecked == true ? BackupSetTriggerPolicy.AllAvailable : BackupSetTriggerPolicy.AnyAvailable;
         ViewModel.UpdateBackupSetTriggers(selectedSet, deviceIds, policy);
+    }
+
+    // TabControl.SelectionChanged is the same routed event every descendant Selector (ListBox, ComboBox,
+    // DataGrid) raises, and it bubbles - so this also fires for their selection changes. Only react when
+    // the TabControl itself is the actual source, not just the routing ancestor.
+    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.OriginalSource is System.Windows.Controls.TabControl) ViewModel.ClearFooterStatusOnTabChange();
     }
 }

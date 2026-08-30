@@ -24,12 +24,6 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     }
 
     [Fact]
-    public void PairedSourcesTree_IsReachableByAutomationId()
-    {
-        Assert.NotNull(Find("PairedSourcesTree").AsTree());
-    }
-
-    [Fact]
     public void PairSourceButton_IsPresentAndEnabled()
     {
         var button = Find("PairSourceButton").AsButton();
@@ -102,11 +96,16 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("RemoveLocalBackupSetButton").AsButton());
     }
 
-    /// <summary>"This PC" is always shown as a Source, even with no local Backup Sets configured yet.</summary>
+    /// <summary>
+    /// "This PC" is always shown as a computer, even with no local Backup Sets configured yet. The
+    /// Computers grid merges what used to be a separate tree (unused by evaluators in a first-click
+    /// study: 0/4) and a Connections grid that never listed "This PC" at all - so this now checks the
+    /// one merged grid instead of a tree that no longer exists.
+    /// </summary>
     [Fact]
-    public void ThisPCIsAlwaysListedInThePairedSourcesTree()
+    public void ThisPCIsAlwaysListedInTheComputersGrid()
     {
-        var tree = Find("PairedSourcesTree").AsTree();
-        Assert.Contains(tree.Items, item => item.Text == "This PC");
+        var grid = Find("SourceConnectionsGrid");
+        Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC");
     }
 }

@@ -31,6 +31,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
+    private SourceAgentViewModel? _selectedSourceAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
     private DeviceViewModel? _selectedDevice;
     private AvailableDriveViewModel? _selectedAvailableDrive;
@@ -116,12 +117,39 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, $"BackupMesh Storage Agent — {value}"); } }
     public string FooterStatus { get => _footerStatus; private set => Set(ref _footerStatus, value); }
+
+    // A status message from an action on one tab (e.g. "One-time pairing details generated…") otherwise
+    // keeps following the user to unrelated tabs, since the footer is a single shared piece of state.
+    public void ClearFooterStatusOnTabChange() => FooterStatus = string.Empty;
     public int ConnectedDeviceCount => Devices.Count(device => device.IsConnected);
     public int SourceCount => Sources.Count;
     public int MappingCount => Mappings.Count(mapping => mapping.Enabled);
     public BackupSetViewModel? SelectedBackupSet { get => _selectedBackupSet; set => Set(ref _selectedBackupSet, value); }
-    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) OnPropertyChanged(nameof(HasSelectedSourceConnection)); } }
+    // The merged Computers grid selects a computer directly; picking one resolves (or clears) the
+    // connection the action buttons act on, replacing what used to be a separate tree-selection handler
+    // in code-behind now that there is only one list to select from.
+    public SourceAgentViewModel? SelectedSourceAgent
+    {
+        get => _selectedSourceAgent;
+        set
+        {
+            if (!Set(ref _selectedSourceAgent, value)) return;
+            SelectedSourceConnection = value is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == value.Id);
+            OnPropertyChanged(nameof(SelectedComputerActionHint));
+        }
+    }
+    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) { OnPropertyChanged(nameof(HasSelectedSourceConnection)); OnPropertyChanged(nameof(SelectedComputerActionHint)); } } }
     public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
+    // Visible explanation (not just a tooltip) for why Block access/Re-pair/Rename/Remove computer are
+    // disabled for the current selection - evaluators guessed correctly that "This PC" disables them, but
+    // weren't sure, and had no way to tell a not-yet-connected computer from one that would never work.
+    public string SelectedComputerActionHint => SelectedSourceAgent switch
+    {
+        null => string.Empty,
+        { Id: var id } when id == LocalSourceIdentity.AgentId => "This PC has no connection to manage - these actions apply only to other computers.",
+        _ when SelectedSourceConnection is null => "This computer hasn't connected yet, so there's nothing to manage here.",
+        _ => string.Empty
+    };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
@@ -233,14 +261,23 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var connections = await _connectionsClient.ListAsync(_shutdown.Token);
-            var selectedId = SelectedSourceConnection?.AgentId;
             SourceConnections.Clear();
             foreach (var connection in connections.OrderBy(c => c.AgentName, StringComparer.OrdinalIgnoreCase)) SourceConnections.Add(new(connection));
-            SelectedSourceConnection = SourceConnections.FirstOrDefault(c => c.AgentId == selectedId) ?? SourceConnections.FirstOrDefault();
+            ApplySourceConnections();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
+    }
+
+    // Sources is rebuilt from scratch (new SourceAgentViewModel instances) on every catalog/config
+    // refresh, so each one's Connection must be re-applied every time too, not just when
+    // RefreshConnectionsAsync() itself runs - otherwise a catalog refresh 10 seconds later silently wipes
+    // every computer's connection info from the merged grid until the next connections poll.
+    private void ApplySourceConnections()
+    {
+        foreach (var source in Sources) source.Connection = SourceConnections.FirstOrDefault(connection => connection.AgentId == source.Id);
+        SelectedSourceConnection = SelectedSourceAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedSourceAgent.Id);
     }
 
     private async Task SetSourceRevocationAsync(bool revoked)
@@ -367,6 +404,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 else existing.Update(model);
             }
         }
+        // Sources is rebuilt with brand new instances below, which would otherwise silently drop
+        // whatever computer the user has selected in the merged grid every 10-second catalog refresh.
+        var selectedSourceId = SelectedSourceAgent?.Id;
         Sources.Clear();
         // "This PC" always appears first, even with no local Backup Sets yet.
         var localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
@@ -380,6 +420,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Sources.Add(source);
         }
         SelectedBackupSet ??= BackupSets.FirstOrDefault(set => set.IsAvailable);
+        SelectedSourceAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
+        ApplySourceConnections();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
     }
@@ -477,6 +519,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var workstation = new SourceAgentViewModel(Guid.Parse("0cdf358f-4b92-4bb0-b852-460520508952"), "Studio Workstation");
         AddDemoSet(workstation, new(Guid.Parse("bb452fc9-f616-4810-a649-3c37775d43d4"), workstation.Id, workstation.DisplayName, "Projects", ["D:/Projects"]));
         Sources.Add(workstation);
+
+        // "This PC" is local and has no connection of its own; every other demo Source is a paired
+        // computer, and must appear here too - otherwise the demo (used both by UiTests and for UX
+        // verification) shows a self-contradicting screen: computers with Backup Sets, but "No paired
+        // computers yet" in the same merged grid.
+        SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddMinutes(-4), 2, false, DateTimeOffset.UtcNow.AddDays(75))));
+        SourceConnections.Add(new(new(workstation.Id, workstation.DisplayName, workstation.DisplayName, DateTimeOffset.UtcNow.AddHours(-6), 1, false, DateTimeOffset.UtcNow.AddDays(20))));
+        ApplySourceConnections();
+
         SelectedBackupSet = BackupSets.FirstOrDefault();
         AddActivity("Demo Source catalog loaded for UX validation.");
         NotifyCounts();
@@ -542,6 +593,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ApplyTopology(StorageAgentConfiguration topology)
     {
+        var selectedSourceId = SelectedSourceAgent?.Id;
         Devices.Clear();
         BackupSets.Clear();
         Sources.Clear();
@@ -576,6 +628,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         SelectedBackupSet = BackupSets.FirstOrDefault();
         SelectedDevice = Devices.FirstOrDefault();
+        SelectedSourceAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
+        ApplySourceConnections();
         RefreshDrives();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
@@ -670,7 +724,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
         var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
-        var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true };
+        var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true, AvailableBytes = SelectedAvailableDrive.AvailableBytes, TotalBytes = SelectedAvailableDrive.TotalBytes };
         Devices.Add(registered);
         SelectedDevice = registered;
         AddActivity($"Registered device {model.DisplayName}.");
@@ -695,6 +749,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var displayName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } name ? name : root;
         var model = new RegisteredDevice(Guid.NewGuid(), stableId, displayName, "Folder", root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
         var registered = new DeviceViewModel(model) { CurrentRoot = root, IsConnected = true, CanEject = false };
+        try { var driveInfo = new DriveInfo(Path.GetPathRoot(root) ?? root); registered.AvailableBytes = driveInfo.AvailableFreeSpace; registered.TotalBytes = driveInfo.TotalSize; }
+        catch (Exception exception) when (exception is ArgumentException or IOException) { }
         Devices.Add(registered);
         SelectedDevice = registered;
         AddActivity($"Registered storage folder {root}.");
@@ -783,6 +839,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             device.IsConnected = match is not null || folderConnected;
             device.CanEject = match?.CanEject == true;
             device.CurrentRoot = match?.Root ?? (folderConnected ? folderRoot : null);
+            if (match is not null) { device.AvailableBytes = match.AvailableBytes; device.TotalBytes = match.TotalBytes; }
             if (!wasConnected && device.IsConnected)
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
@@ -851,11 +908,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 }
 
-public sealed class SourceAgentViewModel(Guid id, string displayName)
+// Doubles as a row in the merged Computers grid: a blind first-click study found evaluators never used
+// the separate tree this used to feed (0/4 on a task built around it), and a second, separate tree +
+// grid pairing created its own ambiguity ("does this button act on the computer or the folder under
+// it?"). Connection is null for "This PC" (no certificate/connection of its own) and for any computer
+// that hasn't connected since Storage started - LastSeenDisplay/StatusDisplay fall back to "-" rather
+// than leaving the cell blank or, worse, putting a non-status value like "This PC" in the Status column.
+public sealed class SourceAgentViewModel(Guid id, string displayName) : ObservableObject
 {
+    private SourceConnectionViewModel? _connection;
     public Guid Id { get; } = id;
     public string DisplayName { get; } = displayName;
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
+    public SourceConnectionViewModel? Connection
+    {
+        get => _connection;
+        set { if (Set(ref _connection, value)) { OnPropertyChanged(nameof(LastSeenDisplay)); OnPropertyChanged(nameof(StatusDisplay)); } }
+    }
+    public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
+    public string StatusDisplay => Connection?.StatusDisplay ?? "—";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -871,10 +942,23 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
     public string CertificateExpiresDisplay => CertificateExpiresAt is { } expires ? expires.LocalDateTime.ToString("g") : "Unknown";
-    public string StatusDisplay => IsRevoked ? "Revoked" : "Allowed";
+    // A "Certificate expires" column shown for every row measured as meaningless to evaluators ("why
+    // does connecting a computer involve a certificate?") even when nothing needed attention - so instead
+    // of a column that reads mostly-irrelevant dates, the one case that actually matters (expiring soon)
+    // surfaces as a warning appended to Status, and otherwise this says nothing about certificates at all.
+    public string StatusDisplay => IsRevoked ? "Revoked"
+        : CertificateExpiresAt is { } expires && expires <= DateTimeOffset.UtcNow.AddDays(30)
+            ? $"Allowed — certificate expires {ExpiryRelativeDisplay(expires)}"
+            : "Allowed";
     public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
+
+    private static string ExpiryRelativeDisplay(DateTimeOffset expires)
+    {
+        var days = (int)Math.Ceiling((expires - DateTimeOffset.UtcNow).TotalDays);
+        return days switch { <= 0 => "today", 1 => "tomorrow", _ => $"in {days} days" };
+    }
 }
 
 public sealed class BackupSetViewModel : ObservableObject
@@ -919,6 +1003,8 @@ public sealed class DeviceViewModel : ObservableObject
     private DateTimeOffset? _lastSeenAt;
     private bool _isSourceTrigger;
     private bool _isUsedAsTarget;
+    private long? _availableBytes;
+    private long? _totalBytes;
     public DeviceViewModel(RegisteredDevice model) { Id = model.Id; StableId = model.StableId; DisplayName = model.DisplayName; VolumeLabel = model.VolumeLabel; LastKnownRoot = model.LastKnownRoot; RegisteredAt = model.RegisteredAt; _lastSeenAt = model.LastSeenAt; ArrivalDelayMinutes = model.ArrivalDelayMinutes; }
     public Guid Id { get; }
     public string StableId { get; }
@@ -929,7 +1015,21 @@ public sealed class DeviceViewModel : ObservableObject
     public DateTimeOffset? LastSeenAt { get => _lastSeenAt; set { Set(ref _lastSeenAt, value); OnPropertyChanged(nameof(LastSeenDisplay)); } }
     public bool IsConnected { get => _isConnected; set { Set(ref _isConnected, value); OnPropertyChanged(nameof(Status)); } }
     public bool CanEject { get => _canEject; set => Set(ref _canEject, value); }
-    public string? CurrentRoot { get => _currentRoot; set => Set(ref _currentRoot, value); }
+    public string? CurrentRoot { get => _currentRoot; set { if (Set(ref _currentRoot, value)) OnPropertyChanged(nameof(DisplayNameWithDetails)); } }
+    // Not persisted to RegisteredDevice/config - this is live capacity, refreshed opportunistically
+    // alongside RefreshDrives() while the device is connected, the same source the pre-registration
+    // AvailableDriveViewModel.DisplayName already reads "465.8 GB free" from. Evaluators saw that figure
+    // before registering a drive and asked where it went afterward.
+    public long? AvailableBytes { get => _availableBytes; set { if (Set(ref _availableBytes, value)) { OnPropertyChanged(nameof(FreeSpaceDisplay)); OnPropertyChanged(nameof(DisplayNameWithDetails)); } } }
+    public long? TotalBytes { get => _totalBytes; set { if (Set(ref _totalBytes, value)) OnPropertyChanged(nameof(FreeSpaceDisplay)); } }
+    public string FreeSpaceDisplay => AvailableBytes is { } bytes ? $"{bytes / 1_073_741_824d:0.0} GB free" : "—";
+
+    // A plain device name (e.g. "Archive drive") gave evaluators no way to tell whether it was really
+    // the external drive they thought it was; this mirrors AvailableDriveViewModel.DisplayName's own
+    // "(root), n GB free" pattern so the same physical clues survive registration instead of vanishing.
+    public string DisplayNameWithDetails => CurrentRoot is { Length: > 0 } root
+        ? AvailableBytes is { } bytes ? $"{DisplayName} ({root}), {bytes / 1_073_741_824d:0.0} GB free" : $"{DisplayName} ({root})"
+        : DisplayName;
     public string Status => IsConnected ? "Connected" : "Offline";
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
     public int ArrivalDelayMinutes { get; set; }
