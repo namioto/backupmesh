@@ -171,7 +171,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await _jobClient.CancelAsync(job.JobId, _shutdown.Token);
-            FooterStatus = "Cancellation requested. The Source Agent will stop at the next safe point.";
+            FooterStatus = "Cancellation requested. The computer will stop at the next safe point.";
             await RefreshJobsAsync();
         }
         catch (HttpRequestException) { FooterStatus = "The cancellation request could not reach Storage Service."; }
@@ -200,7 +200,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = rebind is null
                 ? "One-time pairing details generated. The code expires in 10 minutes and works once."
                 : $"One-time re-pairing details generated for {rebind.AgentName}. The code expires in 10 minutes and works once.";
-            NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
+            NotificationRequested?.Invoke(this, new("Computer pairing", FooterStatus));
         }
         catch (HttpRequestException exception) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
@@ -212,7 +212,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var catalogs = await _catalogClient.ListAsync(_shutdown.Token);
             ApplyCatalogs(catalogs);
-            FooterStatus = catalogs.Count == 0 ? "No Source Agent has published a catalog yet." : $"Synchronized {catalogs.Count} Source Agent catalog(s).";
+            FooterStatus = catalogs.Count == 0 ? "No computer has reported anything to back up yet." : $"Synchronized {catalogs.Count} computer(s).";
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException)
@@ -247,12 +247,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         var connection = SelectedSourceConnection;
         if (connection is null) return;
+        if (revoked)
+        {
+            var confirmed = System.Windows.MessageBox.Show(
+                $"Block access for \"{connection.AgentName}\"? It will be immediately blocked from sending backups, even with a valid certificate and token. Nothing is deleted - its backups are kept and reporting resumes as soon as you choose Restore access.",
+                "Block access", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+            if (!confirmed) return;
+        }
         try
         {
             if (revoked) await _connectionsClient.RevokeAsync(connection.AgentId, _shutdown.Token);
             else await _connectionsClient.UnrevokeAsync(connection.AgentId, _shutdown.Token);
-            FooterStatus = revoked ? $"Revoked access for {connection.AgentName}." : $"Restored access for {connection.AgentName}.";
-            NotificationRequested?.Invoke(this, new("Source Agent connection", FooterStatus));
+            FooterStatus = revoked ? $"Blocked access for {connection.AgentName}." : $"Restored access for {connection.AgentName}.";
+            NotificationRequested?.Invoke(this, new("Computer connection", FooterStatus));
             await RefreshConnectionsAsync();
         }
         catch (HttpRequestException exception) { FooterStatus = $"Could not update {connection.AgentName}'s access: {exception.Message}"; }
@@ -269,7 +276,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await _connectionsClient.RenameAsync(connection.AgentId, dialog.ResultDisplayName, _shutdown.Token);
-            FooterStatus = "Source Agent renamed.";
+            FooterStatus = "Computer renamed.";
             await RefreshConnectionsAsync();
         }
         catch (HttpRequestException exception) { FooterStatus = $"Could not rename {connection.AgentName}: {exception.Message}"; }
@@ -282,32 +289,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var connection = SelectedSourceConnection;
         if (connection is null) return;
         var confirmed = System.Windows.MessageBox.Show(
-            $"Forget \"{connection.AgentName}\"? It will be revoked immediately. Backup Set mappings that reference it are kept but stop being reported until it is re-paired.",
-            "Forget Source Agent", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+            $"Remove \"{connection.AgentName}\"? Its access will be blocked immediately, and it disappears from this list. Nothing is deleted - its backups are kept and stay listed as unresolved until it is re-paired.",
+            "Remove computer", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
         if (!confirmed) return;
         try
         {
             await _connectionsClient.ForgetAsync(connection.AgentId, _shutdown.Token);
-            FooterStatus = $"Forgot {connection.AgentName}. Its mappings are preserved as unresolved.";
-            NotificationRequested?.Invoke(this, new("Source Agent connection", FooterStatus));
+            FooterStatus = $"Removed {connection.AgentName}. Its backups are preserved as unresolved.";
+            NotificationRequested?.Invoke(this, new("Computer connection", FooterStatus));
             await RefreshConnectionsAsync();
             await RefreshCatalogsAsync();
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Could not forget {connection.AgentName}: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = $"The request to forget {connection.AgentName} timed out."; }
+        catch (HttpRequestException exception) { FooterStatus = $"Could not remove {connection.AgentName}: {exception.Message}"; }
+        catch (TaskCanceledException) { FooterStatus = $"The request to remove {connection.AgentName} timed out."; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
     private async Task RotateStorageIdentityAsync()
     {
         var confirmed = System.Windows.MessageBox.Show(
-            "This regenerates the Storage's certificate authority and server certificate. Every currently paired Source Agent will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?",
+            "This regenerates the Storage's certificate authority and server certificate. Every currently paired computer will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?",
             "Rotate Storage identity", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
         if (!confirmed) return;
         try
         {
             await _pairingClient.RotateAuthorityAsync(_shutdown.Token);
-            FooterStatus = "Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every Source Agent.";
+            FooterStatus = "Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every computer.";
             NotificationRequested?.Invoke(this, new("Storage identity rotated", FooterStatus));
         }
         catch (HttpRequestException exception) { FooterStatus = $"Could not rotate the Storage identity: {exception.Message}"; }
@@ -392,7 +399,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         set.UpdateTriggers(triggerDeviceIds, policy);
         RefreshDeviceTriggerRoles();
-        FooterStatus = "Trigger devices updated. Save settings to persist this change.";
+        FooterStatus = "Automatic-start drives updated. Save settings to persist this change.";
     }
 
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
@@ -595,7 +602,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Mappings.Add(new(candidate, SelectedBackupSet, SelectedDevice));
         RefreshDeviceTriggerRoles();
         NotifyCounts();
-        FooterStatus = "Mapping added. Save settings to persist it.";
+        FooterStatus = "Backup added. Save settings to persist it.";
     }
 
     private void BrowseDestination()
@@ -651,7 +658,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedMapping = null;
         RefreshDeviceTriggerRoles();
         NotifyCounts();
-        FooterStatus = "Mapping removed. Save settings to persist it.";
+        FooterStatus = "Backup removed. Save settings to persist it.";
     }
 
     private void RegisterDevice()
@@ -704,7 +711,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var path = Path.GetFullPath(dialog.SelectedPath);
         if (BackupSets.Any(set => set.Model.SourceAgentId == LocalSourceIdentity.AgentId && set.Model.SourcePaths.Contains(path, StringComparer.OrdinalIgnoreCase)))
         {
-            FooterStatus = "That folder is already a local Backup Set.";
+            FooterStatus = "That folder is already being backed up.";
             return;
         }
         var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : path;
@@ -718,8 +725,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         localSource.BackupSets.Add(backupSet);
         SelectedBackupSet = backupSet;
-        AddActivity($"Added local Backup Set for {path}.");
-        FooterStatus = "Local Backup Set added. Save settings, then map it to a target device.";
+        AddActivity($"Added a backup for {path}.");
+        FooterStatus = "Backup added. Save settings, then choose a device for it.";
         NotifyCounts();
     }
 
@@ -727,7 +734,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (SelectedBackupSet is not { } backupSet || backupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId)
         {
-            FooterStatus = "Select a local Backup Set first.";
+            FooterStatus = "Select a backup of a folder on this PC first.";
             return;
         }
         foreach (var mapping in Mappings.Where(mapping => mapping.BackupSet.Id == backupSet.Id).ToArray()) Mappings.Remove(mapping);
@@ -735,7 +742,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId)?.BackupSets.Remove(backupSet);
         SelectedBackupSet = BackupSets.FirstOrDefault();
         RefreshDeviceTriggerRoles();
-        FooterStatus = "Local Backup Set removed. Save settings to persist it.";
+        FooterStatus = "Backup removed. Save settings to persist it.";
         NotifyCounts();
     }
 
@@ -747,8 +754,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "Remove mappings for this device before forgetting it.";
             return;
         }
+        var confirmed = System.Windows.MessageBox.Show(
+            $"Stop using \"{SelectedDevice.DisplayName}\"? Backup data already stored on it is not deleted - only Storage stops sending new backups to it, until you register it again.",
+            "Stop using this drive", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+        if (!confirmed) return;
+        var displayName = SelectedDevice.DisplayName;
         Devices.Remove(SelectedDevice);
         SelectedDevice = null;
+        FooterStatus = $"Stopped using {displayName}. Backup data on it was not deleted.";
         NotifyCounts();
     }
 
@@ -779,7 +792,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         _connectedRoots.Clear();
         foreach (var root in nowConnected) _connectedRoots.Add(root);
-        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device(s) connected" : "Waiting for storage";
         NotifyCounts();
     }
 
@@ -789,8 +801,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         while (Activity.Count > 100) Activity.RemoveAt(Activity.Count - 1);
     }
 
+    // The header badge must reflect ConnectedDeviceCount immediately after any action that can change
+    // it (forgetting, registering) - not only on the next 3-second RefreshDrives() tick - so every
+    // mutation path that used to call NotifyCounts() alone gets the badge update for free here too.
     private void NotifyCounts()
     {
+        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device(s) connected" : "Waiting for storage";
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
@@ -888,8 +904,8 @@ public sealed class BackupSetViewModel : ObservableObject
     }
 
     public string TriggerSummary => Model.TriggerDeviceIds.Count == 0
-        ? "No explicit trigger (inferred from source path)"
-        : $"Triggered by {Model.TriggerDeviceIds.Count} device(s) — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must be available" : "any available")}";
+        ? "Starts automatically when its saved-to drive connects"
+        : $"Starts when {Model.TriggerDeviceIds.Count} chosen drive(s) connect — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
@@ -923,8 +939,8 @@ public sealed class DeviceViewModel : ObservableObject
     public bool IsUsedAsTarget { get => _isUsedAsTarget; set { if (Set(ref _isUsedAsTarget, value)) OnPropertyChanged(nameof(RoleDisplay)); } }
     public string RoleDisplay => (IsUsedAsTarget, IsSourceTrigger) switch
     {
-        (true, true) => "Target + Source trigger",
-        (false, true) => "Source trigger",
+        (true, true) => "Target + Trigger",
+        (false, true) => "Trigger",
         (true, false) => "Target",
         (false, false) => "Unassigned"
     };

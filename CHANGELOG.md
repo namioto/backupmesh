@@ -36,6 +36,15 @@ Tray UX pass based on a design review of real screenshots:
 - Empty grids (Devices, Backup jobs, Backup targets, Connections) show a one-line hint instead of just a blank grid.
 - Consistent "Backup Set" capitalization throughout the tray; the Trigger devices explainer is shorter, with the technical caveat moved into a tooltip.
 
+Terminology pass based on a blind first-click usability study (tab names and `AutomationId`s kept unchanged - measured to already be as good as several redesigned alternatives; the wording *inside* each tab is what evaluators actually struggled with):
+
+- "Source Agent" is now called a **computer** throughout the tray (buttons, dialogs, notifications, footer messages); the Connections grid's **Revoke**/**Forget** actions are now **Block access**/**Remove computer**, each with a confirmation dialog (Block access previously had none) that states plainly that nothing is deleted and access can be restored or re-paired later.
+- The Devices tab's **Forget selected device** is now **Stop using this drive**, with a new confirmation dialog stating that backup data already on the drive is not deleted.
+- "Backup targets" is now **Backups**, its "Source / Backup Set" column is **What to back up**, and its Add/Remove actions read "Add backup"/"Remove" instead of "Add mapping"/"Remove selected".
+- The Trigger devices group is retitled to name the Backup Set it's currently editing (e.g. "Start automatically for: Home Server / Photos") since evaluators had no way to tell what was selected; its explainer and the device Role column now talk about a "drive" "connecting" instead of a device "arriving".
+- The header's connected-device count badge could show stale text for up to 3 seconds after forgetting the only registered device (it only refreshed on the next drive-poll tick); it now updates immediately with every action that changes device count.
+- Each of the Sources & mappings and Devices tabs now opens with a one-line explanation of what it's for.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

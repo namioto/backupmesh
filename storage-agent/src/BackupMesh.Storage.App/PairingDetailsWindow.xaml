@@ -1,12 +1,12 @@
 <Window x:Class="BackupMesh.Storage.App.PairingDetailsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Pair Source Agent" Width="520" SizeToContent="Height" ResizeMode="NoResize"
+        Title="Pair a computer" Width="520" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         AutomationProperties.AutomationId="PairingDetailsWindow">
     <StackPanel Margin="20">
         <TextBlock Text="One-time pairing details" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <TextBlock Text="Enter these in the Source Agent pairing screen. The code expires in 10 minutes and works once." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
+        <TextBlock Text="Enter these on the computer you're connecting. The code expires in 10 minutes and works once." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
         <TextBlock x:Name="IntentText" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,10" AutomationProperties.AutomationId="PairingIntentText"/>
 
         <TextBlock Text="Storage endpoint" Foreground="#607086"/>
@@ -22,7 +22,7 @@
         <TextBox x:Name="ExpiresText" IsReadOnly="True" Margin="0,2,0,14" AutomationProperties.AutomationId="PairingExpiresText"/>
 
         <Border Background="#FFF6E5" BorderBrush="#E4C078" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,14">
-            <TextBlock TextWrapping="Wrap" Foreground="#7A5B12" Text="Your clipboard can be read by other processes on this PC. Only copy this pairing code when you are ready to paste it into the Source Agent, and avoid pasting it anywhere else."/>
+            <TextBlock TextWrapping="Wrap" Foreground="#7A5B12" Text="Your clipboard can be read by other processes on this PC. Only copy this pairing code when you are ready to paste it into the other computer, and avoid pasting it anywhere else."/>
         </Border>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
