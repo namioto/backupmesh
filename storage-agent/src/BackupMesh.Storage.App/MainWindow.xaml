@@ -91,7 +91,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <Grid Margin="16">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Connect a computer or a folder on this PC, then choose where each one backs up to." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
                     <GroupBox Grid.Row="1" Header="Computers" Padding="10" Margin="0,0,10,0">
                         <Grid>
@@ -124,25 +124,51 @@
                     <GroupBox Grid.Row="1" Grid.Column="1" Header="Backups" Padding="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <!-- Source/Target are deliberately symmetric columns (peer review): a Backup Set's
+                                 own paths, previously shown nowhere, and any Backup Set with no destination yet
+                                 are two gaps a study traced directly to a merged grid never having existed
+                                 before. There is no separate Status column - Last backup answers both "when"
+                                 and, if it's the reason for staleness, "why" in the one cell. Consecutive rows
+                                 sharing the same Source or Source folder collapse to a ditto mark
+                                 (MainWindowViewModel.UpdateMappingRepeatMarkers), and Enabled is a real pause
+                                 toggle rather than a read-only status dot. -->
                             <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="MappingsGrid">
                                 <DataGrid.RowStyle>
-                                    <!-- Trigger devices are configured per Backup Set, not per row - lightly
-                                         tinting every other row for the same Backup Set as the selected one
-                                         makes that scope visible without relying on reading the explanatory
-                                         text below the trigger list. -->
                                     <Style TargetType="DataGridRow">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSiblingOfSelection}" Value="True">
-                                                <Setter Property="Background" Value="#E4F6FA"/>
+                                            <DataTrigger Binding="{Binding Enabled}" Value="False">
+                                                <Setter Property="Opacity" Value="0.55"/>
+                                                <Setter Property="BorderBrush" Value="#B0B8C2"/>
+                                                <Setter Property="BorderThickness" Value="3,0,0,0"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </DataGrid.RowStyle>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="What to back up" Binding="{Binding BackupSetName}" Width="2*"/>
-                                    <DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="*"/>
-                                    <DataGridTextColumn Header="Destination folder" Binding="{Binding DestinationFolder}" Width="2*"/>
-                                    <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Source" Binding="{Binding SourceCellText}" Width="1.2*"/>
+                                    <DataGridTemplateColumn Header="Source folder" Width="1.8*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="4,2">
+                                                    <TextBlock Text="{Binding SourceFolderNameCellText}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding SourceFolderPathsCellText}" FontSize="11" Foreground="#8493A6" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Target" Binding="{Binding DeviceName}" Width="1.2*"/>
+                                    <DataGridTextColumn Header="Target folder" Binding="{Binding DestinationFolder}" Width="1.8*"/>
+                                    <DataGridTemplateColumn Header="Last backup" Width="1.4*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="4,2">
+                                                    <TextBlock Text="{Binding LastBackupDisplay}"/>
+                                                    <TextBlock Text="{Binding LastBackupIssue}" FontSize="11" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" IsReadOnly="False" Width="Auto" ToolTipService.ToolTip="Pause this backup without removing it."/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock Text="No backups yet. Choose what to back up and a device below, then Add backup." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
@@ -150,49 +176,17 @@
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0"><TextBlock Text="What to back up" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="BackupSetCombo"/><TextBlock Text="Folders shared by the computers on the left" Margin="6,2,0,0" FontSize="11" Foreground="#8493A6"/></StackPanel>
-                                <StackPanel Grid.Column="1"><TextBlock Text="Device" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayNameWithDetails" ToolTip="{Binding SelectedDevice.DisplayNameWithDetails}" AutomationProperties.AutomationId="MappingDeviceCombo"/><TextBlock Text="Registered in the Devices tab" Margin="6,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/></StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Device" Margin="6,0" Foreground="#607086"/>
+                                    <DockPanel><Button Content="New…" Command="{Binding OpenRegisterDeviceDialogCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" ToolTip="Register a new drive or folder without leaving this tab." AutomationProperties.AutomationId="OpenRegisterDeviceDialogButton"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayNameWithDetails" ToolTip="{Binding SelectedDevice.DisplayNameWithDetails}" AutomationProperties.AutomationId="MappingDeviceCombo"/></DockPanel>
+                                    <TextBlock Text="Registered in the Devices tab, or register one here with New…" Margin="6,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                                </StackPanel>
                                 <StackPanel Grid.Column="2"><TextBlock Text="Destination folder" Margin="6,0" Foreground="#607086"/><DockPanel><Button Content="Browse…" Command="{Binding BrowseDestinationCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" AutomationProperties.AutomationId="BrowseDestinationButton"/><TextBox Text="{Binding NewDestinationFolder, UpdateSourceTrigger=PropertyChanged}" ToolTip="Folder on the selected device" AutomationProperties.AutomationId="DestinationFolderInput"/></DockPanel></StackPanel>
                                 <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Remove backup" Command="{Binding RemoveMappingCommand}" AutomationProperties.AutomationId="RemoveMappingButton"/>
                                     <Button Content="Add backup" Command="{Binding AddMappingCommand}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="AddMappingButton"/>
                                 </StackPanel>
                             </Grid>
-                        </Grid>
-                    </GroupBox>
-                    <GroupBox Grid.Row="2" Grid.ColumnSpan="2" Header="{Binding TriggerGroupHeader}" Margin="0,10,0,0" Padding="10">
-                        <Grid>
-                            <TextBlock Text="Select a backup above to choose which devices should start it automatically." Foreground="#8493A6" TextWrapping="Wrap" Visibility="{Binding SelectedMapping, Converter={StaticResource NullToVisibleConverter}}"/>
-                            <StackPanel Visibility="{Binding SelectedMapping, Converter={StaticResource NullToCollapsedConverter}}">
-                                <TextBlock Text="{Binding SiblingScopeNotice}" Visibility="{Binding SelectedMappingHasSiblings, Converter={StaticResource BoolToVisibleConverter}}" TextWrapping="Wrap" Foreground="#607086" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                <TextBlock Text="{Binding SelectedMapping.SavesToLine}" TextWrapping="Wrap" Foreground="#607086"/>
-                                <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"
-                                           ToolTip="A device used only to trigger a backup does not need a destination of its own. Leave none selected to keep the automatic behavior: any connected device whose root contains this backup's source folder.">
-                                    Choose which registered devices should start it automatically — usually the same one.
-                                </TextBlock>
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <!-- A checkbox per row makes "you can pick more than one" visible without
-                                             requiring the user to already know Ctrl+click - SelectionMode="Extended"
-                                             still drives the underlying multi-selection (and SyncTriggerDevicesSelection's
-                                             programmatic SelectedItems.Add still works), the checkbox just mirrors each
-                                             row's own ListBoxItem.IsSelected instead of being a separate concept. -->
-                                        <ListBox x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"/>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
-                                        <TextBlock Text="Registered in the Devices tab" Margin="0,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
-                                        <RadioButton x:Name="AnyDeviceTriggerRadio" GroupName="TriggerPolicy" Content="Start when any of these devices connects" Checked="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="AnyDeviceTriggerRadio"/>
-                                        <RadioButton x:Name="AllDevicesTriggerRadio" GroupName="TriggerPolicy" Content="Start only when all of them are connected" Checked="OnTriggerDevicesSelectionChanged" Margin="0,6,0,0" ToolTip="Only meaningful with more than one selected device: wait until every one of them is connected before backing up." AutomationProperties.AutomationId="AllDevicesTriggerRadio"/>
-                                        <TextBlock Text="{Binding SelectedMapping.BackupSet.TriggerSummary}" Margin="0,10,0,0" Foreground="#607086" TextWrapping="Wrap" MaxWidth="220" AutomationProperties.AutomationId="TriggerSummaryText"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
                         </Grid>
                     </GroupBox>
                 </Grid>

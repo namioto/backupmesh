@@ -108,6 +108,15 @@ Re-measuring against that wording confirmed the fix worked - both evaluators rea
 
 The trigger-devices list let you select more than one device (`SelectionMode="Extended"`), but nothing on screen showed that - only Ctrl+click did, which nobody could discover without already knowing it - even though the radio buttons right next to it exist specifically to ask "what should happen with more than one selected". Each row now shows its own checkbox, mirroring (not replacing) the list's real multi-selection, so picking more than one is visible rather than a hidden gesture.
 
+A code review of the same tab found two things a Backup Set could carry that no screen ever showed: its own source paths (used only for duplicate detection) and its own existence, if nothing had mapped it to a destination yet. The Backups grid is now a symmetric Source/Target pair of columns instead:
+
+- Columns are now **Source | Source folder | Target | Target folder | Last backup | Enabled**. Source names the computer alone (not "Home Server / Photos"); Source folder shows the Backup Set's name in bold with its actual paths beneath it (e.g. **Photos** / `/srv/photos · /srv/videos`) - the first time those paths appear anywhere in the tray. Target and Target folder are the renamed former Device/Destination folder columns.
+- There is no separate Status column: Last backup shows a relative time, and only when that staleness has an actual explanation - the last attempt failed or was cancelled, or the source computer is offline - a second line says so (e.g. "6 days ago" / "Studio Workstation is offline"). A healthy row never grows a caveat it doesn't need.
+- Enabled is now a real pause toggle instead of an always-true read-only checkbox nothing in the tray ever changed; a disabled row dims and gets a left border so it reads as paused at a glance, not just removed from a filter.
+- Consecutive rows sharing the same Source, or the same Source folder, collapse the repeat to a ditto mark (″), so several destinations for one folder read as a relationship between rows instead of unrelated repeated text.
+- The per-Backup-Set "Start automatically for..." trigger-device picker is removed from this screen. Its default - start when the mapped destination connects, with no explicit devices chosen - already covers the ordinary case and needed no user decision; the underlying per-Backup-Set trigger configuration is unchanged; there is simply no longer an in-tray editor for it.
+- A **New…** button beside the destination-device picker opens a small dialog to register a drive or folder without leaving this tab or first knowing to visit the Devices tab - the newly registered device is selected automatically, same as registering from the Devices tab itself.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

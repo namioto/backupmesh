@@ -66,6 +66,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RefreshDrivesCommand { get; }
     public ICommand RegisterDeviceCommand { get; }
     public ICommand RegisterFolderCommand { get; }
+    public ICommand OpenRegisterDeviceDialogCommand { get; }
     public ICommand ForgetDeviceCommand { get; }
     public ICommand AddLocalBackupSetCommand { get; }
     public ICommand RemoveLocalBackupSetCommand { get; }
@@ -98,6 +99,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         RegisterDeviceCommand = new RelayCommand(() => _ = RegisterDeviceAsync());
         RegisterFolderCommand = new RelayCommand(() => _ = RegisterFolderAsync());
+        OpenRegisterDeviceDialogCommand = new RelayCommand(OpenRegisterDeviceDialog);
         ForgetDeviceCommand = new RelayCommand(() => _ = ForgetDeviceAsync());
         AddLocalBackupSetCommand = new RelayCommand(() => _ = AddLocalBackupSetAsync());
         RemoveLocalBackupSetCommand = new RelayCommand(() => _ = RemoveLocalBackupSetAsync());
@@ -112,6 +114,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RenameSourceCommand = new RelayCommand(() => _ = RenameSelectedSourceAsync());
         ForgetSourceCommand = new RelayCommand(() => _ = ForgetSelectedSourceAsync());
         RotateStorageIdentityCommand = new RelayCommand(() => _ = RotateStorageIdentityAsync());
+        // Recomputed from Mappings itself, not from each call site that mutates it, so a test (or any
+        // future caller) that adds/removes a mapping directly never needs to know this bookkeeping exists.
+        Mappings.CollectionChanged += (_, _) => UpdateMappingRepeatMarkers();
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
@@ -158,29 +163,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
-    public MappingViewModel? SelectedMapping
-    {
-        get => _selectedMapping;
-        set
-        {
-            if (!Set(ref _selectedMapping, value)) return;
-            UpdateMappingSiblingHighlighting();
-        }
-    }
-    // Shown only when the selected row's Backup Set has other destinations too, so the "applies to every
-    // backup of X" notice doesn't appear when there is only one row it could possibly mean anyway.
-    public bool SelectedMappingHasSiblings => SelectedMapping is { } selected && Mappings.Any(mapping => mapping != selected && mapping.BackupSet.Id == selected.BackupSet.Id);
-    public string SiblingScopeNotice => SelectedMappingHasSiblings ? $"This applies to every backup of {SelectedMapping!.BackupSetName}, not just the destination shown above." : string.Empty;
-    public string TriggerGroupHeader => SelectedMapping is { } selected ? $"Start automatically for: {selected.BackupSetName}" : "Start automatically";
-
-    private void UpdateMappingSiblingHighlighting()
-    {
-        var selected = SelectedMapping;
-        foreach (var mapping in Mappings) mapping.IsSiblingOfSelection = selected is not null && mapping != selected && mapping.BackupSet.Id == selected.BackupSet.Id;
-        OnPropertyChanged(nameof(SelectedMappingHasSiblings));
-        OnPropertyChanged(nameof(SiblingScopeNotice));
-        OnPropertyChanged(nameof(TriggerGroupHeader));
-    }
+    public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
     public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
     public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
@@ -216,6 +199,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
             UpdateRemovalBanners();
+            UpdateMappingLastBackupInfo();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
@@ -244,6 +228,58 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (completedSinceConnecting.Length == 0) continue; // nothing happened on this device during this connection - stay quiet rather than claim old history "just finished".
             var anyDidNotFinish = completedSinceConnecting.Any(job => job.State is "FAILED" or "CANCELLED");
             RemovalBanners.Add(DeviceRemovalBannerViewModel.Finished(device, anyDidNotFinish));
+        }
+    }
+
+    // "Last backup" answers both "when" and, if it's stale for a reason the user can act on, "why" in the
+    // same cell - a study found a separate Status column just duplicated the time already shown here. The
+    // reason only ever appears when it actually explains staleness (a failed/cancelled attempt, or the
+    // source computer being offline), never as a caveat on an otherwise-healthy row.
+    private void UpdateMappingLastBackupInfo()
+    {
+        foreach (var mapping in Mappings)
+        {
+            var jobsForMapping = Jobs.Where(job => job.TargetMappingId == mapping.Id).ToArray();
+            if (jobsForMapping.Any(job => !job.IsTerminal))
+            {
+                mapping.LastBackupDisplay = "Backing up now…";
+                mapping.LastBackupIssue = string.Empty;
+                continue;
+            }
+            var latest = jobsForMapping.Where(job => job.IsTerminal).OrderByDescending(job => job.UpdatedAt).FirstOrDefault();
+            if (latest is null)
+            {
+                mapping.LastBackupDisplay = "Never";
+                mapping.LastBackupIssue = string.Empty;
+                continue;
+            }
+            mapping.LastBackupDisplay = RelativeTimeDisplay(latest.UpdatedAt);
+            mapping.LastBackupIssue = latest.State switch
+            {
+                "FAILED" => "Last attempt failed",
+                "CANCELLED" => "Last attempt was cancelled",
+                _ when mapping.BackupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId
+                    && Sources.FirstOrDefault(source => source.Id == mapping.BackupSet.Model.SourceAgentId)?.StatusDisplay == "Offline"
+                    => $"{mapping.SourceAgentName} is offline",
+                _ => string.Empty
+            };
+        }
+    }
+
+    // Consecutive rows sharing the same Source, or the same Source folder, collapse their repeated cell to
+    // a ditto mark - a study found evaluators needed "same folder, two destinations" to read as a
+    // relationship between adjacent rows, not as two unrelated rows that happen to repeat text. Recomputed
+    // from scratch on every membership/order change rather than incrementally, since Mappings is small
+    // (tens, not thousands, of rows) and an incremental version would need to invalidate on both neighbors
+    // of any insert/remove - not worth the complexity for this size of list.
+    private void UpdateMappingRepeatMarkers()
+    {
+        MappingViewModel? previous = null;
+        foreach (var mapping in Mappings)
+        {
+            mapping.IsRepeatOfPreviousSource = previous is not null && previous.SourceAgentName == mapping.SourceAgentName;
+            mapping.IsRepeatOfPreviousSourceFolder = mapping.IsRepeatOfPreviousSource && previous!.BackupSet.Id == mapping.BackupSet.Id;
+            previous = mapping;
         }
     }
 
@@ -354,6 +390,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         foreach (var source in Sources) source.Connection = SourceConnections.FirstOrDefault(connection => connection.AgentId == source.Id);
         SelectedSourceConnection = SelectedSourceAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedSourceAgent.Id);
+        UpdateMappingLastBackupInfo();
     }
 
     private async Task SetSourceRevocationAsync(bool revoked)
@@ -513,13 +550,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public async Task UpdateBackupSetTriggersAsync(BackupSetViewModel set, IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
-    {
-        set.UpdateTriggers(triggerDeviceIds, policy);
-        RefreshDeviceTriggerRoles();
-        await SaveAsync();
-    }
-
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
 
     public async Task QueueEligibleBackupsAsync()
@@ -578,7 +608,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var set = BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
             var device = Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
-            if (set is not null && device is not null) Mappings.Add(new(mapping, set, device));
+            if (set is not null && device is not null) Mappings.Add(CreateMapping(mapping, set, device));
         }
         Activity.Add("Storage Agent UI started.");
     }
@@ -703,7 +733,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var backupSet = BackupSets.FirstOrDefault(set => set.Id == mapping.BackupSetId);
             var device = Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
-            if (backupSet is not null && device is not null) Mappings.Add(new(mapping, backupSet, device));
+            if (backupSet is not null && device is not null) Mappings.Add(CreateMapping(mapping, backupSet, device));
         }
         SelectedBackupSet = BackupSets.FirstOrDefault();
         SelectedDevice = Devices.FirstOrDefault();
@@ -713,6 +743,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RefreshDeviceTriggerRoles();
         NotifyCounts();
     }
+
+    // Persists the mapping's own pause toggle immediately (Enabled has no separate "save" step, matching
+    // every other in-screen edit this pass made auto-saving), and every other place a MappingViewModel is
+    // constructed shares this same callback rather than each wiring up SaveAsync() independently.
+    private MappingViewModel CreateMapping(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) =>
+        new(model, set, device, mapping => _ = SaveAsync());
 
     private async Task AddMappingAsync()
     {
@@ -732,7 +768,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var topology = new StorageAgentConfiguration(Devices.Select(device => device.ToModel()).ToArray(), BackupSets.Select(set => set.Model).ToArray(), all);
         var errors = BackupTopologyValidator.Validate(topology);
         if (errors.Count > 0) { FooterStatus = errors[0]; return; }
-        Mappings.Add(new(candidate, SelectedBackupSet, SelectedDevice));
+        Mappings.Add(CreateMapping(candidate, SelectedBackupSet, SelectedDevice));
         RefreshDeviceTriggerRoles();
         NotifyCounts();
         // A study found evaluators had to be told across two separate tabs to add a backup, then
@@ -796,6 +832,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyCounts();
         await SaveAsync();
     }
+
+    // Lets a backup be created start-to-finish from the Backups group without first knowing to visit the
+    // Devices tab - a study found evaluators had no way to guess that step was needed. RegisterDeviceAsync
+    // and RegisterFolderAsync both auto-select the new device on SelectedDevice, which MappingDeviceCombo
+    // is already bound to, so closing the dialog leaves the new device chosen with no extra step.
+    private void OpenRegisterDeviceDialog() => new RegisterDeviceWindow(this).ShowDialog();
 
     private async Task RegisterDeviceAsync()
     {
@@ -957,7 +999,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
-        UpdateMappingSiblingHighlighting();
+        UpdateMappingLastBackupInfo();
     }
 
     private static void ConfigureStartup(bool enabled)
@@ -984,6 +1026,23 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         : $"{displayName} is connected. Backups become eligible after its {arrivalDelayMinutes}-minute arrival delay.";
 
     internal static string Pluralize(int count, string singularNoun) => $"{count} {singularNoun}{(count == 1 ? "" : "s")}";
+
+    // Shared by every "how long ago" display in the tray (computer last-seen, and the Backups grid's Last
+    // backup column) so "just now" vs. "6 days ago" phrasing - and its threshold for falling back to an
+    // absolute date past 30 days - only needs deciding once.
+    internal static string RelativeTimeDisplay(DateTimeOffset at)
+    {
+        var elapsed = DateTimeOffset.UtcNow - at;
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        return elapsed switch
+        {
+            { TotalSeconds: < 60 } => "just now",
+            { TotalMinutes: < 60 } => Pluralize((int)elapsed.TotalMinutes, "minute") + " ago",
+            { TotalHours: < 24 } => Pluralize((int)elapsed.TotalHours, "hour") + " ago",
+            { TotalDays: < 30 } => Pluralize((int)elapsed.TotalDays, "day") + " ago",
+            _ => at.LocalDateTime.ToString("g")
+        };
+    }
 
     public void Dispose()
     {
@@ -1033,7 +1092,7 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     // An absolute timestamp ("8/30/26 5:12 PM") made evaluators do the arithmetic themselves to tell
     // "just now" from "yesterday"; relative phrasing answers the question ("is this computer connected
     // right now?") directly instead of via Status, which describes access, not connectivity.
-    public string LastSeenDisplay { get; } = RelativeTimeDisplay(model.LastSeenAt);
+    public string LastSeenDisplay { get; } = MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
@@ -1070,20 +1129,6 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
-
-    private static string RelativeTimeDisplay(DateTimeOffset at)
-    {
-        var elapsed = DateTimeOffset.UtcNow - at;
-        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-        return elapsed switch
-        {
-            { TotalSeconds: < 60 } => "just now",
-            { TotalMinutes: < 60 } => MainWindowViewModel.Pluralize((int)elapsed.TotalMinutes, "minute") + " ago",
-            { TotalHours: < 24 } => MainWindowViewModel.Pluralize((int)elapsed.TotalHours, "hour") + " ago",
-            { TotalDays: < 30 } => MainWindowViewModel.Pluralize((int)elapsed.TotalDays, "day") + " ago",
-            _ => at.LocalDateTime.ToString("g")
-        };
-    }
 }
 
 public sealed class BackupSetViewModel : ObservableObject
@@ -1102,19 +1147,6 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
     }
-
-    // Unlike Update(), does not touch IsAvailable: this is a local Storage-side configuration edit, not
-    // news that the Source just reported this Backup Set.
-    public void UpdateTriggers(IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
-    {
-        _model = _model with { TriggerDeviceIds = triggerDeviceIds, TriggerPolicy = policy };
-        OnPropertyChanged(nameof(Model));
-        OnPropertyChanged(nameof(TriggerSummary));
-    }
-
-    public string TriggerSummary => Model.TriggerDeviceIds.Count == 0
-        ? "Starts automatically when its saved-to device connects"
-        : $"Starts when {MainWindowViewModel.Pluralize(Model.TriggerDeviceIds.Count, "chosen device")} {(Model.TriggerDeviceIds.Count == 1 ? "connects" : "connect")} — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
@@ -1185,27 +1217,54 @@ public sealed class DeviceViewModel : ObservableObject
     public override string ToString() => DisplayName;
 }
 
-public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) : ObservableObject
+// Source/Target are kept deliberately symmetric (peer review, measured against a merged "what backs up
+// to what" grid that made both halves of that relationship visible for the first time - previously
+// Source folder's own paths, and any Backup Set with no destination yet, were not shown anywhere at all).
+public sealed class MappingViewModel : ObservableObject
 {
-    private bool _isSiblingOfSelection;
-    public Guid Id { get; } = model.Id;
-    public BackupSetViewModel BackupSet { get; } = set;
-    public DeviceViewModel Device { get; } = device;
+    private readonly Action<MappingViewModel>? _onEnabledChanged;
+    private bool _enabled;
+    private bool _isRepeatOfPreviousSource;
+    private bool _isRepeatOfPreviousSourceFolder;
+    private string _lastBackupDisplay = "Never";
+    private string _lastBackupIssue = string.Empty;
+
+    public MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device, Action<MappingViewModel>? onEnabledChanged = null)
+    {
+        Id = model.Id;
+        BackupSet = set;
+        Device = device;
+        RepositoryPath = model.RepositoryPath;
+        _enabled = model.Enabled;
+        _onEnabledChanged = onEnabledChanged;
+    }
+
+    public Guid Id { get; }
+    public BackupSetViewModel BackupSet { get; }
+    public DeviceViewModel Device { get; }
     public string BackupSetName => BackupSet.DisplayName;
+    public string SourceAgentName => BackupSet.Model.SourceAgentName;
+    public string BackupSetOnlyName => BackupSet.Model.Name;
+    public string SourcePathsDisplay => string.Join(" · ", BackupSet.Model.SourcePaths);
     public string DeviceName => Device.DisplayName;
-    public string RepositoryPath { get; } = model.RepositoryPath;
+    public string RepositoryPath { get; }
     public string DestinationFolder => Path.GetFullPath(Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath));
-    public bool Enabled { get; } = model.Enabled;
-    // Trigger devices are configured per Backup Set, not per destination - a study found evaluators
-    // otherwise assumed a change applied only to the row they had selected. A light highlight on every
-    // other row sharing that Backup Set makes the true scope visible without relying on the explanatory
-    // text alone (measured: both evaluators said they'd have misread the scope without that text either -
-    // this highlight is a second, independent cue for the same fact, not a replacement for it).
-    public bool IsSiblingOfSelection { get => _isSiblingOfSelection; set => Set(ref _isSiblingOfSelection, value); }
-    // "Already" is load-bearing, not filler: it's the cue that tells evaluators this configures a backup
-    // that already exists, not one being created - dropping it (while splitting this into two lines to
-    // shorten it) measurably reintroduced the confusion it had fixed.
-    public string SavesToLine => $"Already saves to {Device.DisplayNameWithDetails}.";
+    // A real pause toggle, not a read-only status dot - previously nothing in the UI ever changed this
+    // after a mapping was created, so the column only ever displayed "true". Persists immediately, same
+    // as every other in-screen edit this pass made auto-saving.
+    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) _onEnabledChanged?.Invoke(this); } }
+    // Consecutive rows sharing the same Source, or the same Source folder, collapse to a ditto mark -
+    // recomputed for the whole list by MainWindowViewModel.UpdateMappingRepeatMarkers() whenever Mappings
+    // changes, never inferred by the view itself.
+    public bool IsRepeatOfPreviousSource { get => _isRepeatOfPreviousSource; set => Set(ref _isRepeatOfPreviousSource, value); }
+    public bool IsRepeatOfPreviousSourceFolder { get => _isRepeatOfPreviousSourceFolder; set => Set(ref _isRepeatOfPreviousSourceFolder, value); }
+    public string SourceCellText => IsRepeatOfPreviousSource ? "″" : SourceAgentName;
+    public string SourceFolderNameCellText => IsRepeatOfPreviousSourceFolder ? "″" : BackupSetOnlyName;
+    public string SourceFolderPathsCellText => IsRepeatOfPreviousSourceFolder ? string.Empty : SourcePathsDisplay;
+    // Set by MainWindowViewModel.UpdateMappingLastBackupInfo() from the job list - a mapping does not hold
+    // its own reference to Jobs, so this is pushed in rather than computed here.
+    public string LastBackupDisplay { get => _lastBackupDisplay; set => Set(ref _lastBackupDisplay, value); }
+    public string LastBackupIssue { get => _lastBackupIssue; set => Set(ref _lastBackupIssue, value); }
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 

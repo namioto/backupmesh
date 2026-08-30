@@ -88,6 +88,7 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
     public string State => model.State;
     public Guid? TargetMappingId => model.TargetMappingId;
     public DateTimeOffset? StartedAt => model.StartedAt;
+    public DateTimeOffset UpdatedAt => model.UpdatedAt;
     public string Updated => model.UpdatedAt.LocalDateTime.ToString("g");
     public string Target => mapping is null ? "—" : $"{mapping.BackupSetName} → {mapping.DeviceName}";
     public string Progress => model.Progress is null ? "—" : model.Progress.BytesTotal is > 0

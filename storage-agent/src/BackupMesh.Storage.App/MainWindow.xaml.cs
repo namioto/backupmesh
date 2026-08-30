@@ -1,14 +1,10 @@
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using BackupMesh.Storage.Core;
 
 namespace BackupMesh.Storage.App;
 
 public partial class MainWindow : Window
 {
-    private bool _syncingTriggerSelection;
-
     public MainWindowViewModel ViewModel { get; }
 
     public MainWindow(bool demoMode = false, string? serviceEndpoint = null)
@@ -20,50 +16,6 @@ public partial class MainWindow : Window
             jobClient: serviceEndpoint is null ? null : new BackupJobClient(serviceEndpoint));
         InitializeComponent();
         DataContext = ViewModel;
-        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
-        SyncTriggerDevicesSelection();
-    }
-
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        // Trigger devices are configured per Backup Set, edited from whichever destination row for it is
-        // selected in the Backups grid - not from the separate "what to back up" combo used to create a
-        // new backup - since a study found the grid-row binding is what evaluators actually expected.
-        if (e.PropertyName is nameof(MainWindowViewModel.SelectedMapping) or nameof(MainWindowViewModel.Devices))
-            SyncTriggerDevicesSelection();
-    }
-
-    // Reflects the selected mapping's Backup Set's already-saved trigger devices/policy into the list box
-    // and radio buttons without treating that as a user edit - selection-changed handling below is
-    // suppressed for the duration.
-    private void SyncTriggerDevicesSelection()
-    {
-        _syncingTriggerSelection = true;
-        try
-        {
-            TriggerDevicesListBox.SelectedItems.Clear();
-            var selectedSet = ViewModel.SelectedMapping?.BackupSet;
-            if (selectedSet is not null)
-            {
-                foreach (DeviceViewModel device in TriggerDevicesListBox.Items)
-                    if (selectedSet.Model.TriggerDeviceIds.Contains(device.Id)) TriggerDevicesListBox.SelectedItems.Add(device);
-                AllDevicesTriggerRadio.IsChecked = selectedSet.Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable;
-                AnyDeviceTriggerRadio.IsChecked = !AllDevicesTriggerRadio.IsChecked;
-            }
-            else
-            {
-                AnyDeviceTriggerRadio.IsChecked = true;
-            }
-        }
-        finally { _syncingTriggerSelection = false; }
-    }
-
-    private void OnTriggerDevicesSelectionChanged(object sender, RoutedEventArgs e)
-    {
-        if (_syncingTriggerSelection || ViewModel.SelectedMapping?.BackupSet is not { } selectedSet) return;
-        var deviceIds = TriggerDevicesListBox.SelectedItems.Cast<DeviceViewModel>().Select(device => device.Id).ToArray();
-        var policy = AllDevicesTriggerRadio.IsChecked == true ? BackupSetTriggerPolicy.AllAvailable : BackupSetTriggerPolicy.AnyAvailable;
-        _ = ViewModel.UpdateBackupSetTriggersAsync(selectedSet, deviceIds, policy);
     }
 
     // TabControl.SelectionChanged is the same routed event every descendant Selector (ListBox, ComboBox,

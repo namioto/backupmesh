@@ -34,6 +34,10 @@ public sealed class StorageAppFixture : IDisposable
 
     public Window MainWindow { get; }
 
+    // Dialogs opened via Window.ShowDialog() (e.g. RegisterDeviceWindow) surface as their own top-level
+    // window in the automation tree, not as a descendant of MainWindow - this is how a test finds one.
+    public Window[] GetAllTopLevelWindows() => _app.GetAllTopLevelWindows(Automation);
+
     /// <summary>
     /// Saves a screenshot of the main window. Capture can fail transiently while the window is
     /// still being composed, so failures are swallowed - a missing screenshot must not fail a test.

@@ -347,7 +347,7 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
-    public void SelectingAMappingHighlightsItsSiblingsButNotItself()
+    public void ConsecutiveMappingsSharingASourceFolderCollapseToADittoMark()
     {
         var sourceId = Guid.NewGuid();
         var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
@@ -358,41 +358,61 @@ public sealed class StorageConfigurationViewModelTests
         var first = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceA.Id, "docs-a"), set, deviceA);
         var second = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceB.Id, "docs-b"), set, deviceB);
         var unrelated = new MappingViewModel(new(Guid.NewGuid(), otherSet.Id, deviceA.Id, "photos-a"), otherSet, deviceA);
+
         viewModel.Mappings.Add(first);
         viewModel.Mappings.Add(second);
         viewModel.Mappings.Add(unrelated);
 
-        viewModel.SelectedMapping = first;
-
-        Assert.False(first.IsSiblingOfSelection);
-        Assert.True(second.IsSiblingOfSelection);
-        Assert.False(unrelated.IsSiblingOfSelection);
-        Assert.True(viewModel.SelectedMappingHasSiblings);
-        Assert.Contains("every backup of", viewModel.SiblingScopeNotice);
-        Assert.Contains(set.DisplayName, viewModel.SiblingScopeNotice);
+        Assert.False(first.IsRepeatOfPreviousSourceFolder);
+        Assert.Equal("Studio", first.SourceCellText);
+        Assert.True(second.IsRepeatOfPreviousSource);
+        Assert.True(second.IsRepeatOfPreviousSourceFolder);
+        Assert.Equal("″", second.SourceCellText);
+        Assert.Equal("″", second.SourceFolderNameCellText);
+        // Same computer, different Backup Set: the Source repeats but the folder does not, so only the
+        // Source half collapses.
+        Assert.True(unrelated.IsRepeatOfPreviousSource);
+        Assert.False(unrelated.IsRepeatOfPreviousSourceFolder);
+        Assert.Equal("Photos", unrelated.SourceFolderNameCellText);
     }
 
     [Fact]
-    public void SelectingAMappingWithNoSiblingsShowsNoScopeNotice()
+    public async Task LastBackupShowsRelativeTimeAndAFailureReasonForTheMostRecentAttempt()
     {
         var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
         var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
-        using var viewModel = new MainWindowViewModel(loadLocalState: false);
-        var only = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs"), set, device);
-        viewModel.Mappings.Add(only);
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "docs");
+        var jobs = new[]
+        {
+            new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow.AddDays(-6), null, null, mapping.Id),
+            new BackupJobDto(Guid.NewGuid(), "FAILED", DateTimeOffset.UtcNow.AddHours(-1), null, null, mapping.Id)
+        };
+        var client = new FakeJobClient(jobs);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Mappings.Add(new(mapping, set, device));
 
-        viewModel.SelectedMapping = only;
+        await viewModel.RefreshJobsAsync();
 
-        Assert.False(viewModel.SelectedMappingHasSiblings);
-        Assert.Equal(string.Empty, viewModel.SiblingScopeNotice);
-        Assert.Equal($"Start automatically for: {only.BackupSetName}", viewModel.TriggerGroupHeader);
+        var view = Assert.Single(viewModel.Mappings);
+        Assert.Contains("hour", view.LastBackupDisplay);
+        Assert.Equal("Last attempt failed", view.LastBackupIssue);
     }
 
     [Fact]
-    public void TriggerGroupHeaderIsNeutralWithNoMappingSelected()
+    public async Task LastBackupIsNeverWithNoJobHistory()
     {
-        using var viewModel = new MainWindowViewModel(loadLocalState: false);
-        Assert.Equal("Start automatically", viewModel.TriggerGroupHeader);
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "docs");
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Mappings.Add(new(mapping, set, device));
+
+        await viewModel.RefreshJobsAsync();
+
+        var view = Assert.Single(viewModel.Mappings);
+        Assert.Equal("Never", view.LastBackupDisplay);
+        Assert.Equal(string.Empty, view.LastBackupIssue);
     }
 
     [Fact]
