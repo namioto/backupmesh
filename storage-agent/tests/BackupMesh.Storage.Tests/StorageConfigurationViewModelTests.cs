@@ -416,6 +416,47 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task TriggerNoteDescribesAnExplicitTriggerDeviceReadOnly()
+    {
+        // The per-row editor for TriggerDeviceIds/TriggerPolicy is gone from this screen, but a Backup Set
+        // that already names an explicit trigger device (e.g. the external-source-arrival case, or a config
+        // authored before the editor was removed) still only starts for that device - never "whenever its
+        // Target connects", the way an untriggered row's default behavior does. This must stay visible even
+        // with no editor for it, or the grid silently implies behavior the mapping doesn't actually have.
+        var cameraCard = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Camera card", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var backupUsb = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Backup USB", "B", "E:\\", DateTimeOffset.UtcNow, null));
+        var archive = new DeviceViewModel(new(Guid.NewGuid(), "disk:c", "Archive drive", "C", "F:\\", DateTimeOffset.UtcNow, null));
+        var set = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Photos", ["C:\\Photos"], [cameraCard.Id, backupUsb.Id], BackupSetTriggerPolicy.AllAvailable);
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, archive.Id, "photos");
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Devices.Add(cameraCard);
+        viewModel.Devices.Add(backupUsb);
+        viewModel.Devices.Add(archive);
+        viewModel.Mappings.Add(new(mapping, new BackupSetViewModel(set), archive));
+
+        await viewModel.RefreshJobsAsync();
+
+        var view = Assert.Single(viewModel.Mappings);
+        Assert.Equal("Starts when Camera card and Backup USB are all connected", view.TriggerNote);
+    }
+
+    [Fact]
+    public async Task TriggerNoteIsEmptyWithoutAnExplicitTriggerDevice()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "docs");
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Mappings.Add(new(mapping, set, device));
+
+        await viewModel.RefreshJobsAsync();
+
+        Assert.Equal(string.Empty, Assert.Single(viewModel.Mappings).TriggerNote);
+    }
+
+    [Fact]
     public async Task BackupNowDoesNotCallServiceWhenNoMappingIsEligible()
     {
         var sourceId = Guid.NewGuid();

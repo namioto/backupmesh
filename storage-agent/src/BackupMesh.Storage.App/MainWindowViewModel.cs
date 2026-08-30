@@ -239,6 +239,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         foreach (var mapping in Mappings)
         {
+            mapping.TriggerNote = ComputeTriggerNote(mapping.BackupSet.Model);
             var jobsForMapping = Jobs.Where(job => job.TargetMappingId == mapping.Id).ToArray();
             if (jobsForMapping.Any(job => !job.IsTerminal))
             {
@@ -264,6 +265,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 _ => string.Empty
             };
         }
+    }
+
+    // A Backup Set that names an explicit trigger device (peer review: the external-source-arrival case
+    // from USER_GUIDE 6, "insert this card and it backs up wherever it's mapped" - or a config authored
+    // before the per-row editor was removed) only starts for that device, not "whenever its Target
+    // connects" the way an untriggered row's default behavior does. Read-only is enough here: the point is
+    // making the existing behavior visible, not re-adding an editor for it.
+    private string ComputeTriggerNote(SourceBackupSet set)
+    {
+        if (set.TriggerDeviceIds.Count == 0) return string.Empty;
+        var names = set.TriggerDeviceIds.Select(id => Devices.FirstOrDefault(device => device.Id == id)?.DisplayName ?? "a removed device").ToArray();
+        if (names.Length == 1) return $"Starts when {names[0]} connects";
+        var connective = set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "and" : "or";
+        var joined = $"{string.Join(", ", names[..^1])} {connective} {names[^1]}";
+        return set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? $"Starts when {joined} are all connected" : $"Starts when {joined} connects";
     }
 
     // Consecutive rows sharing the same Source, or the same Source folder, collapse their repeated cell to
@@ -1228,6 +1244,7 @@ public sealed class MappingViewModel : ObservableObject
     private bool _isRepeatOfPreviousSourceFolder;
     private string _lastBackupDisplay = "Never";
     private string _lastBackupIssue = string.Empty;
+    private string _triggerNote = string.Empty;
 
     public MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device, Action<MappingViewModel>? onEnabledChanged = null)
     {
@@ -1265,6 +1282,14 @@ public sealed class MappingViewModel : ObservableObject
     // its own reference to Jobs, so this is pushed in rather than computed here.
     public string LastBackupDisplay { get => _lastBackupDisplay; set => Set(ref _lastBackupDisplay, value); }
     public string LastBackupIssue { get => _lastBackupIssue; set => Set(ref _lastBackupIssue, value); }
+    // Read-only surface for a Backup Set's TriggerDeviceIds/TriggerPolicy, set by
+    // MainWindowViewModel.UpdateMappingTriggerNotes() - the per-row editor for these is gone (peer
+    // review: its default, starting when the mapped destination connects, covers the ordinary case with
+    // no user choice needed), but a Backup Set that already names an explicit trigger device (the
+    // external-source-arrival case from USER_GUIDE 6, or a config written before this pass) still only
+    // starts for that device, regardless of Target. Without this line the grid would silently imply
+    // "starts when Target connects" for a row that in fact does not.
+    public string TriggerNote { get => _triggerNote; set => Set(ref _triggerNote, value); }
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 

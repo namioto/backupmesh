@@ -163,6 +163,7 @@
                                             <DataTemplate>
                                                 <StackPanel Margin="4,2">
                                                     <TextBlock Text="{Binding LastBackupDisplay}"/>
+                                                    <TextBlock Text="{Binding TriggerNote}" FontSize="11" Foreground="#8493A6" TextWrapping="Wrap" Visibility="{Binding TriggerNote, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
                                                     <TextBlock Text="{Binding LastBackupIssue}" FontSize="11" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
                                                 </StackPanel>
                                             </DataTemplate>
