@@ -75,6 +75,15 @@ A third pass over the same wording caught that "Connected" (the previous fix's r
 
 - Registering a folder as a storage device now saves immediately, matching every other configuration change in this pass; it was the one path still requiring a separate trip to the Settings tab's Save button after the others no longer did.
 - Singular/plural wording ("1 device connected" vs "2 devices connected", "1 minute ago" vs "4 minutes ago") no longer always uses the plural form regardless of count.
+- Two more `(s)` strings the wording pass had missed ("Synchronized N computer(s)", "Queued N mapped backup target(s)") are fixed the same way.
+
+The "Trigger devices" group (now "Start automatically for: ...") was still bound to the "what to back up" combo used to *create* a backup, sitting visually *below* the button that does the creating - a study found evaluators couldn't tell whether it configured something being created or something already added, and, once told it was the latter, couldn't tell whether it applied to just the selected row or every destination sharing that row's Backup Set:
+
+- It's now bound to whichever row is selected in the Backups grid instead, with a placeholder ("Select a backup above...") when nothing is selected there.
+- Selecting a row now lightly highlights every other row that shares its Backup Set, since trigger settings apply per Backup Set, not per destination - a second, visible cue for that fact alongside the existing explanatory sentence (shown only when there is another row to be confused about; verified both evaluators would have misread the scope without the sentence, so it stays as a second cue, not a replacement).
+- A "Saves to {device}" line now precedes "choose which devices should start it automatically", so the destination and the trigger are named as two different things rather than presented back-to-back with no distinction.
+- "Require all selected devices at once" (a checkbox that couldn't say what "unchecked" meant) is now two mutually exclusive radio buttons naming both states directly: "Start when any of these devices connects" / "Start only when all of them are connected".
+- Caught and fixed a bug in the same-day-added "applies to every backup of X" notice before it shipped: the property returned that text whenever any row was selected, not only when the Backup Set actually had more than one destination - masked in the running app by the XAML visibility binding on the same condition, but wrong at the view-model level and would have leaked through anything binding to it directly.
 
 ## [0.1.1] - 2026-08-30
 

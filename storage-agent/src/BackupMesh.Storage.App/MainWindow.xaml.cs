@@ -26,46 +26,43 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MainWindowViewModel.SelectedBackupSet) or nameof(MainWindowViewModel.Devices))
+        // Trigger devices are configured per Backup Set, edited from whichever destination row for it is
+        // selected in the Backups grid - not from the separate "what to back up" combo used to create a
+        // new backup - since a study found the grid-row binding is what evaluators actually expected.
+        if (e.PropertyName is nameof(MainWindowViewModel.SelectedMapping) or nameof(MainWindowViewModel.Devices))
             SyncTriggerDevicesSelection();
     }
 
-    // Reflects the selected Backup Set's already-saved trigger devices/policy into the list box and
-    // checkbox without treating that as a user edit - selection-changed handling below is suppressed
-    // for the duration.
+    // Reflects the selected mapping's Backup Set's already-saved trigger devices/policy into the list box
+    // and radio buttons without treating that as a user edit - selection-changed handling below is
+    // suppressed for the duration.
     private void SyncTriggerDevicesSelection()
     {
         _syncingTriggerSelection = true;
         try
         {
             TriggerDevicesListBox.SelectedItems.Clear();
-            var selectedSet = ViewModel.SelectedBackupSet;
+            var selectedSet = ViewModel.SelectedMapping?.BackupSet;
             if (selectedSet is not null)
             {
                 foreach (DeviceViewModel device in TriggerDevicesListBox.Items)
                     if (selectedSet.Model.TriggerDeviceIds.Contains(device.Id)) TriggerDevicesListBox.SelectedItems.Add(device);
-                RequireAllTriggerDevicesCheckBox.IsChecked = selectedSet.Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable;
+                AllDevicesTriggerRadio.IsChecked = selectedSet.Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable;
+                AnyDeviceTriggerRadio.IsChecked = !AllDevicesTriggerRadio.IsChecked;
             }
             else
             {
-                RequireAllTriggerDevicesCheckBox.IsChecked = false;
+                AnyDeviceTriggerRadio.IsChecked = true;
             }
-            UpdateRequireAllCheckboxVisibility();
         }
         finally { _syncingTriggerSelection = false; }
     }
 
-    // Meaningless (and, per a first-click study, confusing - "why does this assume multiple devices?")
-    // with fewer than two candidates selected, since "require all" and "any one" behave identically then.
-    private void UpdateRequireAllCheckboxVisibility() =>
-        RequireAllTriggerDevicesCheckBox.Visibility = TriggerDevicesListBox.SelectedItems.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
-
     private void OnTriggerDevicesSelectionChanged(object sender, RoutedEventArgs e)
     {
-        UpdateRequireAllCheckboxVisibility();
-        if (_syncingTriggerSelection || ViewModel.SelectedBackupSet is not { } selectedSet) return;
+        if (_syncingTriggerSelection || ViewModel.SelectedMapping?.BackupSet is not { } selectedSet) return;
         var deviceIds = TriggerDevicesListBox.SelectedItems.Cast<DeviceViewModel>().Select(device => device.Id).ToArray();
-        var policy = RequireAllTriggerDevicesCheckBox.IsChecked == true ? BackupSetTriggerPolicy.AllAvailable : BackupSetTriggerPolicy.AnyAvailable;
+        var policy = AllDevicesTriggerRadio.IsChecked == true ? BackupSetTriggerPolicy.AllAvailable : BackupSetTriggerPolicy.AnyAvailable;
         _ = ViewModel.UpdateBackupSetTriggersAsync(selectedSet, deviceIds, policy);
     }
 

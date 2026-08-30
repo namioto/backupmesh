@@ -89,6 +89,19 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="MappingsGrid">
+                                <DataGrid.RowStyle>
+                                    <!-- Trigger devices are configured per Backup Set, not per row - lightly
+                                         tinting every other row for the same Backup Set as the selected one
+                                         makes that scope visible without relying on reading the explanatory
+                                         text below the trigger list. -->
+                                    <Style TargetType="DataGridRow">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSiblingOfSelection}" Value="True">
+                                                <Setter Property="Background" Value="#E4F6FA"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="What to back up" Binding="{Binding BackupSetName}" Width="2*"/>
                                     <DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="*"/>
@@ -110,21 +123,30 @@
                             </Grid>
                         </Grid>
                     </GroupBox>
-                    <GroupBox Grid.Row="2" Grid.ColumnSpan="2" Header="{Binding SelectedBackupSet.DisplayName, StringFormat='Start automatically for: {0}'}" Margin="0,10,0,0" Padding="10">
-                        <StackPanel>
-                            <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"
-                                       ToolTip="A device used only to trigger a backup does not need a destination of its own. Leave none selected to keep the automatic behavior: any connected device whose root contains this backup's source folder.">
-                                Choose which devices, once connected, should start this backup automatically. Leave none selected to keep the automatic behavior.
-                            </TextBlock>
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <ListBox Grid.Column="0" x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayName" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox"/>
-                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
-                                    <CheckBox x:Name="RequireAllTriggerDevicesCheckBox" Content="Require all selected devices at once" Checked="OnTriggerDevicesSelectionChanged" Unchecked="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="RequireAllTriggerDevicesCheckBox" ToolTip="Only meaningful with more than one selected device: wait until every one of them is connected before backing up, instead of starting as soon as any one connects."/>
-                                    <TextBlock Text="{Binding SelectedBackupSet.TriggerSummary}" Margin="0,10,0,0" Foreground="#607086" TextWrapping="Wrap" MaxWidth="220" AutomationProperties.AutomationId="TriggerSummaryText"/>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
+                    <GroupBox Grid.Row="2" Grid.ColumnSpan="2" Header="{Binding TriggerGroupHeader}" Margin="0,10,0,0" Padding="10">
+                        <Grid>
+                            <TextBlock Text="Select a backup above to choose which devices should start it automatically." Foreground="#8493A6" TextWrapping="Wrap" Visibility="{Binding SelectedMapping, Converter={StaticResource NullToVisibleConverter}}"/>
+                            <StackPanel Visibility="{Binding SelectedMapping, Converter={StaticResource NullToCollapsedConverter}}">
+                                <TextBlock Text="{Binding SiblingScopeNotice}" Visibility="{Binding SelectedMappingHasSiblings, Converter={StaticResource BoolToVisibleConverter}}" TextWrapping="Wrap" Foreground="#607086" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding SelectedMapping.SavesToLine}" TextWrapping="Wrap" Foreground="#607086"/>
+                                <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"
+                                           ToolTip="A device used only to trigger a backup does not need a destination of its own. Leave none selected to keep the automatic behavior: any connected device whose root contains this backup's source folder.">
+                                    Choose which registered devices should start it automatically — usually the same one.
+                                </TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <ListBox x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayName" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox"/>
+                                        <TextBlock Text="Registered in the Devices tab" Margin="0,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
+                                        <RadioButton x:Name="AnyDeviceTriggerRadio" GroupName="TriggerPolicy" Content="Start when any of these devices connects" Checked="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="AnyDeviceTriggerRadio"/>
+                                        <RadioButton x:Name="AllDevicesTriggerRadio" GroupName="TriggerPolicy" Content="Start only when all of them are connected" Checked="OnTriggerDevicesSelectionChanged" Margin="0,6,0,0" ToolTip="Only meaningful with more than one selected device: wait until every one of them is connected before backing up." AutomationProperties.AutomationId="AllDevicesTriggerRadio"/>
+                                        <TextBlock Text="{Binding SelectedMapping.BackupSet.TriggerSummary}" Margin="0,10,0,0" Foreground="#607086" TextWrapping="Wrap" MaxWidth="220" AutomationProperties.AutomationId="TriggerSummaryText"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
                     </GroupBox>
                 </Grid>
                 </ScrollViewer>

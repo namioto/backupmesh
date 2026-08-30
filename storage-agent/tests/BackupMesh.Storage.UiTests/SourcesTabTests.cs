@@ -81,26 +81,18 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("ForgetSourceButton").AsButton());
     }
 
-    [Fact]
-    public void TriggerDevicesControls_AreReachableByAutomationId()
-    {
-        Assert.NotNull(Find("TriggerDevicesListBox").AsListBox());
-        Assert.NotNull(Find("TriggerSummaryText"));
-    }
-
     /// <summary>
-    /// "Require all selected devices at once" is meaningless with fewer than two candidates selected, so
-    /// it starts Collapsed (absent from the automation tree, hence not asserted via the retrying Find()
-    /// above) rather than present-but-confusing. The positive case (it appears once two devices are
-    /// selected) needs two registered devices to exercise, which this black-box fixture has no
-    /// environment-independent way to set up - RegisterFolder needs a native folder-browser dialog FlaUI
-    /// cannot drive, and RegisterDevice needs a real detected drive this test cannot assume exists - so
-    /// only the always-true default state is verified here.
+    /// Trigger devices are configured per selected row in the Backups grid, not the "what to back up"
+    /// creation combo (a study found evaluators expected the former). The demo fixture registers no
+    /// devices, so Mappings is empty and there is no row this black-box fixture can select - meaning only
+    /// the always-true "nothing selected" placeholder state is verified here; ListBox/radio
+    /// buttons/TriggerSummaryText are consequently Collapsed and absent from the automation tree.
     /// </summary>
     [Fact]
-    public void RequireAllTriggerDevicesCheckBox_IsHiddenWithFewerThanTwoSelected()
+    public void TriggerControlsShowAPlaceholderWithNoBackupSelected()
     {
-        Assert.Null(_fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("RequireAllTriggerDevicesCheckBox")));
+        Assert.Contains(_fixture.MainWindow.FindAllDescendants(), element => element.Name == "Select a backup above to choose which devices should start it automatically.");
+        Assert.Null(_fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("TriggerDevicesListBox")));
     }
 
     [Fact]

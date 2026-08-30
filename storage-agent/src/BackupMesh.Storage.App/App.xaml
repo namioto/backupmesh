@@ -5,6 +5,9 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <local:ZeroToVisibleConverter x:Key="ZeroToVisibleConverter" />
+        <local:NullToVisibleConverter x:Key="NullToVisibleConverter" />
+        <local:NullToCollapsedConverter x:Key="NullToCollapsedConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibleConverter" />
         <SolidColorBrush x:Key="AccentBrush" Color="#08AFCB" />
         <SolidColorBrush x:Key="NavyBrush" Color="#082B63" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="#F6F8FB" />

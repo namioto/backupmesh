@@ -152,7 +152,29 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
-    public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
+    public MappingViewModel? SelectedMapping
+    {
+        get => _selectedMapping;
+        set
+        {
+            if (!Set(ref _selectedMapping, value)) return;
+            UpdateMappingSiblingHighlighting();
+        }
+    }
+    // Shown only when the selected row's Backup Set has other destinations too, so the "applies to every
+    // backup of X" notice doesn't appear when there is only one row it could possibly mean anyway.
+    public bool SelectedMappingHasSiblings => SelectedMapping is { } selected && Mappings.Any(mapping => mapping != selected && mapping.BackupSet.Id == selected.BackupSet.Id);
+    public string SiblingScopeNotice => SelectedMappingHasSiblings ? $"This applies to every backup of {SelectedMapping!.BackupSetName}, not just the destination shown above." : string.Empty;
+    public string TriggerGroupHeader => SelectedMapping is { } selected ? $"Start automatically for: {selected.BackupSetName}" : "Start automatically";
+
+    private void UpdateMappingSiblingHighlighting()
+    {
+        var selected = SelectedMapping;
+        foreach (var mapping in Mappings) mapping.IsSiblingOfSelection = selected is not null && mapping != selected && mapping.BackupSet.Id == selected.BackupSet.Id;
+        OnPropertyChanged(nameof(SelectedMappingHasSiblings));
+        OnPropertyChanged(nameof(SiblingScopeNotice));
+        OnPropertyChanged(nameof(TriggerGroupHeader));
+    }
     public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
     public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
@@ -240,7 +262,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var catalogs = await _catalogClient.ListAsync(_shutdown.Token);
             ApplyCatalogs(catalogs);
-            FooterStatus = catalogs.Count == 0 ? "No computer has reported anything to back up yet." : $"Synchronized {catalogs.Count} computer(s).";
+            FooterStatus = catalogs.Count == 0 ? "No computer has reported anything to back up yet." : $"Synchronized {Pluralize(catalogs.Count, "computer")}.";
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException)
@@ -465,7 +487,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             await RefreshJobsAsync();
             var message = queued == 0
                 ? "No new backups were queued; matching backup commands may already be pending."
-                : $"Queued {queued} mapped backup target(s).";
+                : $"Queued {Pluralize(queued, "backup")}.";
             FooterStatus = message;
             NotificationRequested?.Invoke(this, new("BackupMesh", message));
         }
@@ -875,6 +897,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
+        UpdateMappingSiblingHighlighting();
     }
 
     private static void ConfigureStartup(bool enabled)
@@ -1092,8 +1115,9 @@ public sealed class DeviceViewModel : ObservableObject
     public override string ToString() => DisplayName;
 }
 
-public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device)
+public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) : ObservableObject
 {
+    private bool _isSiblingOfSelection;
     public Guid Id { get; } = model.Id;
     public BackupSetViewModel BackupSet { get; } = set;
     public DeviceViewModel Device { get; } = device;
@@ -1102,6 +1126,13 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     public string RepositoryPath { get; } = model.RepositoryPath;
     public string DestinationFolder => Path.GetFullPath(Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath));
     public bool Enabled { get; } = model.Enabled;
+    // Trigger devices are configured per Backup Set, not per destination - a study found evaluators
+    // otherwise assumed a change applied only to the row they had selected. A light highlight on every
+    // other row sharing that Backup Set makes the true scope visible without relying on the explanatory
+    // text alone (measured: both evaluators said they'd have misread the scope without that text either -
+    // this highlight is a second, independent cue for the same fact, not a replacement for it).
+    public bool IsSiblingOfSelection { get => _isSiblingOfSelection; set => Set(ref _isSiblingOfSelection, value); }
+    public string SavesToLine => $"Saves to {Device.DisplayNameWithDetails}.";
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 

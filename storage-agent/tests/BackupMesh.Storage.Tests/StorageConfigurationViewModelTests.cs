@@ -188,7 +188,56 @@ public sealed class StorageConfigurationViewModelTests
 
         var mappingId = Assert.Single(client.EnqueuedMappingIds);
         Assert.Equal(connectedMapping.Id, mappingId);
-        Assert.Contains("Queued 1 mapped backup target", viewModel.FooterStatus);
+        Assert.Contains("Queued 1 backup.", viewModel.FooterStatus);
+    }
+
+    [Fact]
+    public void SelectingAMappingHighlightsItsSiblingsButNotItself()
+    {
+        var sourceId = Guid.NewGuid();
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
+        var otherSet = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Photos", ["C:\\Photos"]));
+        var deviceA = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var deviceB = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Disk B", "B", "E:\\", DateTimeOffset.UtcNow, null));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false);
+        var first = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceA.Id, "docs-a"), set, deviceA);
+        var second = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceB.Id, "docs-b"), set, deviceB);
+        var unrelated = new MappingViewModel(new(Guid.NewGuid(), otherSet.Id, deviceA.Id, "photos-a"), otherSet, deviceA);
+        viewModel.Mappings.Add(first);
+        viewModel.Mappings.Add(second);
+        viewModel.Mappings.Add(unrelated);
+
+        viewModel.SelectedMapping = first;
+
+        Assert.False(first.IsSiblingOfSelection);
+        Assert.True(second.IsSiblingOfSelection);
+        Assert.False(unrelated.IsSiblingOfSelection);
+        Assert.True(viewModel.SelectedMappingHasSiblings);
+        Assert.Contains("every backup of", viewModel.SiblingScopeNotice);
+        Assert.Contains(set.DisplayName, viewModel.SiblingScopeNotice);
+    }
+
+    [Fact]
+    public void SelectingAMappingWithNoSiblingsShowsNoScopeNotice()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false);
+        var only = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs"), set, device);
+        viewModel.Mappings.Add(only);
+
+        viewModel.SelectedMapping = only;
+
+        Assert.False(viewModel.SelectedMappingHasSiblings);
+        Assert.Equal(string.Empty, viewModel.SiblingScopeNotice);
+        Assert.Equal($"Start automatically for: {only.BackupSetName}", viewModel.TriggerGroupHeader);
+    }
+
+    [Fact]
+    public void TriggerGroupHeaderIsNeutralWithNoMappingSelected()
+    {
+        using var viewModel = new MainWindowViewModel(loadLocalState: false);
+        Assert.Equal("Start automatically", viewModel.TriggerGroupHeader);
     }
 
     [Fact]
