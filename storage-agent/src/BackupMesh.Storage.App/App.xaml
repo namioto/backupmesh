@@ -36,5 +36,13 @@
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Margin" Value="4" />
         </Style>
+        <!-- DataGridTextColumn's generated TextBlock neither wraps nor trims by default - content past the
+             column's width is simply clipped mid-character with no ellipsis or way to read the rest
+             (measured: the Source Agents tab's Status column this way, cut off mid-date). Self-binding the
+             tooltip to the TextBlock's own Text works for any column's Binding without a per-column tooltip. -->
+        <Style TargetType="TextBlock" x:Key="EllipsisCellStyle">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
+        </Style>
     </Application.Resources>
 </Application>

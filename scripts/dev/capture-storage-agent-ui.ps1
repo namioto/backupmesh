@@ -171,8 +171,8 @@ try {
 
     Write-Host "Capturing to $OutDir"
     Select-TabAndCapture $root $hwnd 'OverviewTab' 'overview.png'
-    Select-TabAndCapture $root $hwnd 'SourcesMappingsTab' 'sources-mappings.png'
-    Select-TabAndCapture $root $hwnd 'DevicesTab' 'devices.png'
+    Select-TabAndCapture $root $hwnd 'BackupsTab' 'backups.png'
+    Select-TabAndCapture $root $hwnd 'SourceAgentsTab' 'source-agents.png'
     Select-TabAndCapture $root $hwnd 'SettingsTab' 'settings.png'
     Write-Host 'Done.'
 }

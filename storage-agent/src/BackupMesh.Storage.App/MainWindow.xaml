@@ -71,10 +71,10 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid MinHeight="140" ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Backup" Binding="{Binding Target}" Width="2*"/>
+                                    <DataGridTextColumn Header="Backup" Binding="{Binding Target}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="State" Binding="{Binding State}" Width="110"/>
-                                    <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="2*"/>
-                                    <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="*"/>
+                                    <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="Updated" Binding="{Binding Updated}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -91,8 +91,8 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid MinHeight="140" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="RegisteredDevicesGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Device" Binding="{Binding DisplayNameWithDetails}" Width="2*"/>
-                                    <DataGridTextColumn Header="Current location" Binding="{Binding CurrentRoot}" Width="*"/>
+                                    <DataGridTextColumn Header="Device" Binding="{Binding DisplayNameWithDetails}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTextColumn Header="Current location" Binding="{Binding CurrentRoot}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="Free space" Binding="{Binding FreeSpaceDisplay}" Width="*"/>
                                     <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*"/>
                                     <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="*"/>
@@ -146,7 +146,7 @@
                                     </Style>
                                 </DataGrid.RowStyle>
                                 <DataGrid.Resources>
-                                    <Style x:Key="RepeatDimmedCellStyle" TargetType="TextBlock">
+                                    <Style x:Key="RepeatDimmedCellStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisCellStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsRepeatOfPreviousSource}" Value="True">
                                                 <Setter Property="Foreground" Value="#A9B2BE"/>
@@ -183,8 +183,8 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Target device" Binding="{Binding DeviceName}" Width="1.2*"/>
-                                    <DataGridTextColumn Header="Target folder" Binding="{Binding DestinationFolder}" Width="1.8*"/>
+                                    <DataGridTextColumn Header="Target device" Binding="{Binding DeviceName}" Width="1.2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTextColumn Header="Target folder" Binding="{Binding DestinationFolder}" Width="1.8*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTemplateColumn Header="Last backup" Width="1.4*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -246,11 +246,22 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid MinHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSourceAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Source Agent" Binding="{Binding DisplayNameWithHint}" Width="2*"/>
-                                    <DataGridTextColumn Header="Address" Binding="{Binding AddressDisplay}" Width="1.4*" ToolTipService.ToolTip="The address this computer last connected from - it can change (DHCP), so it is not a stable identity."/>
-                                    <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="1.6*"/>
-                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="1.6*"/>
-                                    <DataGridTextColumn Header="Offers" Binding="{Binding PathsServedDisplay}" Width="2*" ToolTipService.ToolTip="The names of this Source Agent's own Backup Sets."/>
+                                    <DataGridTextColumn Header="Source Agent" Binding="{Binding DisplayNameWithHint}" Width="1.7*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTextColumn Header="Address" Binding="{Binding AddressDisplay}" Width="1.1*" ToolTipService.ToolTip="The address this computer last connected from - it can change (DHCP), so it is not a stable identity."/>
+                                    <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="1.4*"/>
+                                    <!-- Widest column: its longest message ("Offline — re-pair before {date}")
+                                         was measured clipped mid-word at the previous width with no ellipsis
+                                         or way to read the rest - TextTrimming + a matching tooltip are a
+                                         safety net for any width this column ends up at, not just this one. -->
+                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="2.2*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding StatusDisplay}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Offers" Binding="{Binding PathsServedDisplay}" Width="1.6*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <!-- "—" in Address/Status for This PC otherwise reads as an error, not as "not
