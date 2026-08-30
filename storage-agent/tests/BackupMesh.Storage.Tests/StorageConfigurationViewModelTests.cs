@@ -99,6 +99,24 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task BackupJobResolvesItsTargetMappingToABackupSetAndDeviceName()
+    {
+        var device = new RegisteredDevice(Guid.NewGuid(), "volume:target", "Archive drive", "ARCHIVE", "D:\\", DateTimeOffset.UtcNow, null);
+        var backupSet = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Home Server", "Photos", ["/srv/photos"]);
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), backupSet.Id, device.Id, "photos");
+        var configurationClient = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, new([device], [backupSet], [mapping])));
+        var job = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, new(50, 100, 2, 4), null, TargetMappingId: mapping.Id);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: configurationClient, jobClient: new FakeJobClient([job]));
+        await viewModel.RefreshConfigurationAsync();
+
+        await viewModel.RefreshJobsAsync();
+
+        var shown = Assert.Single(viewModel.Jobs);
+        Assert.Contains("Photos", shown.Target);
+        Assert.Contains("Archive drive", shown.Target);
+    }
+
+    [Fact]
     public async Task BackupNowEnqueuesEveryConnectedEnabledMapping()
     {
         var sourceId = Guid.NewGuid();

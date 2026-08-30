@@ -202,5 +202,44 @@ public sealed class BackupJobStoreTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+    [Fact]
+    public void AdmittedJobExposesTargetMappingSourceAndStartTime()
+    {
+        var store = new BackupJobStore();
+        var request = Request(Guid.NewGuid());
+        store.Admit(request, "expose-fields-key1", new Uri("https://localhost/repo"));
+
+        var status = store.Get(request.JobId)!;
+        Assert.Equal(request.TargetMappingId, status.TargetMappingId);
+        Assert.Equal(request.SourceAgentId, status.SourceAgentId);
+        Assert.NotNull(status.StartedAt);
+
+        var progress = new BackupProgress(Guid.NewGuid(), request.JobId, 1, DateTimeOffset.UtcNow, "UPLOADING", 10, 20, 1, 2, null);
+        store.Progress(progress);
+        // A field set once at admission must survive later `with`-expression updates to the same job.
+        Assert.Equal(request.TargetMappingId, store.Get(request.JobId)!.TargetMappingId);
+    }
+
+    [Fact]
+    public void TerminalJobHistoryIsCappedPerMappingButActiveJobsAreNeverPruned()
+    {
+        var store = new BackupJobStore();
+        var mappingId = Guid.NewGuid();
+
+        for (var i = 0; i < 25; i++)
+        {
+            var request = Request(Guid.NewGuid(), mappingId);
+            store.Admit(request, $"cap-key-{i:0000}", new Uri("https://localhost/repo"));
+            store.Complete(new(Guid.NewGuid(), request.JobId, 1, DateTimeOffset.UtcNow, "SUCCEEDED", "snap", 1, null, null));
+        }
+        var active = Request(Guid.NewGuid(), mappingId);
+        store.Admit(active, "cap-key-active", new Uri("https://localhost/repo"));
+
+        var jobs = store.List();
+        Assert.Equal(21, jobs.Count); // 20 kept terminal jobs + the 1 still-active job
+        Assert.Contains(jobs, job => job.JobId == active.JobId);
+        Assert.All(jobs.Where(job => job.JobId != active.JobId), job => Assert.Equal("SUCCEEDED", job.State));
+    }
+
     private static BackupRequest Request(Guid id, Guid? mappingId = null) => new(id, Guid.NewGuid(), Guid.NewGuid(), mappingId ?? Guid.NewGuid(), DateTimeOffset.UtcNow, ["daily"]);
 }

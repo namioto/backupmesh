@@ -30,7 +30,7 @@ public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid
 public sealed record BackupProgress([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("reported_at")] DateTimeOffset ReportedAt, [property: JsonPropertyName("phase"), Required, RegularExpression("^(SCANNING|UPLOADING|FINALIZING)$")] string Phase, [property: JsonPropertyName("bytes_done"), Range(0, long.MaxValue)] long BytesDone, [property: JsonPropertyName("bytes_total"), Range(0, long.MaxValue)] long? BytesTotal, [property: JsonPropertyName("files_done"), Range(0, long.MaxValue)] long FilesDone, [property: JsonPropertyName("files_total"), Range(0, long.MaxValue)] long? FilesTotal, [property: JsonPropertyName("message"), StringLength(512)] string? Message);
 public sealed record BackupResult([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("snapshot_id"), StringLength(128, MinimumLength = 1)] string? SnapshotId, [property: JsonPropertyName("bytes_added"), Range(0, long.MaxValue)] long? BytesAdded, [property: JsonPropertyName("error_code"), RegularExpression("^[A-Z][A-Z0-9_]*$"), StringLength(64)] string? ErrorCode, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record CancelRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("reason"), StringLength(512)] string? Reason);
-public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("last_sequence")] long LastSequence, [property: JsonPropertyName("progress")] BackupProgress? Progress, [property: JsonPropertyName("result")] BackupResult? Result);
+public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("last_sequence")] long LastSequence, [property: JsonPropertyName("progress")] BackupProgress? Progress, [property: JsonPropertyName("result")] BackupResult? Result, [property: JsonPropertyName("target_mapping_id")] Guid? TargetMappingId = null, [property: JsonPropertyName("source_agent_id")] Guid? SourceAgentId = null, [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt = null);
 public sealed record BackupCommandEnqueueRequest([property: JsonPropertyName("mapping_ids")] Guid[]? MappingIds, [property: JsonPropertyName("reason"), StringLength(64)] string? Reason);
 public sealed record BackupCommandClaimResponse([property: JsonPropertyName("command")] BackupCommand? Command);
 public sealed record BackupCommandAcknowledgementRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(RUNNING|CLAIMED)$")] string State, [property: JsonPropertyName("claimed_at")] DateTimeOffset ClaimedAt);
@@ -92,7 +92,8 @@ public sealed class BackupJobStore
             }
         }
         ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault();
-        if (recovered) Persist();
+        var pruned = PruneTerminalJobs();
+        if (recovered || pruned) Persist();
     }
     public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default)
     {
@@ -102,7 +103,7 @@ public sealed class BackupJobStore
             if (_admissions.TryGetValue(key, out var prior)) return prior.Signature == signature ? (StoreOutcome.Replayed, prior.Admission) : (StoreOutcome.Conflict, null);
             if (_activeMappings.ContainsKey(request.TargetMappingId) || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
             var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint);
-            _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
+            _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null, request.TargetMappingId, request.SourceAgentId, now); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
             _jobSources[request.JobId] = request.SourceAgentId;
             Persist();
             return (StoreOutcome.Accepted, admission);
@@ -129,7 +130,7 @@ public sealed class BackupJobStore
             if (result.Sequence <= job.LastSequence) return StoreOutcome.InvalidSequence;
             _events[result.EventId] = result; _jobs[result.JobId] = job with { State = result.Outcome, UpdatedAt = DateTimeOffset.UtcNow, LastSequence = result.Sequence, Result = result };
             if (_jobMappings.Remove(result.JobId, out var mappingId)) _activeMappings.Remove(mappingId);
-            ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault(); Persist(); return StoreOutcome.Accepted;
+            ActiveJobId = _activeMappings.Values.Cast<Guid?>().FirstOrDefault(); PruneTerminalJobs(); Persist(); return StoreOutcome.Accepted;
         }
     }
     public (StoreOutcome Outcome, JobStatus? Status) Cancel(CancelRequest request)
@@ -145,6 +146,22 @@ public sealed class BackupJobStore
     public IReadOnlyList<JobStatus> List() { lock (_gate) return _jobs.Values.OrderByDescending(job => job.UpdatedAt).ToArray(); }
     public bool IsOwnedBy(Guid jobId, Guid sourceAgentId) { lock (_gate) return _jobSources.GetValueOrDefault(jobId) == sourceAgentId; }
     private static bool Terminal(string state) => state is "CANCELLED" or "SUCCEEDED" or "FAILED";
+
+    // Every non-terminal job is kept regardless of count; only finished history is capped, per mapping,
+    // so a mapping with a long backup history doesn't grow this store (and the full-history rewrite in
+    // Persist(), which runs on every progress event of every *other* still-running job) without bound.
+    private const int MaxTerminalJobsPerMapping = 20;
+    private bool PruneTerminalJobs()
+    {
+        var toRemove = _jobs.Values
+            .Where(job => Terminal(job.State))
+            .GroupBy(job => job.TargetMappingId ?? Guid.Empty)
+            .SelectMany(group => group.OrderByDescending(job => job.UpdatedAt).Skip(MaxTerminalJobsPerMapping))
+            .Select(job => job.JobId)
+            .ToArray();
+        foreach (var jobId in toRemove) { _jobs.Remove(jobId); _jobMappings.Remove(jobId); _jobSources.Remove(jobId); }
+        return toRemove.Length > 0;
+    }
     private void Persist()
     {
         if (_persistencePath is null) return;

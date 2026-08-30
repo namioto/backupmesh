@@ -34,6 +34,7 @@
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
                                 <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Backup" Binding="{Binding Target}" Width="2*"/>
                                     <DataGridTextColumn Header="State" Binding="{Binding State}" Width="110"/>
                                     <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="2*"/>
                                     <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="*"/>

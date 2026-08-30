@@ -45,6 +45,11 @@ Terminology pass based on a blind first-click usability study (tab names and `Au
 - The header's connected-device count badge could show stale text for up to 3 seconds after forgetting the only registered device (it only refreshed on the next drive-poll tick); it now updates immediately with every action that changes device count.
 - Each of the Sources & mappings and Devices tabs now opens with a one-line explanation of what it's for.
 
+The Overview tab's Backup jobs grid could not tell two concurrent jobs apart ("3 rows but no way to tell which is which"), found in the same study:
+
+- Jobs now show which Backup Set is going to which device (e.g. `Home Server / Photos → Archive drive`), and an estimated time remaining once enough progress has been reported. `JobStatus` gained optional `target_mapping_id`, `source_agent_id`, and `started_at` fields (existing required fields unchanged) so this can be resolved without a second request.
+- The Storage Service now keeps at most the 20 most recent finished jobs per destination mapping (every still-running job is always kept); job history previously grew without bound, and every progress update of any job rewrote the entire history to disk.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

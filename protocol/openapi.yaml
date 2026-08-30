@@ -975,6 +975,9 @@ components:
         state: {$ref: '#/components/schemas/JobState'}
         updated_at: {type: string, format: date-time}
         last_sequence: {type: integer, format: int64, minimum: 0}
+        target_mapping_id: {type: string, format: uuid}
+        source_agent_id: {type: string, format: uuid}
+        started_at: {type: string, format: date-time}
         progress:
           oneOf:
             - {$ref: '#/components/schemas/BackupProgress'}

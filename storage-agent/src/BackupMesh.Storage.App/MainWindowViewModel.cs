@@ -157,7 +157,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var selectedId = SelectedJob?.JobId;
             var jobs = await _jobClient.ListAsync(_shutdown.Token);
             Jobs.Clear();
-            foreach (var job in jobs) Jobs.Add(new(job));
+            foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
