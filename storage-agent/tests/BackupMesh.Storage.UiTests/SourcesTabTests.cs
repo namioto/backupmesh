@@ -85,8 +85,22 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     public void TriggerDevicesControls_AreReachableByAutomationId()
     {
         Assert.NotNull(Find("TriggerDevicesListBox").AsListBox());
-        Assert.NotNull(Find("RequireAllTriggerDevicesCheckBox").AsCheckBox());
         Assert.NotNull(Find("TriggerSummaryText"));
+    }
+
+    /// <summary>
+    /// "Require all selected devices at once" is meaningless with fewer than two candidates selected, so
+    /// it starts Collapsed (absent from the automation tree, hence not asserted via the retrying Find()
+    /// above) rather than present-but-confusing. The positive case (it appears once two devices are
+    /// selected) needs two registered devices to exercise, which this black-box fixture has no
+    /// environment-independent way to set up - RegisterFolder needs a native folder-browser dialog FlaUI
+    /// cannot drive, and RegisterDevice needs a real detected drive this test cannot assume exists - so
+    /// only the always-true default state is verified here.
+    /// </summary>
+    [Fact]
+    public void RequireAllTriggerDevicesCheckBox_IsHiddenWithFewerThanTwoSelected()
+    {
+        Assert.Null(_fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("RequireAllTriggerDevicesCheckBox")));
     }
 
     [Fact]

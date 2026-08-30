@@ -87,15 +87,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _storageDeviceClient = storageDeviceClient ?? new StorageDeviceClient();
         _pairingClient = pairingClient ?? new PairingClient();
         _connectionsClient = connectionsClient ?? new SourceConnectionsClient();
-        AddMappingCommand = new RelayCommand(AddMapping);
+        AddMappingCommand = new RelayCommand(() => _ = AddMappingAsync());
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
-        RemoveMappingCommand = new RelayCommand(RemoveMapping);
+        RemoveMappingCommand = new RelayCommand(() => _ = RemoveMappingAsync());
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         RegisterDeviceCommand = new RelayCommand(RegisterDevice);
         RegisterFolderCommand = new RelayCommand(RegisterFolder);
         ForgetDeviceCommand = new RelayCommand(ForgetDevice);
-        AddLocalBackupSetCommand = new RelayCommand(AddLocalBackupSet);
-        RemoveLocalBackupSetCommand = new RelayCommand(RemoveLocalBackupSet);
+        AddLocalBackupSetCommand = new RelayCommand(() => _ = AddLocalBackupSetAsync());
+        RemoveLocalBackupSetCommand = new RelayCommand(() => _ = RemoveLocalBackupSetAsync());
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
@@ -437,11 +437,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void UpdateBackupSetTriggers(BackupSetViewModel set, IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
+    public async Task UpdateBackupSetTriggersAsync(BackupSetViewModel set, IReadOnlyList<Guid> triggerDeviceIds, BackupSetTriggerPolicy policy)
     {
         set.UpdateTriggers(triggerDeviceIds, policy);
         RefreshDeviceTriggerRoles();
-        FooterStatus = "Automatic-start devices updated. Save settings to persist this change.";
+        await SaveAsync();
     }
 
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
@@ -525,7 +525,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         // verification) shows a self-contradicting screen: computers with Backup Sets, but "No paired
         // computers yet" in the same merged grid.
         SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddMinutes(-4), 2, false, DateTimeOffset.UtcNow.AddDays(75))));
-        SourceConnections.Add(new(new(workstation.Id, workstation.DisplayName, workstation.DisplayName, DateTimeOffset.UtcNow.AddHours(-6), 1, false, DateTimeOffset.UtcNow.AddDays(20))));
+        // Demonstrates the "missed its own renewal window" status: last seen well before the renewal
+        // window (30 days before expiry) opened, unlike Home Server above which is seen recently enough
+        // that its certificate (renewed automatically) never needs a person's attention.
+        SourceConnections.Add(new(new(workstation.Id, workstation.DisplayName, workstation.DisplayName, DateTimeOffset.UtcNow.AddDays(-45), 1, false, DateTimeOffset.UtcNow.AddDays(5))));
         ApplySourceConnections();
 
         SelectedBackupSet = BackupSets.FirstOrDefault();
@@ -635,7 +638,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyCounts();
     }
 
-    private void AddMapping()
+    private async Task AddMappingAsync()
     {
         if (SelectedBackupSet is null || SelectedDevice is null)
         {
@@ -656,7 +659,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Mappings.Add(new(candidate, SelectedBackupSet, SelectedDevice));
         RefreshDeviceTriggerRoles();
         NotifyCounts();
-        FooterStatus = "Backup added. Save settings to persist it.";
+        // A study found evaluators had to be told across two separate tabs to add a backup, then
+        // remember to go save it, or it silently reverted on the next configuration refresh - saving
+        // immediately here (SaveAsync sets its own success/failure FooterStatus) removes the gap.
+        await SaveAsync();
     }
 
     private void BrowseDestination()
@@ -705,14 +711,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void RemoveMapping()
+    private async Task RemoveMappingAsync()
     {
         if (SelectedMapping is null) return;
         Mappings.Remove(SelectedMapping);
         SelectedMapping = null;
         RefreshDeviceTriggerRoles();
         NotifyCounts();
-        FooterStatus = "Backup removed. Save settings to persist it.";
+        await SaveAsync();
     }
 
     private void RegisterDevice()
@@ -760,7 +766,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     // "This PC" needs no pairing, Source Agent, or enable step: choosing a folder here is the entire
     // flow, mirroring RegisterFolder()'s own no-separate-name-prompt pattern.
-    private void AddLocalBackupSet()
+    private async Task AddLocalBackupSetAsync()
     {
         using var dialog = new Forms.FolderBrowserDialog { Description = "Choose a local folder to back up", ShowNewFolderButton = false };
         if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
@@ -781,12 +787,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         localSource.BackupSets.Add(backupSet);
         SelectedBackupSet = backupSet;
-        AddActivity($"Added a backup for {path}.");
-        FooterStatus = "Backup added. Save settings, then choose a device for it.";
+        AddActivity($"Added a backup for {path}. Choose a device for it below.");
         NotifyCounts();
+        await SaveAsync();
     }
 
-    private void RemoveLocalBackupSet()
+    private async Task RemoveLocalBackupSetAsync()
     {
         if (SelectedBackupSet is not { } backupSet || backupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId)
         {
@@ -798,8 +804,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId)?.BackupSets.Remove(backupSet);
         SelectedBackupSet = BackupSets.FirstOrDefault();
         RefreshDeviceTriggerRoles();
-        FooterStatus = "Backup removed. Save settings to persist it.";
         NotifyCounts();
+        await SaveAsync();
     }
 
     private void ForgetDevice()
@@ -937,27 +943,53 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     public string AgentName { get; } = model.AgentName;
     public string ReportedAgentName { get; } = model.ReportedAgentName;
     public DateTimeOffset LastSeenAt { get; } = model.LastSeenAt;
-    public string LastSeenDisplay { get; } = model.LastSeenAt.LocalDateTime.ToString("g");
+    // An absolute timestamp ("8/30/26 5:12 PM") made evaluators do the arithmetic themselves to tell
+    // "just now" from "yesterday"; relative phrasing answers the question ("is this computer connected
+    // right now?") directly instead of via Status, which describes access, not connectivity.
+    public string LastSeenDisplay { get; } = RelativeTimeDisplay(model.LastSeenAt);
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
-    public string CertificateExpiresDisplay => CertificateExpiresAt is { } expires ? expires.LocalDateTime.ToString("g") : "Unknown";
     // A "Certificate expires" column shown for every row measured as meaningless to evaluators ("why
-    // does connecting a computer involve a certificate?") even when nothing needed attention - so instead
-    // of a column that reads mostly-irrelevant dates, the one case that actually matters (expiring soon)
-    // surfaces as a warning appended to Status, and otherwise this says nothing about certificates at all.
-    public string StatusDisplay => IsRevoked ? "Revoked"
-        : CertificateExpiresAt is { } expires && expires <= DateTimeOffset.UtcNow.AddDays(30)
-            ? $"Allowed — certificate expires {ExpiryRelativeDisplay(expires)}"
-            : "Allowed";
+    // does connecting a computer involve a certificate?") - correctly so: the Source Agent renews its own
+    // certificate starting 30 days before expiry (checked at the start of every backup and once a day
+    // while watching), so a healthy, regularly-connecting computer never approaches expiry at all. The
+    // only case that actually needs a person is a computer that hasn't been seen since that renewal
+    // window opened - it has missed its own chance to renew and genuinely needs Re-pair.
+    public string StatusDisplay
+    {
+        get
+        {
+            if (IsRevoked) return "Revoked";
+            if (CertificateExpiresAt is { } expires)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var renewalWindowStart = expires.AddDays(-30);
+                if (expires <= now) return "Expired — re-pair to reconnect";
+                // Must also check whether the renewal window has actually opened yet - otherwise a
+                // healthy computer seen minutes ago, with a certificate not due for renewal for months,
+                // reads "hasn't been seen since {a still-future date}" as true and wrongly warns.
+                if (now >= renewalWindowStart && LastSeenAt < renewalWindowStart) return $"Offline — re-pair before {expires.LocalDateTime:d}";
+            }
+            return "Connected";
+        }
+    }
     public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 
-    private static string ExpiryRelativeDisplay(DateTimeOffset expires)
+    private static string RelativeTimeDisplay(DateTimeOffset at)
     {
-        var days = (int)Math.Ceiling((expires - DateTimeOffset.UtcNow).TotalDays);
-        return days switch { <= 0 => "today", 1 => "tomorrow", _ => $"in {days} days" };
+        var elapsed = DateTimeOffset.UtcNow - at;
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        return elapsed switch
+        {
+            { TotalSeconds: < 60 } => "just now",
+            { TotalMinutes: < 60 } => $"{(int)elapsed.TotalMinutes} minute(s) ago",
+            { TotalHours: < 24 } => $"{(int)elapsed.TotalHours} hour(s) ago",
+            { TotalDays: < 30 } => $"{(int)elapsed.TotalDays} day(s) ago",
+            _ => at.LocalDateTime.ToString("g")
+        };
     }
 }
 

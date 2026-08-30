@@ -50,16 +50,23 @@ public partial class MainWindow : Window
             {
                 RequireAllTriggerDevicesCheckBox.IsChecked = false;
             }
+            UpdateRequireAllCheckboxVisibility();
         }
         finally { _syncingTriggerSelection = false; }
     }
 
+    // Meaningless (and, per a first-click study, confusing - "why does this assume multiple devices?")
+    // with fewer than two candidates selected, since "require all" and "any one" behave identically then.
+    private void UpdateRequireAllCheckboxVisibility() =>
+        RequireAllTriggerDevicesCheckBox.Visibility = TriggerDevicesListBox.SelectedItems.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
+
     private void OnTriggerDevicesSelectionChanged(object sender, RoutedEventArgs e)
     {
+        UpdateRequireAllCheckboxVisibility();
         if (_syncingTriggerSelection || ViewModel.SelectedBackupSet is not { } selectedSet) return;
         var deviceIds = TriggerDevicesListBox.SelectedItems.Cast<DeviceViewModel>().Select(device => device.Id).ToArray();
         var policy = RequireAllTriggerDevicesCheckBox.IsChecked == true ? BackupSetTriggerPolicy.AllAvailable : BackupSetTriggerPolicy.AnyAvailable;
-        ViewModel.UpdateBackupSetTriggers(selectedSet, deviceIds, policy);
+        _ = ViewModel.UpdateBackupSetTriggersAsync(selectedSet, deviceIds, policy);
     }
 
     // TabControl.SelectionChanged is the same routed event every descendant Selector (ListBox, ComboBox,

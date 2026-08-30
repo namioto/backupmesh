@@ -117,6 +117,46 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public void RecentlyConnectedComputerWithDistantCertificateExpiryIsJustConnected()
+    {
+        // Regression test: a healthy computer, seen minutes ago, whose certificate isn't due for
+        // self-renewal for months, must not be flagged - LastSeenAt (recent past) being earlier than a
+        // still-future renewal window start is not evidence the computer missed that window.
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-4), 2, false, DateTimeOffset.UtcNow.AddDays(75)));
+        Assert.Equal("Connected", connection.StatusDisplay);
+    }
+
+    [Fact]
+    public void ComputerUnseenSinceItsRenewalWindowOpenedNeedsRePairing()
+    {
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Studio Workstation", "Studio Workstation", DateTimeOffset.UtcNow.AddDays(-45), 1, false, DateTimeOffset.UtcNow.AddDays(5)));
+        Assert.StartsWith("Offline — re-pair before", connection.StatusDisplay);
+    }
+
+    [Fact]
+    public void ComputerSeenAfterItsRenewalWindowOpenedIsStillJustConnected()
+    {
+        // The renewal window opened 5 days ago (35-day-out certificate, 30-day renewal threshold), but
+        // this computer was seen 1 day ago - after the window opened - so it has had its chance to renew.
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddDays(-1), 2, false, DateTimeOffset.UtcNow.AddDays(35)));
+        Assert.Equal("Connected", connection.StatusDisplay);
+    }
+
+    [Fact]
+    public void ExpiredCertificateAlwaysNeedsRePairingRegardlessOfLastSeen()
+    {
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-1), 2, false, DateTimeOffset.UtcNow.AddDays(-1)));
+        Assert.Equal("Expired — re-pair to reconnect", connection.StatusDisplay);
+    }
+
+    [Fact]
+    public void RevokedComputerShowsRevokedEvenWithAnExpiringCertificate()
+    {
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddDays(-45), 2, true, DateTimeOffset.UtcNow.AddDays(5)));
+        Assert.Equal("Revoked", connection.StatusDisplay);
+    }
+
+    [Fact]
     public async Task BackupNowEnqueuesEveryConnectedEnabledMapping()
     {
         var sourceId = Guid.NewGuid();

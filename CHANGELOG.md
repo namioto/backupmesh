@@ -64,6 +64,13 @@ A follow-up study (14 blind measurements across two proposed designs plus the or
 - A registered device's name now keeps the drive letter and free space it showed before registration (e.g. "Archive drive (E:\), 465.8 GB free") instead of reverting to a plain name evaluators couldn't confirm was the right physical drive; the Devices grid also gained its own "Free space" column.
 - Demo mode (used by this study and by UiTests) no longer contradicts itself: paired demo computers now appear in Connections too, instead of the tree showing computers with Backup Sets while Connections insisted none were paired.
 
+A second re-measurement against the merged grid's real wording found real improvement (device/computer confusion resolved, the core "back up this folder to that drive" task succeeded for both evaluators), and surfaced why "Certificate expires"/"Allowed" felt like unexplained noise: the Source Agent already renews its own certificate starting 30 days before expiry (checked at the start of every backup and once a day while watching), so a computer that connects at all essentially never needs a person's attention for this - the tray was showing an always-present, mostly-irrelevant countdown for something already being handled automatically:
+
+- A computer's status is now "Connected" (not "Allowed") in the normal case, and only calls out its certificate when the computer hasn't been seen since its 30-day renewal window actually opened - meaning it has genuinely missed its own chance to renew - as "Offline — re-pair before {date}" (or "Expired — re-pair to reconnect" past that date). Both name the exact action (Re-pair) that resolves them, since evaluators could infer what Block access/Remove computer meant but not Re-pair.
+- "Last seen" is relative ("4 minutes ago") instead of an absolute timestamp evaluators had to do the arithmetic on themselves to answer "is this connected right now?" - a question "Allowed"/"Revoked" (a permission, not a connection state) couldn't actually answer.
+- Adding or removing a backup, or changing which devices trigger one, now saves immediately instead of leaving the user responsible for remembering the Settings tab's Save button afterward, or losing the change entirely if they navigate away first.
+- "Require all selected devices at once" only appears once two or more devices are actually selected, instead of always being present with no devices selected, where the premise it assumes plainly doesn't hold.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
