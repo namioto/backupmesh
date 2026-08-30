@@ -91,9 +91,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(() => _ = RemoveMappingAsync());
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
-        RegisterDeviceCommand = new RelayCommand(RegisterDevice);
-        RegisterFolderCommand = new RelayCommand(RegisterFolder);
-        ForgetDeviceCommand = new RelayCommand(ForgetDevice);
+        RegisterDeviceCommand = new RelayCommand(() => _ = RegisterDeviceAsync());
+        RegisterFolderCommand = new RelayCommand(() => _ = RegisterFolderAsync());
+        ForgetDeviceCommand = new RelayCommand(() => _ = ForgetDeviceAsync());
         AddLocalBackupSetCommand = new RelayCommand(() => _ = AddLocalBackupSetAsync());
         RemoveLocalBackupSetCommand = new RelayCommand(() => _ = RemoveLocalBackupSetAsync());
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
@@ -524,7 +524,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         // computer, and must appear here too - otherwise the demo (used both by UiTests and for UX
         // verification) shows a self-contradicting screen: computers with Backup Sets, but "No paired
         // computers yet" in the same merged grid.
-        SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddMinutes(-4), 2, false, DateTimeOffset.UtcNow.AddDays(75))));
+        SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddSeconds(-30), 2, false, DateTimeOffset.UtcNow.AddDays(75))));
         // Demonstrates the "missed its own renewal window" status: last seen well before the renewal
         // window (30 days before expiry) opened, unlike Home Server above which is seen recently enough
         // that its certificate (renewed automatically) never needs a person's attention.
@@ -721,7 +721,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await SaveAsync();
     }
 
-    private void RegisterDevice()
+    private async Task RegisterDeviceAsync()
     {
         if (SelectedAvailableDrive is null) { FooterStatus = "Select a connected drive first."; return; }
         if (Devices.Any(device => string.Equals(device.StableId, SelectedAvailableDrive.StableId, StringComparison.OrdinalIgnoreCase)))
@@ -735,9 +735,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedDevice = registered;
         AddActivity($"Registered device {model.DisplayName}.");
         NotifyCounts();
+        await SaveAsync();
     }
 
-    private void RegisterFolder()
+    private async Task RegisterFolderAsync()
     {
         using var dialog = new Forms.FolderBrowserDialog
         {
@@ -760,8 +761,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Devices.Add(registered);
         SelectedDevice = registered;
         AddActivity($"Registered storage folder {root}.");
-        FooterStatus = "Storage folder registered. Save settings to persist it.";
         NotifyCounts();
+        await SaveAsync();
     }
 
     // "This PC" needs no pairing, Source Agent, or enable step: choosing a folder here is the entire
@@ -808,7 +809,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await SaveAsync();
     }
 
-    private void ForgetDevice()
+    private async Task ForgetDeviceAsync()
     {
         if (SelectedDevice is null) return;
         if (Mappings.Any(mapping => mapping.Device.Id == SelectedDevice.Id))
@@ -823,8 +824,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var displayName = SelectedDevice.DisplayName;
         Devices.Remove(SelectedDevice);
         SelectedDevice = null;
-        FooterStatus = $"Stopped using {displayName}. Backup data on it was not deleted.";
+        AddActivity($"Stopped using {displayName}. Backup data on it was not deleted.");
         NotifyCounts();
+        await SaveAsync();
     }
 
     private void RefreshDrives()
@@ -869,7 +871,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // mutation path that used to call NotifyCounts() alone gets the badge update for free here too.
     private void NotifyCounts()
     {
-        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device(s) connected" : "Waiting for storage";
+        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device{(ConnectedDeviceCount == 1 ? "" : "s")} connected" : "Waiting for storage";
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
@@ -897,6 +899,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     internal static string DeviceArrivalMessage(string displayName, int arrivalDelayMinutes) => arrivalDelayMinutes == 0
         ? $"{displayName} is connected and ready for backup."
         : $"{displayName} is connected. Backups become eligible after its {arrivalDelayMinutes}-minute arrival delay.";
+
+    internal static string Pluralize(int count, string singularNoun) => $"{count} {singularNoun}{(count == 1 ? "" : "s")}";
 
     public void Dispose()
     {
@@ -956,14 +960,20 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     // while watching), so a healthy, regularly-connecting computer never approaches expiry at all. The
     // only case that actually needs a person is a computer that hasn't been seen since that renewal
     // window opened - it has missed its own chance to renew and genuinely needs Re-pair.
+    // The Source Agent's watch loop polls every 5 seconds by default (poll-interval), so a genuinely live
+    // agent's LastSeenAt is always at most a few seconds old; 2 minutes gives generous slack for a slower
+    // configured interval or a brief hiccup without claiming "Connected" for a computer that has actually
+    // gone quiet.
+    private static readonly TimeSpan OnlineThreshold = TimeSpan.FromMinutes(2);
+
     public string StatusDisplay
     {
         get
         {
             if (IsRevoked) return "Revoked";
+            var now = DateTimeOffset.UtcNow;
             if (CertificateExpiresAt is { } expires)
             {
-                var now = DateTimeOffset.UtcNow;
                 var renewalWindowStart = expires.AddDays(-30);
                 if (expires <= now) return "Expired — re-pair to reconnect";
                 // Must also check whether the renewal window has actually opened yet - otherwise a
@@ -971,7 +981,7 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
                 // reads "hasn't been seen since {a still-future date}" as true and wrongly warns.
                 if (now >= renewalWindowStart && LastSeenAt < renewalWindowStart) return $"Offline — re-pair before {expires.LocalDateTime:d}";
             }
-            return "Connected";
+            return now - LastSeenAt <= OnlineThreshold ? "Connected" : "Offline";
         }
     }
     public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
@@ -985,9 +995,9 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
         return elapsed switch
         {
             { TotalSeconds: < 60 } => "just now",
-            { TotalMinutes: < 60 } => $"{(int)elapsed.TotalMinutes} minute(s) ago",
-            { TotalHours: < 24 } => $"{(int)elapsed.TotalHours} hour(s) ago",
-            { TotalDays: < 30 } => $"{(int)elapsed.TotalDays} day(s) ago",
+            { TotalMinutes: < 60 } => MainWindowViewModel.Pluralize((int)elapsed.TotalMinutes, "minute") + " ago",
+            { TotalHours: < 24 } => MainWindowViewModel.Pluralize((int)elapsed.TotalHours, "hour") + " ago",
+            { TotalDays: < 30 } => MainWindowViewModel.Pluralize((int)elapsed.TotalDays, "day") + " ago",
             _ => at.LocalDateTime.ToString("g")
         };
     }
@@ -1021,7 +1031,7 @@ public sealed class BackupSetViewModel : ObservableObject
 
     public string TriggerSummary => Model.TriggerDeviceIds.Count == 0
         ? "Starts automatically when its saved-to device connects"
-        : $"Starts when {Model.TriggerDeviceIds.Count} chosen device(s) connect — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
+        : $"Starts when {MainWindowViewModel.Pluralize(Model.TriggerDeviceIds.Count, "chosen device")} {(Model.TriggerDeviceIds.Count == 1 ? "connects" : "connect")} — {(Model.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "all must connect" : "any one is enough")}";
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;

@@ -71,6 +71,11 @@ A second re-measurement against the merged grid's real wording found real improv
 - Adding or removing a backup, or changing which devices trigger one, now saves immediately instead of leaving the user responsible for remembering the Settings tab's Save button afterward, or losing the change entirely if they navigate away first.
 - "Require all selected devices at once" only appears once two or more devices are actually selected, instead of always being present with no devices selected, where the premise it assumes plainly doesn't hold.
 
+A third pass over the same wording caught that "Connected" (the previous fix's replacement for "Allowed") wasn't actually true for a computer that has been off for months but isn't yet at risk of missing a certificate renewal - it just always showed "Connected" once the certificate checks passed. Status now reflects a computer's real connectivity (last seen within 2 minutes, matching the Source Agent's default 5-second watch poll interval with generous slack) as its own "Connected"/"Offline", independent of the certificate-renewal check:
+
+- Registering a folder as a storage device now saves immediately, matching every other configuration change in this pass; it was the one path still requiring a separate trip to the Settings tab's Save button after the others no longer did.
+- Singular/plural wording ("1 device connected" vs "2 devices connected", "1 minute ago" vs "4 minutes ago") no longer always uses the plural form regardless of count.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
