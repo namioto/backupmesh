@@ -487,6 +487,26 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Equal(5, client.Document.Revision);
     }
 
+    [Fact]
+    public async Task SavingForcesEveryDeviceOntoTheGlobalArrivalDelay()
+    {
+        // The Devices tab's per-device arrival-delay editor is gone, and DefaultArrivalDelayMinutes is
+        // the only place left to see or change this - so it must actually govern already-registered
+        // devices too, not just ones registered after it was last changed, or the setting on screen
+        // would silently disagree with what's really in effect (the same failure mode the removed
+        // trigger-device editor had).
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null, ArrivalDelayMinutes: 90));
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client) { DefaultArrivalDelayMinutes = 5 };
+        await viewModel.RefreshConfigurationAsync();
+        viewModel.Devices.Add(device);
+
+        await viewModel.SaveAsync();
+
+        Assert.Equal(5, device.ArrivalDelayMinutes);
+        Assert.Equal(5, client.Document.Configuration.Devices.Single().ArrivalDelayMinutes);
+    }
+
     private sealed class FakeConfigurationClient(StorageConfigurationDocumentDto document) : IStorageConfigurationClient
     {
         public StorageConfigurationDocumentDto Document { get; private set; } = document;

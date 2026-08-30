@@ -238,7 +238,7 @@
                         <!-- Replaces the removed Devices tab's per-device editor - one default, applied at
                              registration time, rather than a setting revisited per device. -->
                         <StackPanel Orientation="Horizontal" Margin="4,8">
-                            <TextBlock Text="Wait before starting, after a newly registered device connects:" VerticalAlignment="Center"/>
+                            <TextBlock Text="Wait before starting, after any device connects:" VerticalAlignment="Center" ToolTip="Applies to every registered device, not just newly registered ones."/>
                             <TextBox Text="{Binding DefaultArrivalDelayMinutes}" Width="55" Margin="6,0" AutomationProperties.AutomationId="DefaultArrivalDelayInput"/>
                             <TextBlock Text="minutes" VerticalAlignment="Center"/>
                         </StackPanel>

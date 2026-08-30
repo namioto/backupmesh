@@ -169,9 +169,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool NotifyOnDeviceArrival { get; set; } = true;
     public bool AutomaticBackups { get; set; } = true;
     // Replaces the Devices tab's per-device arrival-delay editor (removed with that tab): one global
-    // default, applied to every device at the moment it's registered, rather than a setting a person
-    // had to think to revisit per device. An already-registered device keeps whatever delay it was given
-    // at registration time - changing this default does not retroactively touch it.
+    // default - the only one left in the tray - rather than a setting a person had to think to revisit
+    // per device. It governs every device, not just newly-registered ones: an already-registered device
+    // has no screen left to show or change its own value, so leaving that value in effect after this
+    // changed would silently disagree with what the screen says (the same failure mode the removed
+    // trigger-device editor had). SaveAsync() enforces this by writing this value onto every device.
     public int DefaultArrivalDelayMinutes { get; set; } = 30;
 
     public void StartDeviceMonitoring()
@@ -672,6 +674,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public async Task SaveAsync()
     {
+        // DefaultArrivalDelayMinutes is the only arrival-delay setting left in the tray (the removed
+        // Devices tab's per-device editor is gone) - so it must actually govern every device, not just
+        // ones registered after it was last changed. Forcing every device's value to match on every save
+        // means the model field a device already carries is never silently stale relative to what the
+        // screen says is in effect; StorageMonitor.cs still reads it per device, unchanged, since it's a
+        // single value everywhere by construction from this point on.
+        foreach (var device in Devices) device.ArrivalDelayMinutes = DefaultArrivalDelayMinutes;
         var topology = new StorageAgentConfiguration(
             Devices.Select(device => device.ToModel()).ToArray(),
             BackupSets.Select(set => set.Model).ToArray(),
