@@ -106,6 +106,8 @@ The banner design measured well immediately (always-visible placement, no button
 
 Re-measuring against that wording confirmed the fix worked - both evaluators read "Do not remove" vs. "Safe to remove" as opposites on sight, on the exact task every earlier tab arrangement had failed outright - but found the same safe/unsafe-prefix pattern backfires for the third state: "Safe to remove, but the backup did not finish" reads as a contradiction, since the news that matters there is the failure, not the verdict, and both evaluators hesitated over whether it was actually safe. Reworded to lead with what happened instead: "Backup did not finish — nothing new was saved to {device}. You can still remove it safely. See the Overview tab for details." ("Overview" alone, unqualified, didn't read as a tab to evaluators either.) The other two states keep their measured wording unchanged.
 
+The trigger-devices list let you select more than one device (`SelectionMode="Extended"`), but nothing on screen showed that - only Ctrl+click did, which nobody could discover without already knowing it - even though the radio buttons right next to it exist specifically to ask "what should happen with more than one selected". Each row now shows its own checkbox, mirroring (not replacing) the list's real multi-selection, so picking more than one is visible rather than a hidden gesture.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added

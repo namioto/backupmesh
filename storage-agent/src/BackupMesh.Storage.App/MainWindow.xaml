@@ -172,7 +172,18 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <ListBox x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayName" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox"/>
+                                        <!-- A checkbox per row makes "you can pick more than one" visible without
+                                             requiring the user to already know Ctrl+click - SelectionMode="Extended"
+                                             still drives the underlying multi-selection (and SyncTriggerDevicesSelection's
+                                             programmatic SelectedItems.Add still works), the checkbox just mirrors each
+                                             row's own ListBoxItem.IsSelected instead of being a separate concept. -->
+                                        <ListBox x:Name="TriggerDevicesListBox" ItemsSource="{Binding Devices}" SelectionMode="Extended" Height="90" SelectionChanged="OnTriggerDevicesSelectionChanged" AutomationProperties.AutomationId="TriggerDevicesListBox">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"/>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                         <TextBlock Text="Registered in the Devices tab" Margin="0,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
