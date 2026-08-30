@@ -141,6 +141,13 @@ A follow-up measurement on the Backups grid redesign (2 evaluators) confirmed th
 
 The tray flyout added in the previous commit is now wired up: it appears near the tray icon when a backup starts (a new "Show a status window when a backup starts" Settings toggle, on by default), never takes keyboard focus, and is skipped entirely while a fullscreen app is active. The tray icon's tooltip shows live progress for a running backup instead of just the connected-device count. Completion is still a balloon notification only; the flyout does not reappear for it.
 
+A follow-up measurement on the Source Agents rename (2 evaluators) found the tab title said "Source Agent" while every button and hint on it still said "computer" (both evaluators unsure whether these were the same thing), and that "Source Agent" read as ambiguous on its own - reasonably, since it names software, not the computer it runs on:
+
+- The relationship is now spelled out once at the top of the tab ("Each computer you pair runs a Source Agent that offers folders for backup. This PC is included without one.") and "Source Agent" is used consistently everywhere below it (**Remove Source Agent**, **Pair a Source Agent**, and every action tooltip).
+- "This PC" in the grid now reads **"This PC (no agent needed)"** - both evaluators were unsure why its Address/Status showed "—" with no stated reason.
+- The **Paths served** column is renamed **Offers** (measured: "served" read as technical), matching the new explainer's own wording.
+- The certificate fingerprint/expiry line added below the grid one commit ago is removed - measured as the same failure mode the original "Certificate expires" column had (both evaluators unsure whether it needed action), just relocated rather than fixed. `Status` already names the one case that needs a person ("Offline - re-pair before {date}"); nothing else about a certificate is actionable day-to-day. Server-side recording of the fingerprint is kept for later use - only the UI line is gone.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
