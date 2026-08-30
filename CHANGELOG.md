@@ -124,7 +124,7 @@ The previous commit removed the Trigger-devices editor on the assumption that it
 The Devices tab is removed. Registering a device already moved to the Backups tab's inline dialog in the previous commit, so a standalone tab for it had no remaining reason to exist:
 
 - Its registered-device grid, **Stop using this device**, and **Safely remove selected device** move to a new "Connected storage" group on Overview.
-- The per-device arrival-delay editor (tied to the removed tab) is replaced by one global default in Settings, applied at registration time; an already-registered device keeps whatever delay it was given and is not retroactively changed.
+- The per-device arrival-delay editor (tied to the removed tab) is replaced by one global default in Settings. A review caught the same failure mode as the trigger-devices removal above: an already-registered device kept its own value with no screen left to see or change it, so the global setting could silently disagree with what was actually in effect. Fixed by making the global value authoritative - saving now writes it onto every device, not just newly-registered ones.
 - "Sources & mappings" splits into two tabs - **Backups** (the grid and the New-backup form) and **Computers** (pairing, connections, local Backup Sets) - keeping the tab count at 4 (Overview | Backups | Computers | Settings), matching the earlier measured finding that 5 tabs performed worse than 4 for this project's evaluators.
 
 A Source's network address, previously seen by the server on every request but never recorded:
