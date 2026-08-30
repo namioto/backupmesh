@@ -10,7 +10,7 @@
         <TextBox x:Name="DisplayNameText" Margin="0,0,0,16" AutomationProperties.AutomationId="RenameSourceTextBox"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Cancel" Click="OnCancelClick" IsCancel="True" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="RenameSourceCancelButton"/>
-            <Button Content="Save" Click="OnSaveClick" IsDefault="True" Padding="10,4" AutomationProperties.AutomationId="RenameSourceSaveButton"/>
+            <Button Content="Save" Click="OnSaveClick" Style="{StaticResource PrimaryButtonStyle}" IsDefault="True" Padding="10,4" AutomationProperties.AutomationId="RenameSourceSaveButton"/>
         </StackPanel>
     </StackPanel>
 </Window>

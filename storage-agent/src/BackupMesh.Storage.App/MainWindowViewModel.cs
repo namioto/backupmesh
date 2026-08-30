@@ -120,7 +120,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public int SourceCount => Sources.Count;
     public int MappingCount => Mappings.Count(mapping => mapping.Enabled);
     public BackupSetViewModel? SelectedBackupSet { get => _selectedBackupSet; set => Set(ref _selectedBackupSet, value); }
-    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set => Set(ref _selectedSourceConnection, value); }
+    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) OnPropertyChanged(nameof(HasSelectedSourceConnection)); } }
+    public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }

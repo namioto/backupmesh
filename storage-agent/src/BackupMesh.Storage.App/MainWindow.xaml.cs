@@ -27,6 +27,10 @@ public partial class MainWindow : Window
     private void OnSourceSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (e.NewValue is BackupSetViewModel backupSet) ViewModel.SelectedBackupSet = backupSet;
+        // A source-level tree node (e.g. "This PC") is not a row in the separate Connections grid below
+        // it, so its Revoke/Re-pair/Rename/Forget buttons must not appear to still apply to whatever
+        // connection happened to be selected before.
+        else if (e.NewValue is SourceAgentViewModel) ViewModel.SelectedSourceConnection = null;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

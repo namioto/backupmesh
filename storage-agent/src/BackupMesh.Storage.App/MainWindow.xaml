@@ -40,6 +40,7 @@
                                     <DataGridTextColumn Header="Updated" Binding="{Binding Updated}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                            <TextBlock Text="No backup jobs yet. Jobs appear here once a mapped device is ready and a backup starts." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Jobs.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <Button Grid.Row="1" Content="Cancel selected backup" Command="{Binding CancelJobCommand}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.AutomationId="CancelBackupButton"/>
                         </Grid>
                     </GroupBox>
@@ -70,21 +71,22 @@
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="*"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
+                                    <TextBlock Text="No paired Source Agents yet. Choose Pair Source Agent below to connect one." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding SourceConnections.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
-                                        <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
-                                        <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
-                                        <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" Margin="6,0,0,0" ToolTip="Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
-                                        <Button Content="Rename" Command="{Binding RenameSourceCommand}" Margin="6,0,0,0" ToolTip="Change only what the tray displays for this Source Agent." AutomationProperties.AutomationId="RenameSourceButton"/>
-                                        <Button Content="Forget" Command="{Binding ForgetSourceCommand}" Margin="6,0,0,0" ToolTip="Revoke this Source Agent and remove it from this list. Its Backup Set mappings are kept but stop being reported until it is re-paired." AutomationProperties.AutomationId="ForgetSourceButton"/>
+                                        <Button Content="Revoke" Command="{Binding RevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
+                                        <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="6,0,0,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
+                                        <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="6,0,0,0" ToolTip="Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
+                                        <Button Content="Rename" Command="{Binding RenameSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="6,0,0,0" ToolTip="Change only what the tray displays for this Source Agent." AutomationProperties.AutomationId="RenameSourceButton"/>
+                                        <Button Content="Forget" Command="{Binding ForgetSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" ToolTip="Revoke this Source Agent and remove it from this list. Its Backup Set mappings are kept but stop being reported until it is re-paired." AutomationProperties.AutomationId="ForgetSourceButton"/>
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
                             <StackPanel Grid.Row="2" Margin="4,12,4,4">
-                                <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
-                                <TextBlock Text="Backup sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
+                                <Button Content="Pair Source Agent" Command="{Binding PairSourceCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
+                                <TextBlock Text="Backup Sets are synchronized from paired Source Agents." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <Button Content="Add local Backup Set…" Command="{Binding AddLocalBackupSetCommand}" ToolTip="Back up a folder on this PC directly - no Source Agent or pairing needed." AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
-                                    <Button Content="Remove local Backup Set" Command="{Binding RemoveLocalBackupSetCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
+                                    <Button Content="Add local Backup Set…" Command="{Binding AddLocalBackupSetCommand}" Style="{StaticResource PrimaryButtonStyle}" ToolTip="Back up a folder on this PC directly - no Source Agent or pairing needed." AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
+                                    <Button Content="Remove local Backup Set" Command="{Binding RemoveLocalBackupSetCommand}" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
                                 </StackPanel>
                                 <TextBlock Text="&quot;This PC&quot; is always available as a Source for local folders." TextWrapping="Wrap" Foreground="#607086" Margin="4,4"/>
                             </StackPanel>
@@ -95,29 +97,31 @@
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="MappingsGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Source / Backup set" Binding="{Binding BackupSetName}" Width="2*"/>
+                                    <DataGridTextColumn Header="Source / Backup Set" Binding="{Binding BackupSetName}" Width="2*"/>
                                     <DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="*"/>
                                     <DataGridTextColumn Header="Destination folder" Binding="{Binding DestinationFolder}" Width="2*"/>
                                     <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                            <TextBlock Text="No backup target mappings yet. Choose a Backup Set and a device below, then Add mapping." TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <Grid Grid.Row="1" Margin="0,12,0,0">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0"><TextBlock Text="Backup set" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="BackupSetCombo"/></StackPanel>
+                                <StackPanel Grid.Column="0"><TextBlock Text="Backup Set" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="BackupSetCombo"/></StackPanel>
                                 <StackPanel Grid.Column="1"><TextBlock Text="Device" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="MappingDeviceCombo"/></StackPanel>
                                 <StackPanel Grid.Column="2"><TextBlock Text="Destination folder" Margin="6,0" Foreground="#607086"/><DockPanel><Button Content="Browse…" Command="{Binding BrowseDestinationCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" AutomationProperties.AutomationId="BrowseDestinationButton"/><TextBox Text="{Binding NewDestinationFolder, UpdateSourceTrigger=PropertyChanged}" ToolTip="Folder on the selected device" AutomationProperties.AutomationId="DestinationFolderInput"/></DockPanel></StackPanel>
                                 <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Content="Remove selected" Command="{Binding RemoveMappingCommand}" AutomationProperties.AutomationId="RemoveMappingButton"/>
-                                    <Button Content="Add mapping" Command="{Binding AddMappingCommand}" Background="{StaticResource AccentBrush}" Foreground="White" AutomationProperties.AutomationId="AddMappingButton"/>
+                                    <Button Content="Add mapping" Command="{Binding AddMappingCommand}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="AddMappingButton"/>
                                 </StackPanel>
                             </Grid>
                         </Grid>
                     </GroupBox>
                     <GroupBox Grid.Row="1" Grid.ColumnSpan="2" Header="Trigger devices" Margin="0,10,0,0" Padding="10">
                         <StackPanel>
-                            <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8">
-                                Choose which registered devices, when connected, mean the selected Backup Set's own data has arrived - so an external source device does not need a backup target mapping of its own. Leave none selected to keep the previous automatic behavior (any device whose root contains a source path).
+                            <TextBlock TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"
+                                       ToolTip="An external source device does not need a backup target mapping of its own. Leave none selected to keep the previous automatic behavior: any device whose root contains a source path.">
+                                Pick devices that count as "the selected Backup Set has arrived" when they connect. Leave empty to keep the automatic behavior.
                             </TextBlock>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -145,15 +149,16 @@
                             <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <TextBlock Text="No devices registered yet. Pick a detected drive below and Register selected device, or Register folder…" TextWrapping="Wrap" Foreground="#8493A6" Margin="8" VerticalAlignment="Top" IsHitTestVisible="False" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                     <StackPanel Grid.Row="1" Margin="0,12,0,0">
                         <StackPanel Orientation="Horizontal">
                             <ComboBox Width="360" ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedAvailableDrive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="AvailableDrivesCombo"/>
                             <Button Content="Refresh drives" Command="{Binding RefreshDrivesCommand}" AutomationProperties.AutomationId="RefreshDrivesButton"/>
-                            <Button Content="Register selected device" Command="{Binding RegisterDeviceCommand}" AutomationProperties.AutomationId="RegisterDeviceButton"/>
+                            <Button Content="Register selected device" Command="{Binding RegisterDeviceCommand}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="RegisterDeviceButton"/>
                             <Button Content="Register folder…" Command="{Binding RegisterFolderCommand}" ToolTip="Use a local or network folder as a logical storage device." AutomationProperties.AutomationId="RegisterFolderButton"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="Forget selected device" Command="{Binding ForgetDeviceCommand}" AutomationProperties.AutomationId="ForgetDeviceButton"/>
+                            <Button Content="Forget selected device" Command="{Binding ForgetDeviceCommand}" Style="{StaticResource DangerButtonStyle}" AutomationProperties.AutomationId="ForgetDeviceButton"/>
                             <Button Content="Safely remove selected device" Command="{Binding EjectDeviceCommand}" AutomationProperties.AutomationId="EjectDeviceButton"/>
                             <TextBlock Text="Selected device arrival delay" Margin="18,0,6,0" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding SelectedDevice.ArrivalDelayMinutes}" Width="55" AutomationProperties.AutomationId="ArrivalDelayInput"/>
@@ -164,22 +169,24 @@
             </TabItem>
 
             <TabItem Header="Settings" AutomationProperties.AutomationId="SettingsTab">
-                <StackPanel Margin="24" MaxWidth="650" HorizontalAlignment="Left">
-                    <TextBlock Text="Automation" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <CheckBox Content="Start BackupMesh when I sign in" IsChecked="{Binding StartWithWindows}" Margin="4,8" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
-                    <CheckBox Content="Show a Windows notification when a registered device is connected" IsChecked="{Binding NotifyOnDeviceArrival}" Margin="4,8" AutomationProperties.AutomationId="NotifyOnDeviceArrivalCheckBox"/>
-                    <CheckBox Content="Automatically start eligible backups after the grace period" IsChecked="{Binding AutomaticBackups}" Margin="4,8" AutomationProperties.AutomationId="AutomaticBackupsCheckBox"/>
-                    <Separator Margin="0,18"/>
-                    <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Fixed drives, removable storage, and registered local or network folders are supported." TextWrapping="Wrap" Foreground="#526276"/>
-                    <Button Content="Save settings" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,18,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
-                    <Separator Margin="0,18"/>
-                    <TextBlock Text="Security" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="#526276" Margin="0,0,0,10">
-                        Rotating the Storage identity regenerates its certificate authority and server certificate. Every currently paired Source Agent loses access until it is re-paired, and the change only takes effect after the BackupMesh Storage service is restarted.
-                    </TextBlock>
-                    <Button Content="Rotate Storage identity" Command="{Binding RotateStorageIdentityCommand}" HorizontalAlignment="Left" AutomationProperties.AutomationId="RotateStorageIdentityButton"/>
-                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="24" MaxWidth="650" HorizontalAlignment="Left">
+                        <TextBlock Text="Automation" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                        <CheckBox Content="Start BackupMesh when I sign in" IsChecked="{Binding StartWithWindows}" Margin="4,8" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
+                        <CheckBox Content="Show a Windows notification when a registered device is connected" IsChecked="{Binding NotifyOnDeviceArrival}" Margin="4,8" AutomationProperties.AutomationId="NotifyOnDeviceArrivalCheckBox"/>
+                        <CheckBox Content="Automatically start eligible backups after the grace period" IsChecked="{Binding AutomaticBackups}" Margin="4,8" AutomationProperties.AutomationId="AutomaticBackupsCheckBox"/>
+                        <Separator Margin="0,18"/>
+                        <TextBlock Text="Data location" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="Choose a destination folder for every backup target. BackupMesh internally keeps the folder relative to its registered device so removable-drive letter changes do not break mappings. Fixed drives, removable storage, and registered local or network folders are supported." TextWrapping="Wrap" Foreground="#526276"/>
+                        <Button Content="Save settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" Margin="0,18,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
+                        <Separator Margin="0,18"/>
+                        <TextBlock Text="Security" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#526276" Margin="0,0,0,10">
+                            Rotating the Storage identity regenerates its certificate authority and server certificate. Every currently paired Source Agent loses access until it is re-paired, and the change only takes effect after the BackupMesh Storage service is restarted.
+                        </TextBlock>
+                        <Button Content="Rotate Storage identity" Command="{Binding RotateStorageIdentityCommand}" Style="{StaticResource DangerButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,24" AutomationProperties.AutomationId="RotateStorageIdentityButton"/>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

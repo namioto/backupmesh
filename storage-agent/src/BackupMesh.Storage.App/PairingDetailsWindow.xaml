@@ -27,7 +27,7 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="CopyStatus" Foreground="#2E7D32" VerticalAlignment="Center" Margin="0,0,10,0" AutomationProperties.AutomationId="CopyPairingStatusText"/>
-            <Button Content="Copy to clipboard" Click="OnCopyClick" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="CopyPairingCodeButton"/>
+            <Button Content="Copy to clipboard" Click="OnCopyClick" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="CopyPairingCodeButton"/>
             <Button Content="Close" Click="OnCloseClick" IsCancel="True" Padding="10,4" AutomationProperties.AutomationId="ClosePairingDialogButton"/>
         </StackPanel>
     </StackPanel>

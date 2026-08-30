@@ -26,6 +26,16 @@ All notable changes to BackupMesh are documented in this file.
 - A standalone Windows Source Agent installer (`build-windows-source-installer.ps1`, wrapping `Install-BackupMeshSource.ps1`) for a Windows PC that is a Source only, with no Storage Agent of its own - for example, a laptop backing up to a Storage PC elsewhere on the network. It installs entirely under `%LOCALAPPDATA%` with a per-user Scheduled Task and needs no administrator rights. Not needed, and not used, for backing up the Storage Agent's own PC - see "This PC" above. Verified with a real pairing and catalog sync against a live Storage Service on this machine; the Scheduled Task registration itself has not been exercised through a full install run in this session.
 - `install.sh` now prompts interactively for an Agent name and first Backup Set (writing a minimal YAML config) and offers to run `pair` immediately, instead of only leaving a generic template to edit by hand; unattended installs are unaffected.
 
+### Changed
+
+Tray UX pass based on a design review of real screenshots:
+
+- The Settings tab no longer clips **Rotate Storage identity** off the bottom of the window - its content now scrolls.
+- Destructive/access-reducing actions (**Revoke**, **Forget** a Source, **Remove local Backup Set**, **Forget** a device, **Rotate Storage identity**) are now visually distinct (red) from safe actions, which consistently use the accent color as their one primary action per group.
+- The Connections panel's **Revoke/Restore access/Re-pair/Rename/Forget** buttons are disabled with nothing selected, and selecting a Source in the tree above (including "This PC", which has no certificate or connection to act on) now clears a stale Connections-grid selection instead of leaving its buttons looking active for an unrelated row.
+- Empty grids (Devices, Backup jobs, Backup targets, Connections) show a one-line hint instead of just a blank grid.
+- Consistent "Backup Set" capitalization throughout the tray; the Trigger devices explainer is shorter, with the technical caveat moved into a tooltip.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
