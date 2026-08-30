@@ -192,8 +192,13 @@ public sealed class StorageConfigurationViewModelTests
 
         var banner = Assert.Single(viewModel.RemovalBanners);
         Assert.Equal(DeviceRemovalBannerKind.SafeButIncomplete, banner.Kind);
-        Assert.StartsWith("Safe to remove, but", banner.Message);
-        Assert.Contains("did not finish", banner.Message);
+        // Unlike Safe/BackingUp, this one leads with the fact that matters (the backup didn't finish),
+        // not the safe/unsafe verdict - measured: a "Safe to remove, but..." prefix here read as a
+        // contradiction ("is it safe or not?") that made evaluators hesitate on a question the other two
+        // states answer instantly.
+        Assert.StartsWith("Backup did not finish", banner.Message);
+        Assert.Contains("You can still remove it safely", banner.Message);
+        Assert.Contains("Overview tab", banner.Message);
         Assert.DoesNotContain("finished all backups", banner.Message);
         Assert.True(banner.ShowRemoveButton, "A failed backup still means nothing is actively writing to the device, so removal must remain offered.");
     }

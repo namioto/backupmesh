@@ -287,7 +287,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = exception.Code switch
             {
                 "STORAGE_BUSY" => $"Can't remove {device.DisplayName} yet — a backup is still running. Wait a moment and try again.",
-                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message} Close any window or program using the drive, then try again.",
+                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message} Close any File Explorer window or app using the drive, then try again.",
                 _ => $"Safe removal was refused: {exception.Message}"
             };
         }
@@ -1242,7 +1242,11 @@ public sealed class DeviceRemovalBannerViewModel
     }
 
     public static DeviceRemovalBannerViewModel Finished(DeviceViewModel device, bool anyDidNotFinish) => anyDidNotFinish
-        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"Safe to remove, but the backup did not finish — nothing new was saved to {device.DisplayNameWithRoot}. See Overview for details.", showRemoveButton: true)
+        // Unlike the other two states, "is it safe to remove" is not the main news here - the backup not
+        // finishing is - so the safe/unsafe prefix pattern used for those two backfires: measured as
+        // reading like a contradiction ("safe... but... did not finish?") that made evaluators hesitate
+        // on a question ("can I remove it?") the other two states answered instantly with the same lead.
+        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"Backup did not finish — nothing new was saved to {device.DisplayNameWithRoot}. You can still remove it safely. See the Overview tab for details.", showRemoveButton: true)
         : new(device, DeviceRemovalBannerKind.Safe, $"Safe to remove — {device.DisplayNameWithRoot} finished all backups.", showRemoveButton: true);
 }
 

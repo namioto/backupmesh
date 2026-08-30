@@ -104,6 +104,8 @@ The banner design measured well immediately (always-visible placement, no button
 - "Storage" - an internal name for this service - leaked into the STORAGE_BUSY eject-failure message; replaced with "a backup is still running", and the EJECT_REFUSED one now ends with a concrete next step ("Close any window or program using the drive, then try again.") instead of leaving the user to guess which program to close.
 - The backing-up banner now includes a rough time remaining when one can be estimated ("...is backing up now (about 4 minutes left)."), reusing the same estimate the Overview tab's job list already computes.
 
+Re-measuring against that wording confirmed the fix worked - both evaluators read "Do not remove" vs. "Safe to remove" as opposites on sight, on the exact task every earlier tab arrangement had failed outright - but found the same safe/unsafe-prefix pattern backfires for the third state: "Safe to remove, but the backup did not finish" reads as a contradiction, since the news that matters there is the failure, not the verdict, and both evaluators hesitated over whether it was actually safe. Reworded to lead with what happened instead: "Backup did not finish — nothing new was saved to {device}. You can still remove it safely. See the Overview tab for details." ("Overview" alone, unqualified, didn't read as a tab to evaluators either.) The other two states keep their measured wording unchanged.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
