@@ -543,6 +543,7 @@ paths:
                     agent_name: {type: string, description: The tray's display name - a rename override if one was set, otherwise the same as reported_agent_name.}
                     reported_agent_name: {type: string, description: The name the Source Agent itself reports in its catalog sync, unaffected by tray renames.}
                     last_seen_at: {type: string, format: date-time}
+                    address: {type: string, nullable: true, description: 'The caller address seen on this Source''s most recent catalog upload (POST /source/catalog) - the same event last_seen_at is derived from. Null until it has published a catalog at least once. DHCP-assigned and not a stable identity; the certificate fingerprint is.'}
                     backup_set_count: {type: integer, minimum: 0}
                     revoked: {type: boolean}
                     certificate_expires_at: {type: string, format: date-time, nullable: true, description: 'Null if this Source paired only through the deprecated file-bundle path.'}

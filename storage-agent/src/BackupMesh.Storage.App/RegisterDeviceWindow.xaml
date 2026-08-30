@@ -6,8 +6,11 @@
         AutomationProperties.AutomationId="RegisterDeviceWindow">
     <StackPanel Margin="20">
         <TextBlock Text="Register a drive or folder" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <TextBlock Text="Registering here works the same as on the Devices tab - pick a connected drive below, or register a folder instead. Once it's registered, it's selected below automatically." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
-        <TextBlock Text="Connected drive" Foreground="#607086"/>
+        <TextBlock Text="Pick a connected drive below, or register a folder instead. Once it's registered, it's selected automatically for the backup you're creating." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
+        <DockPanel Margin="0,0,0,2">
+            <TextBlock Text="Connected drive" Foreground="#607086" DockPanel.Dock="Left"/>
+            <Button Content="Refresh" Command="{Binding RefreshDrivesCommand}" DockPanel.Dock="Right" HorizontalAlignment="Right" Padding="8,2" AutomationProperties.AutomationId="RegisterDeviceDialogRefreshButton"/>
+        </DockPanel>
         <ComboBox ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedAvailableDrive}" DisplayMemberPath="DisplayName" Margin="0,2,0,16" AutomationProperties.AutomationId="RegisterDeviceDialogDriveCombo"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Register folder instead…" Click="OnRegisterFolderClick" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="RegisterDeviceDialogFolderButton"/>

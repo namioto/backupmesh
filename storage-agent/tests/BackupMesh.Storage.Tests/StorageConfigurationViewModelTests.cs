@@ -277,14 +277,14 @@ public sealed class StorageConfigurationViewModelTests
         // Regression test: a healthy computer, seen moments ago, whose certificate isn't due for
         // self-renewal for months, must not be flagged - LastSeenAt (recent past) being earlier than a
         // still-future renewal window start is not evidence the computer missed that window.
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddSeconds(-30), 2, false, DateTimeOffset.UtcNow.AddDays(75)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddSeconds(-30), null, 2, false, DateTimeOffset.UtcNow.AddDays(75)));
         Assert.Equal("Connected", connection.StatusDisplay);
     }
 
     [Fact]
     public void ComputerUnseenSinceItsRenewalWindowOpenedNeedsRePairing()
     {
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Studio Workstation", "Studio Workstation", DateTimeOffset.UtcNow.AddDays(-45), 1, false, DateTimeOffset.UtcNow.AddDays(5)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Studio Workstation", "Studio Workstation", DateTimeOffset.UtcNow.AddDays(-45), null, 1, false, DateTimeOffset.UtcNow.AddDays(5)));
         Assert.StartsWith("Offline — re-pair before", connection.StatusDisplay);
     }
 
@@ -295,7 +295,7 @@ public sealed class StorageConfigurationViewModelTests
         // this computer was seen moments ago - after the window opened - so it has had its chance to
         // renew. Seen just now (not merely "after the window opened") so this also stays within the
         // separate real-time online threshold, isolating the renewal-window check from that one.
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddSeconds(-30), 2, false, DateTimeOffset.UtcNow.AddDays(35)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddSeconds(-30), null, 2, false, DateTimeOffset.UtcNow.AddDays(35)));
         Assert.Equal("Connected", connection.StatusDisplay);
     }
 
@@ -304,21 +304,21 @@ public sealed class StorageConfigurationViewModelTests
     {
         // Real connectivity is a separate axis from the certificate-renewal check above: a computer can
         // be in no danger of missing its renewal window and still not be connected right now.
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-10), 2, false, DateTimeOffset.UtcNow.AddDays(75)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-10), null, 2, false, DateTimeOffset.UtcNow.AddDays(75)));
         Assert.Equal("Offline", connection.StatusDisplay);
     }
 
     [Fact]
     public void ExpiredCertificateAlwaysNeedsRePairingRegardlessOfLastSeen()
     {
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-1), 2, false, DateTimeOffset.UtcNow.AddDays(-1)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddMinutes(-1), null, 2, false, DateTimeOffset.UtcNow.AddDays(-1)));
         Assert.Equal("Expired — re-pair to reconnect", connection.StatusDisplay);
     }
 
     [Fact]
     public void RevokedComputerShowsRevokedEvenWithAnExpiringCertificate()
     {
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddDays(-45), 2, true, DateTimeOffset.UtcNow.AddDays(5)));
+        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow.AddDays(-45), null, 2, true, DateTimeOffset.UtcNow.AddDays(5)));
         Assert.Equal("Revoked", connection.StatusDisplay);
     }
 

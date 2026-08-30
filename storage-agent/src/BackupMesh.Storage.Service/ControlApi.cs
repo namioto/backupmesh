@@ -37,7 +37,15 @@ public sealed record BackupCommandAcknowledgementRequest([property: JsonProperty
 public sealed record BackupCommandResultRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record BackupCommandCompletionRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string State, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
-public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
+public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets)
+{
+    // The Source Agent's network address as observed by the Storage Agent when this catalog was uploaded
+    // (HttpContext.Connection.RemoteIpAddress). Server-set; any value supplied by the client is ignored and
+    // overwritten. Null until the Source has published a catalog. Captured at the same event LastSeenAt
+    // (GET /sources) is derived from, so the two describe the same moment rather than two different ones.
+    [JsonPropertyName("address")]
+    public string? Address { get; init; }
+}
 public sealed record PairingExchangeRequest([property: JsonPropertyName("code"), Required, StringLength(64, MinimumLength = 20)] string Code, [property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("agent_name"), Required, StringLength(128, MinimumLength = 1)] string AgentName);
 public sealed record PairingSessionRequest([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
 public sealed record SourceRenameRequest([property: JsonPropertyName("display_name"), StringLength(128)] string? DisplayName);
@@ -511,6 +519,7 @@ public static class ControlApi
             if (!AgentMatches(http, catalog.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot publish another Source catalog.");
             if (catalog.SourceAgentId == Guid.Empty || catalog.UpdatedAt == default || catalog.BackupSets.Any(set => set.BackupSetId == Guid.Empty || set.SourcePaths.Any(string.IsNullOrWhiteSpace)) || catalog.BackupSets.Select(set => set.BackupSetId).Distinct().Count() != catalog.BackupSets.Length)
                 return Problem(400, "INVALID_REQUEST", "Catalog IDs, timestamps, Backup Set IDs, and source paths must be valid and unique.");
+            catalog = catalog with { Address = http.Connection.RemoteIpAddress?.ToString() };
             var outcome = catalogs.Upsert(catalog);
             if (outcome == StoreOutcome.InvalidSequence)
                 return Problem(409, "STALE_CATALOG", "A newer catalog from this Source Agent is already stored.");
@@ -531,6 +540,7 @@ public static class ControlApi
                 agent_name = displayNames.Get(catalog.SourceAgentId) ?? catalog.SourceAgentName,
                 reported_agent_name = catalog.SourceAgentName,
                 last_seen_at = catalog.UpdatedAt,
+                address = catalog.Address,
                 backup_set_count = catalog.BackupSets.Length,
                 revoked = revoked.Contains(catalog.SourceAgentId),
                 certificate_expires_at = issuedCertificates.GetExpiry(catalog.SourceAgentId)

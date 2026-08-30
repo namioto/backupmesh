@@ -32,4 +32,11 @@ public sealed class SettingsTabTests : IClassFixture<StorageAppFixture>
     {
         Assert.NotNull(Find("RotateStorageIdentityButton").AsButton());
     }
+
+    // Replaces the removed Devices tab's per-device arrival-delay editor with one global default.
+    [Fact]
+    public void DefaultArrivalDelayInput_IsPresent()
+    {
+        Assert.NotNull(Find("DefaultArrivalDelayInput").AsTextBox());
+    }
 }

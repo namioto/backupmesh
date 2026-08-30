@@ -1,18 +1,20 @@
-using System.Linq;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Tools;
 using Xunit;
 
 namespace BackupMesh.Storage.UiTests;
 
-public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
+// Renamed from SourcesTabTests when the former "Sources & mappings" tab split into this tab and
+// BackupsTab (peer review) - the Computers grid, pairing, and local-backup-set actions all stayed
+// together since they're all about a computer's own identity, not about where its backups land.
+public sealed class ComputersTabTests : IClassFixture<StorageAppFixture>
 {
     private readonly StorageAppFixture _fixture;
 
-    public SourcesTabTests(StorageAppFixture fixture)
+    public ComputersTabTests(StorageAppFixture fixture)
     {
         _fixture = fixture;
-        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SourcesMappingsTab")).AsTabItem().Select();
+        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("ComputersTab")).AsTabItem().Select();
     }
 
     private AutomationElement Find(string automationId)
@@ -46,14 +48,8 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         var footer = Find("FooterStatusText");
         Retry.WhileFalse(() => footer.Name.Contains("Pairing session could not be created", StringComparison.Ordinal), TimeSpan.FromSeconds(10));
 
-        _fixture.TrySaveScreenshot("sources-after-pair-attempt.png");
+        _fixture.TrySaveScreenshot("computers-after-pair-attempt.png");
         Assert.Contains("Pairing session could not be created", footer.Name, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void MappingsGrid_IsReachableByAutomationId()
-    {
-        Assert.NotNull(Find("MappingsGrid").AsDataGridView());
     }
 
     [Fact]
@@ -82,47 +78,6 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
         Assert.NotNull(Find("ForgetSourceButton").AsButton());
     }
 
-    /// <summary>
-    /// The per-row "Trigger devices" editor removed in this commit (a study found the default - start
-    /// when the mapped device connects, no explicit choice - already covers the common case, and the
-    /// editor itself was reachable-but-unused) doubled as a regression guard for the full
-    /// register-device -> add-mapping -> grid-row pipeline. This replaces that coverage: P0-2 (this
-    /// project's own history) was a control present in XAML but pushed off-screen and found only by a
-    /// human looking at a screenshot, so a created backup must still produce a selectable grid row rather
-    /// than silently failing partway through the flow. Also exercises the inline "New…" device-registration
-    /// dialog next to the destination combo, added in the same commit, instead of the Devices tab.
-    /// </summary>
-    [Fact]
-    public void MappingsGridShowsARowAfterRegisteringAndMappingADeviceInline()
-    {
-        Find("OpenRegisterDeviceDialogButton").AsButton().Invoke();
-        var dialog = Retry.WhileNull(
-            () => _fixture.GetAllTopLevelWindows().FirstOrDefault(window => window.AutomationId == "RegisterDeviceWindow"),
-            TimeSpan.FromSeconds(10)).Result;
-        Assert.NotNull(dialog);
-        var drives = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("RegisterDeviceDialogDriveCombo")).AsComboBox();
-        Retry.WhileEmpty(() => drives.Items, TimeSpan.FromSeconds(10));
-        drives.Select(0);
-        dialog.FindFirstDescendant(cf => cf.ByAutomationId("RegisterDeviceDialogRegisterButton")).AsButton().Invoke();
-
-        var backupSets = Find("BackupSetCombo").AsComboBox();
-        Retry.WhileEmpty(() => backupSets.Items, TimeSpan.FromSeconds(10));
-        backupSets.Select(0);
-        var devices = Find("MappingDeviceCombo").AsComboBox();
-        Retry.WhileEmpty(() => devices.Items, TimeSpan.FromSeconds(10));
-        devices.Select(0);
-        Find("DestinationFolderInput").AsTextBox().Text = "BackupMesh\\UiTestInline";
-        Find("AddMappingButton").AsButton().Invoke();
-
-        var grid = Find("MappingsGrid");
-        var row = Retry.WhileNull(() => grid.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.DataItem)), TimeSpan.FromSeconds(10)).Result;
-        Assert.NotNull(row);
-        row!.Patterns.SelectionItem.Pattern.Select();
-
-        Find("RemoveMappingButton").AsButton().Invoke();
-        Retry.WhileNotNull(() => grid.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.DataItem)), TimeSpan.FromSeconds(10));
-    }
-
     [Fact]
     public void AddAndRemoveLocalBackupSetButtons_ArePresent()
     {
@@ -141,5 +96,12 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     {
         var grid = Find("SourceConnectionsGrid");
         Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC");
+    }
+
+    [Fact]
+    public void AddressColumnIsPresentInTheComputersGrid()
+    {
+        var grid = Find("SourceConnectionsGrid");
+        Assert.Contains(grid.FindAllDescendants(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.HeaderItem)), header => header.Name == "Address");
     }
 }

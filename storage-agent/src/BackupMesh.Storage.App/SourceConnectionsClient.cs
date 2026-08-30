@@ -9,6 +9,7 @@ public sealed record SourceConnectionDto(
     [property: JsonPropertyName("agent_name")] string AgentName,
     [property: JsonPropertyName("reported_agent_name")] string ReportedAgentName,
     [property: JsonPropertyName("last_seen_at")] DateTimeOffset LastSeenAt,
+    [property: JsonPropertyName("address")] string? Address,
     [property: JsonPropertyName("backup_set_count")] int BackupSetCount,
     [property: JsonPropertyName("revoked")] bool Revoked,
     [property: JsonPropertyName("certificate_expires_at")] DateTimeOffset? CertificateExpiresAt);

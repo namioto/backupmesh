@@ -16,7 +16,6 @@ public sealed record AppNotification(string Title, string Message, bool IsError 
 
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
-    private const int NewDeviceArrivalDelayMinutes = 30;
     private readonly ConfigurationStore _store = new();
     private readonly IDeviceInventory _deviceInventory;
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -169,6 +168,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
     public bool AutomaticBackups { get; set; } = true;
+    // Replaces the Devices tab's per-device arrival-delay editor (removed with that tab): one global
+    // default, applied to every device at the moment it's registered, rather than a setting a person
+    // had to think to revisit per device. An already-registered device keeps whatever delay it was given
+    // at registration time - changing this default does not retroactively touch it.
+    public int DefaultArrivalDelayMinutes { get; set; } = 30;
 
     public void StartDeviceMonitoring()
     {
@@ -607,6 +611,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         StartWithWindows = state.StartWithWindows;
         NotifyOnDeviceArrival = state.NotifyOnDeviceArrival;
         AutomaticBackups = state.AutomaticBackups;
+        DefaultArrivalDelayMinutes = state.DefaultArrivalDelayMinutes;
 
         foreach (var device in state.Topology.Devices) Devices.Add(new(device));
         foreach (var group in state.Topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
@@ -646,11 +651,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         // computer, and must appear here too - otherwise the demo (used both by UiTests and for UX
         // verification) shows a self-contradicting screen: computers with Backup Sets, but "No paired
         // computers yet" in the same merged grid.
-        SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddSeconds(-30), 2, false, DateTimeOffset.UtcNow.AddDays(75))));
+        SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddSeconds(-30), "192.168.1.42", 2, false, DateTimeOffset.UtcNow.AddDays(75))));
         // Demonstrates the "missed its own renewal window" status: last seen well before the renewal
         // window (30 days before expiry) opened, unlike Home Server above which is seen recently enough
         // that its certificate (renewed automatically) never needs a person's attention.
-        SourceConnections.Add(new(new(workstation.Id, workstation.DisplayName, workstation.DisplayName, DateTimeOffset.UtcNow.AddDays(-45), 1, false, DateTimeOffset.UtcNow.AddDays(5))));
+        SourceConnections.Add(new(new(workstation.Id, workstation.DisplayName, workstation.DisplayName, DateTimeOffset.UtcNow.AddDays(-45), "192.168.1.77", 1, false, DateTimeOffset.UtcNow.AddDays(5))));
         ApplySourceConnections();
 
         SelectedBackupSet = BackupSets.FirstOrDefault();
@@ -692,7 +697,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {
-                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups));
+                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes));
                 ConfigureStartup(StartWithWindows);
             }
             FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
@@ -863,7 +868,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "That device is already registered.";
             return;
         }
-        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
+        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DefaultArrivalDelayMinutes);
         var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true, AvailableBytes = SelectedAvailableDrive.AvailableBytes, TotalBytes = SelectedAvailableDrive.TotalBytes };
         Devices.Add(registered);
         SelectedDevice = registered;
@@ -888,7 +893,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
         var displayName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } name ? name : root;
-        var model = new RegisteredDevice(Guid.NewGuid(), stableId, displayName, "Folder", root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, NewDeviceArrivalDelayMinutes);
+        var model = new RegisteredDevice(Guid.NewGuid(), stableId, displayName, "Folder", root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DefaultArrivalDelayMinutes);
         var registered = new DeviceViewModel(model) { CurrentRoot = root, IsConnected = true, CanEject = false };
         try { var driveInfo = new DriveInfo(Path.GetPathRoot(root) ?? root); registered.AvailableBytes = driveInfo.AvailableFreeSpace; registered.TotalBytes = driveInfo.TotalSize; }
         catch (Exception exception) when (exception is ArgumentException or IOException) { }
@@ -1091,10 +1096,11 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
     public SourceConnectionViewModel? Connection
     {
         get => _connection;
-        set { if (Set(ref _connection, value)) { OnPropertyChanged(nameof(LastSeenDisplay)); OnPropertyChanged(nameof(StatusDisplay)); } }
+        set { if (Set(ref _connection, value)) { OnPropertyChanged(nameof(LastSeenDisplay)); OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(AddressDisplay)); } }
     }
     public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
     public string StatusDisplay => Connection?.StatusDisplay ?? "—";
+    public string AddressDisplay => Connection?.AddressDisplay ?? "—";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -1109,6 +1115,10 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     // "just now" from "yesterday"; relative phrasing answers the question ("is this computer connected
     // right now?") directly instead of via Status, which describes access, not connectivity.
     public string LastSeenDisplay { get; } = MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
+    // Captured server-side at the same moment as LastSeenAt (the Source's most recent catalog upload), so
+    // the two describe the same event rather than two different points in time. DHCP-mutable and shown for
+    // context only - the certificate fingerprint below is this Source's actual identity.
+    public string AddressDisplay => model.Address ?? "—";
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;
@@ -1351,7 +1361,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
     }
 }
 
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true);
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30);
 
 internal sealed class ConfigurationStore
 {
