@@ -29,6 +29,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ISourceConnectionsClient _connectionsClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
+    // Mappings this session paused via the tray flyout's "Skip this time" - tracked separately from a
+    // mapping the user disabled deliberately and permanently via the Backups grid's own checkbox, so
+    // reconnecting the device only ever restores the ones *this* skip touched, never a mapping that was
+    // already off before the skip happened.
+    private readonly HashSet<Guid> _skipDisabledMappingIds = [];
     private BackupSetViewModel? _selectedBackupSet;
     private SourceAgentViewModel? _selectedSourceAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
@@ -579,9 +584,41 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public void QueueSelectedBackups() => _ = QueueEligibleBackupsAsync();
 
-    public async Task QueueEligibleBackupsAsync()
+    // The tray flyout's "Start now" on a pending-arrival card needs exactly this same "enqueue
+    // immediately, bypassing the arrival delay" behavior for one specific device - StorageMonitorService
+    // (the Windows Service background loop) is what actually enforces ArrivalDelayMinutes, entirely
+    // independent of this client, so there is no delay to "cancel" client-side; enqueuing the job directly
+    // is the correct way to start it now regardless of what the service's own poll timer is waiting on.
+    public Task QueueBackupsForDeviceAsync(Guid deviceId) => QueueEligibleBackupsAsync(mapping => mapping.Device.Id == deviceId);
+
+    // "Skip this time" (tray flyout) must actually prevent the automatic backup it's warning about, not
+    // just dismiss its own card - StorageMonitorService enqueues arrival commands entirely on its own
+    // background poll, so the only lever this client has over that decision is the same Enabled flag the
+    // Backups grid's own checkbox uses (BuildArrivalDrafts filters on mapping.Enabled server-side). Scoped
+    // to "this connection" by RestoreSkippedMappings, called from RefreshDrives() the moment the device
+    // disconnects - never left disabled past that, and never touching a mapping the user had already
+    // turned off before the skip.
+    public async Task SkipDeviceThisConnectionAsync(Guid deviceId)
     {
-        var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected).ToArray();
+        var affected = Mappings.Where(mapping => mapping.Device.Id == deviceId && mapping.Enabled).ToArray();
+        if (affected.Length == 0) return;
+        foreach (var mapping in affected) { mapping.SetEnabledWithoutSaving(false); _skipDisabledMappingIds.Add(mapping.Id); }
+        await SaveAsync();
+    }
+
+    private async Task RestoreSkippedMappings(Guid deviceId)
+    {
+        var affected = Mappings.Where(mapping => mapping.Device.Id == deviceId && _skipDisabledMappingIds.Contains(mapping.Id)).ToArray();
+        if (affected.Length == 0) return;
+        foreach (var mapping in affected) { mapping.SetEnabledWithoutSaving(true); _skipDisabledMappingIds.Remove(mapping.Id); }
+        await SaveAsync();
+    }
+
+    public Task QueueEligibleBackupsAsync() => QueueEligibleBackupsAsync(_ => true);
+
+    private async Task QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
+    {
+        var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected && filter(mapping)).ToArray();
         if (eligible.Length == 0)
         {
             const string noTargets = "No mapped backup is currently eligible.";
@@ -1012,6 +1049,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             else if (wasConnected && !device.IsConnected)
             {
                 device.ConnectedAt = null;
+                _ = RestoreSkippedMappings(device.Id);
             }
         }
         _connectedRoots.Clear();
@@ -1308,6 +1346,11 @@ public sealed class MappingViewModel : ObservableObject
     // after a mapping was created, so the column only ever displayed "true". Persists immediately, same
     // as every other in-screen edit this pass made auto-saving.
     public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) _onEnabledChanged?.Invoke(this); } }
+    // For a caller that's about to toggle several mappings at once and save them together (e.g.
+    // MainWindowViewModel.SkipDeviceThisConnection) - the normal setter's per-mapping auto-save would fire
+    // one overlapping SaveAsync() per mapping, and a config revision conflict on any but the first could
+    // leave a mapping toggled in memory but not actually persisted to the server that enforces it.
+    internal void SetEnabledWithoutSaving(bool value) => Set(ref _enabled, value);
     // Consecutive rows sharing the same Source, or the same Source folder, are flagged here so the view
     // can dim the repeated text - recomputed for the whole list by
     // MainWindowViewModel.UpdateMappingRepeatMarkers() whenever Mappings changes, never inferred by the

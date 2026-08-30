@@ -542,9 +542,94 @@ public sealed class StorageConfigurationViewModelTests
         public Task<AutomationSettingsDto> UpdateAutomationAsync(bool enabled, CancellationToken cancellationToken) => Task.FromResult(new AutomationSettingsDto(enabled));
     }
 
+    // Regression coverage for a peer-review finding: Start now / Skip this time on the tray flyout looked
+    // functional but had no effect on whether a backup actually ran - StorageMonitorService (the Windows
+    // Service background loop) enforces the arrival delay entirely on its own, independent of this client,
+    // so a client-local-only "skip" flag could never have worked.
+    [Fact]
+    public async Task SkipDeviceThisConnectionDisablesOnlyThatDevicesCurrentlyEnabledMappings()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var otherDevice = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Other drive", "B", "E:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var alreadyDisabled = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs-a", Enabled: false), set, device);
+        var enabled = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs-b"), set, device);
+        var unrelated = new MappingViewModel(new(Guid.NewGuid(), set.Id, otherDevice.Id, "docs-c"), set, otherDevice);
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        await viewModel.RefreshConfigurationAsync();
+        viewModel.Devices.Add(device);
+        viewModel.Devices.Add(otherDevice);
+        viewModel.BackupSets.Add(set);
+        viewModel.Mappings.Add(alreadyDisabled);
+        viewModel.Mappings.Add(enabled);
+        viewModel.Mappings.Add(unrelated);
+
+        await viewModel.SkipDeviceThisConnectionAsync(device.Id);
+
+        Assert.False(alreadyDisabled.Enabled);
+        Assert.False(enabled.Enabled);
+        Assert.True(unrelated.Enabled);
+        // Persisted, not just changed in memory - StorageMonitorService reads the saved configuration, not
+        // this process's live objects.
+        Assert.Contains(client.Document.Configuration.Mappings, m => m.Id == enabled.Id && !m.Enabled);
+    }
+
+    [Fact]
+    public void SkippedMappingsAreRestoredOnlyWhenTheSameDeviceDisconnectsAgain()
+    {
+        var inventory = new MutableDeviceInventory();
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var alreadyDisabled = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs-a", Enabled: false), set, device);
+        var enabled = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs-b"), set, device);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, deviceInventory: inventory);
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(alreadyDisabled);
+        viewModel.Mappings.Add(enabled);
+
+        inventory.Drives = [new("disk:a", "D:\\", "ARCHIVE", 100, 200, "Archive drive", 1, true)];
+        viewModel.RefreshDrivesCommand.Execute(null);
+        _ = viewModel.SkipDeviceThisConnectionAsync(device.Id);
+
+        Assert.False(enabled.Enabled);
+
+        inventory.Drives = [];
+        viewModel.RefreshDrivesCommand.Execute(null);
+
+        Assert.True(enabled.Enabled);
+        Assert.False(alreadyDisabled.Enabled); // never touched by the skip - stays exactly as the user left it.
+    }
+
+    [Fact]
+    public async Task QueueBackupsForDeviceOnlyEnqueuesThatDevicesEligibleMappings()
+    {
+        var deviceA = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null)) { IsConnected = true };
+        var deviceB = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Other drive", "B", "E:\\", DateTimeOffset.UtcNow, null)) { IsConnected = true };
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var mappingA = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceA.Id, "docs-a"), set, deviceA);
+        var mappingB = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceB.Id, "docs-b"), set, deviceB);
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Devices.Add(deviceA);
+        viewModel.Devices.Add(deviceB);
+        viewModel.Mappings.Add(mappingA);
+        viewModel.Mappings.Add(mappingB);
+
+        await viewModel.QueueBackupsForDeviceAsync(deviceA.Id);
+
+        Assert.Equal(mappingA.Id, Assert.Single(client.EnqueuedMappingIds));
+    }
+
     private sealed class FakeDeviceInventory(IReadOnlyList<AvailableDriveViewModel> drives) : IDeviceInventory
     {
         public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => drives;
+    }
+
+    private sealed class MutableDeviceInventory : IDeviceInventory
+    {
+        public IReadOnlyList<AvailableDriveViewModel> Drives { get; set; } = [];
+        public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => Drives;
     }
 
     private sealed class FakeJobClient(IReadOnlyList<BackupJobDto> jobs) : IBackupJobClient

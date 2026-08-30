@@ -8,35 +8,30 @@ using System.Windows.Threading;
 
 namespace BackupMesh.Storage.App;
 
-// Adapter/projection over MainWindowViewModel for the tray flyout popup (TrayFlyoutWindow). This is
-// intentionally read-only with respect to the network: MainWindowViewModel already keeps Jobs / Devices /
-// Mappings fresh via its own timers (2s job poll, 3s device poll, 10s catalog poll), so this class never
-// talks to the Storage Service itself - it only listens to those collections and re-derives its own
-// "in progress" / "queued" / "just arrived" groupings whenever they change. The one timer it owns
-// (_displayTimer) exists solely to re-render wall-clock-dependent text (ETA, "eligible in Nm") between
-// upstream data changes; it never fetches anything.
+// Adapter/projection over MainWindowViewModel for the tray flyout popup (TrayFlyoutWindow).
+// MainWindowViewModel already keeps Jobs / Devices / Mappings fresh via its own timers (2s job poll, 3s
+// device poll, 10s catalog poll), so this class never polls the Storage Service itself - it only listens
+// to those collections and re-derives its own "in progress" / "queued" / "just arrived" groupings whenever
+// they change. The one timer it owns (_displayTimer) exists solely to re-render wall-clock-dependent text
+// (ETA, "eligible in Nm") between upstream data changes; it never fetches anything.
 //
-// MainWindowViewModel.cs is being edited concurrently in another session and must not be modified here, so
-// everything below is built strictly against its existing public surface (see the accompanying report for
-// the one small addition there that would let CancelAllCommand/CancelJobCommand act without the
-// SelectedJob workaround used below).
+// Start now / Skip this time DO write back through _main (QueueBackupsForDeviceAsync /
+// SkipDeviceThisConnectionAsync) - an earlier version of this file left both as inert stubs that only
+// updated this class's own local state, which a peer review caught as false affordances (the buttons
+// looked functional but had no effect on whether a backup actually ran).
 public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
 {
     private readonly MainWindowViewModel _main;
     private readonly DispatcherTimer _displayTimer = new() { Interval = TimeSpan.FromSeconds(5) };
-    private readonly HashSet<Guid> _skippedDeviceIds = [];
     private readonly HashSet<Guid> _observedDeviceIds = [];
 
     public ObservableCollection<FlyoutJobViewModel> InProgressJobs { get; } = [];
     public ObservableCollection<FlyoutJobViewModel> QueuedJobs { get; } = [];
     public ObservableCollection<PendingArrivalViewModel> PendingArrivals { get; } = [];
 
-    // Stubs for the App/tray-lifecycle integration (see report): this ViewModel never shows MainWindow or
-    // talks to a real "start now"/"skip" endpoint itself - it only raises these so a session that owns
-    // App.xaml.cs can wire them up without this file referencing MainWindow directly.
+    // This ViewModel never shows MainWindow itself - it only raises this so a session that owns
+    // App.xaml.cs can wire it up without this file referencing MainWindow directly.
     public event EventHandler? OpenMainWindowRequested;
-    public event EventHandler<DeviceViewModel>? StartNowRequested;
-    public event EventHandler<DeviceViewModel>? SkipRequested;
 
     public ICommand OpenMainWindowCommand { get; }
     public ICommand CancelAllCommand { get; }
@@ -51,17 +46,13 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
         OpenMainWindowCommand = new RelayCommand(() => OpenMainWindowRequested?.Invoke(this, EventArgs.Empty));
         CancelAllCommand = new RelayCommand(CancelAll);
         CancelJobCommand = new RelayCommand<FlyoutJobViewModel>(CancelJob);
-        StartNowCommand = new RelayCommand<PendingArrivalViewModel>(pending =>
-        {
-            _skippedDeviceIds.Remove(pending.Device.Id);
-            StartNowRequested?.Invoke(this, pending.Device);
-        });
-        SkipThisTimeCommand = new RelayCommand<PendingArrivalViewModel>(pending =>
-        {
-            _skippedDeviceIds.Add(pending.Device.Id);
-            SkipRequested?.Invoke(this, pending.Device);
-            RefreshPendingArrivals();
-        });
+        StartNowCommand = new RelayCommand<PendingArrivalViewModel>(pending => _ = _main.QueueBackupsForDeviceAsync(pending.Device.Id));
+        // SkipDeviceThisConnectionAsync flips each mapping's Enabled synchronously before its first await,
+        // so by the time this line runs the card's disappearance condition (RefreshPendingArrivals'
+        // mapping.Enabled filter) is already true - refreshing here makes the card vanish immediately
+        // instead of waiting for the next 5-second _displayTimer tick, since Mappings.CollectionChanged
+        // (already wired below) only fires on add/remove, not on an existing item's property changing.
+        SkipThisTimeCommand = new RelayCommand<PendingArrivalViewModel>(pending => { _ = _main.SkipDeviceThisConnectionAsync(pending.Device.Id); RefreshPendingArrivals(); });
 
         _main.Jobs.CollectionChanged += OnJobsChanged;
         _main.Devices.CollectionChanged += OnDevicesChanged;
@@ -108,9 +99,6 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(DeviceViewModel.IsConnected)) return;
-        // A device that disconnects clears its own "skip" so a later, genuinely new arrival is judged
-        // fresh rather than silently inheriting a skip decision made about a previous connection.
-        if (sender is DeviceViewModel { IsConnected: false } device) _skippedDeviceIds.Remove(device.Id);
         RefreshPendingArrivals();
     }
 
@@ -143,12 +131,14 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     // its arrival delay or because Automatic backups is turned off. Mirrors the same "since ConnectedAt"
     // freshness rule MainWindowViewModel.UpdateRemovalBanners() already applies, so this can never disagree
     // with the header removal banner about whether a device has already been backed up this connection.
+    // "Skip this time" needs no separate tracking here - MainWindowViewModel.SkipDeviceThisConnectionAsync
+    // disables the mapping(s) for real, so the mapping.Enabled filter below already excludes them.
     private void RefreshPendingArrivals()
     {
         var cards = new List<PendingArrivalViewModel>();
         foreach (var device in _main.Devices)
         {
-            if (!device.IsConnected || device.ConnectedAt is not { } connectedAt || _skippedDeviceIds.Contains(device.Id)) continue;
+            if (!device.IsConnected || device.ConnectedAt is not { } connectedAt) continue;
             var mappingsForDevice = _main.Mappings.Where(mapping => mapping.Enabled && mapping.Device.Id == device.Id).ToArray();
             if (mappingsForDevice.Length == 0) continue;
             var mappingIds = mappingsForDevice.Select(mapping => mapping.Id).ToHashSet();
