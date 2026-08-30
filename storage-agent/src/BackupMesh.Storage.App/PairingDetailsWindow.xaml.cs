@@ -11,8 +11,8 @@ public partial class PairingDetailsWindow : Window
     {
         InitializeComponent();
         IntentText.Text = rebindAgentName is null
-            ? "This code will pair a new computer."
-            : $"This code will only re-pair the existing computer \"{rebindAgentName}\" — no other computer can use it.";
+            ? "This code will pair a new Source Agent."
+            : $"This code will only re-pair the existing Source Agent \"{rebindAgentName}\" — no other Source Agent can use it.";
         EndpointText.Text = pairing.ControlEndpoint;
         CodeText.Text = pairing.Code;
         FingerprintText.Text = pairing.CertificateSha256;
