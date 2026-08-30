@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Net.Http;
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BackupMesh.Storage.App;
@@ -85,6 +86,8 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
 {
     public Guid JobId => model.JobId;
     public string State => model.State;
+    public Guid? TargetMappingId => model.TargetMappingId;
+    public DateTimeOffset? StartedAt => model.StartedAt;
     public string Updated => model.UpdatedAt.LocalDateTime.ToString("g");
     public string Target => mapping is null ? "—" : $"{mapping.BackupSetName} → {mapping.DeviceName}";
     public string Progress => model.Progress is null ? "—" : model.Progress.BytesTotal is > 0
@@ -92,6 +95,9 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
         : $"{model.Progress.BytesDone:N0} bytes · {model.Progress.FilesDone} files";
     public string Result => model.Result?.SnapshotId is { Length: > 0 } snapshot ? $"{model.Result.Outcome} · {snapshot[..Math.Min(8, snapshot.Length)]}" : model.Result?.Outcome ?? "—";
     public bool CanCancel => State is "ACCEPTED" or "RUNNING";
+    // Mirrors BackupJobStore.Terminal() server-side: CANCEL_REQUESTED is deliberately excluded - a
+    // cancellation still in flight is not yet safe to treat as "this device is done".
+    public bool IsTerminal => State is "SUCCEEDED" or "FAILED" or "CANCELLED";
 
     private string EtaSuffix
     {
@@ -108,6 +114,18 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
     }
 }
 
+// The user's next move differs by code: STORAGE_BUSY means wait, EJECT_REFUSED means Windows itself
+// refused (e.g. a file still open) and waiting alone won't fix it.
+public sealed class StorageDeviceEjectRefusedException(string code, string message) : Exception(message)
+{
+    public string Code { get; } = code;
+}
+
+public sealed record ProblemResponseDto(
+    [property: JsonPropertyName("title")] string? Title,
+    [property: JsonPropertyName("detail")] string? Detail,
+    [property: JsonPropertyName("code")] string? Code);
+
 public interface IStorageDeviceClient { Task EjectAsync(Guid deviceId, CancellationToken cancellationToken); }
 public sealed class StorageDeviceClient : IStorageDeviceClient, IDisposable
 {
@@ -120,7 +138,11 @@ public sealed class StorageDeviceClient : IStorageDeviceClient, IDisposable
         request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
         request.Headers.Add("X-BackupMesh-Sent-At", DateTimeOffset.UtcNow.ToString("O"));
         using var response = await _client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (response.IsSuccessStatusCode) return;
+        ProblemResponseDto? problem = null;
+        try { problem = await response.Content.ReadFromJsonAsync<ProblemResponseDto>(cancellationToken: cancellationToken); }
+        catch (JsonException) { }
+        throw new StorageDeviceEjectRefusedException(problem?.Code ?? problem?.Title ?? "UNKNOWN", problem?.Detail ?? $"Request failed with status {(int)response.StatusCode}.");
     }
     public void Dispose() => _client.Dispose();
 }

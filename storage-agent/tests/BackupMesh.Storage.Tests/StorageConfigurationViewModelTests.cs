@@ -116,6 +116,134 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Contains("Archive drive", shown.Target);
     }
 
+    private static (BackupSetViewModel Set, DeviceViewModel Device, MappingViewModel Mapping) MakeConnectedDeviceWithMapping(DateTimeOffset connectedAt)
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null)) { IsConnected = true, CanEject = true, ConnectedAt = connectedAt };
+        var mapping = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs"), set, device);
+        return (set, device, mapping);
+    }
+
+    [Fact]
+    public async Task DeviceWithAnActiveJobShowsABackingUpBannerWithNoButton()
+    {
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var job = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, null, null, TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        var banner = Assert.Single(viewModel.RemovalBanners);
+        Assert.Equal(DeviceRemovalBannerKind.BackingUp, banner.Kind);
+        Assert.Contains("Do not remove", banner.Message);
+        Assert.False(banner.ShowRemoveButton);
+    }
+
+    [Fact]
+    public async Task DeviceWithAllSucceededJobsSinceConnectingShowsASafeBanner()
+    {
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var job = new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snap", null), TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        var banner = Assert.Single(viewModel.RemovalBanners);
+        Assert.Equal(DeviceRemovalBannerKind.Safe, banner.Kind);
+        Assert.Contains("all backups finished", banner.Message);
+        Assert.True(banner.ShowRemoveButton);
+    }
+
+    [Fact]
+    public async Task DeviceWithAFailedJobSinceConnectingShowsASafeButIncompleteBanner()
+    {
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var job = new BackupJobDto(Guid.NewGuid(), "FAILED", DateTimeOffset.UtcNow, null, new("FAILED", null, "disk full"), TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        var banner = Assert.Single(viewModel.RemovalBanners);
+        Assert.Equal(DeviceRemovalBannerKind.SafeButIncomplete, banner.Kind);
+        Assert.Contains("did not finish", banner.Message);
+        Assert.DoesNotContain("all backups finished", banner.Message);
+        Assert.True(banner.ShowRemoveButton, "A failed backup still means nothing is actively writing to the device, so removal must remain offered.");
+    }
+
+    [Fact]
+    public async Task JobThatStartedBeforeThisConnectionDoesNotCountTowardTheSafeBanner()
+    {
+        // Regression guard: job history is now persisted (up to 20 terminal jobs per mapping), so without
+        // this filter, plugging in a drive backed up days ago would immediately claim "just finished".
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(connectedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        var staleJob = new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snap", null), TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddDays(-3));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([staleJob]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        Assert.Empty(viewModel.RemovalBanners);
+    }
+
+    [Fact]
+    public async Task DeviceWithUnknownConnectionTimeNeverShowsASafeBanner()
+    {
+        // Conservative-by-design: a device already connected when the app started has no known
+        // connection time (ConnectedAt stays null), so even a job that just succeeded is not trusted.
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(connectedAt: DateTimeOffset.UtcNow);
+        device.ConnectedAt = null;
+        var job = new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snap", null), TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddSeconds(-1));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        Assert.Empty(viewModel.RemovalBanners);
+    }
+
+    [Fact]
+    public async Task NonEjectableOrDisconnectedDevicesNeverShowARemovalBanner()
+    {
+        var (_, device, mapping) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        device.CanEject = false;
+        var job = new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snap", null), TargetMappingId: mapping.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([job]));
+        viewModel.Devices.Add(device);
+        viewModel.Mappings.Add(mapping);
+
+        await viewModel.RefreshJobsAsync();
+
+        Assert.Empty(viewModel.RemovalBanners);
+    }
+
+    [Fact]
+    public async Task MultipleQualifyingDevicesEachGetTheirOwnBanner()
+    {
+        var (_, deviceA, mappingA) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var (_, deviceB, mappingB) = MakeConnectedDeviceWithMapping(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var jobA = new BackupJobDto(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snap", null), TargetMappingId: mappingA.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        var jobB = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, null, null, TargetMappingId: mappingB.Id, StartedAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient([jobA, jobB]));
+        viewModel.Devices.Add(deviceA);
+        viewModel.Devices.Add(deviceB);
+        viewModel.Mappings.Add(mappingA);
+        viewModel.Mappings.Add(mappingB);
+
+        await viewModel.RefreshJobsAsync();
+
+        Assert.Equal(2, viewModel.RemovalBanners.Count);
+        Assert.Contains(viewModel.RemovalBanners, banner => banner.Device == deviceA && banner.Kind == DeviceRemovalBannerKind.Safe);
+        Assert.Contains(viewModel.RemovalBanners, banner => banner.Device == deviceB && banner.Kind == DeviceRemovalBannerKind.BackingUp);
+    }
+
     [Fact]
     public void RecentlyConnectedComputerWithDistantCertificateExpiryIsJustConnected()
     {

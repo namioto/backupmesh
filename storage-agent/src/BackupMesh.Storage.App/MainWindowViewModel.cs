@@ -52,6 +52,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<AvailableDriveViewModel> AvailableDrives { get; } = [];
     public ObservableCollection<string> Activity { get; } = [];
     public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
+    // Every first-click study measurement (18/18) failed the "confirm the backup finished, then safely
+    // remove the drive" task, because the confirmation and the action lived on different tabs no matter
+    // how those tabs were named or organized. This surfaces both, together, wherever the user already is.
+    public ObservableCollection<DeviceRemovalBannerViewModel> RemovalBanners { get; } = [];
 
     public event EventHandler<AppNotification>? NotificationRequested;
     public event EventHandler<string>? StatusChanged;
@@ -68,6 +72,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
     public ICommand EjectDeviceCommand { get; }
+    public ICommand SafelyRemoveDeviceCommand { get; }
     public ICommand PairSourceCommand { get; }
     public ICommand RePairSourceCommand { get; }
     public ICommand RevokeSourceCommand { get; }
@@ -99,6 +104,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
+        SafelyRemoveDeviceCommand = new RelayCommand<DeviceViewModel>(device => _ = EjectDeviceAsync(device));
         PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: null));
         RePairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: SelectedSourceConnection));
         RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
@@ -209,10 +215,36 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Jobs.Clear();
             foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
+            UpdateRemovalBanners();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
+    }
+
+    // Recomputed on every job-list refresh (2s) and every drive-connection poll (3s), so a banner reacts
+    // to a backup starting or finishing within one of those cycles - the same cadence the rest of the tray
+    // already runs on, not a new promise. STORAGE_BUSY blocks an actually-stale removal request server
+    // side regardless (ControlApi checks HasActiveJobs itself), so this only needs to be timely, not exact.
+    private void UpdateRemovalBanners()
+    {
+        RemovalBanners.Clear();
+        foreach (var device in Devices)
+        {
+            if (!device.IsConnected || !device.CanEject) continue;
+            var jobsForDevice = Jobs.Where(job => job.TargetMappingId is { } mappingId
+                && Mappings.FirstOrDefault(mapping => mapping.Id == mappingId)?.Device.Id == device.Id).ToArray();
+            // A job in progress is a real-time fact, not a history claim, so this doesn't need ConnectedAt
+            // gating - and it must win over "safe", never the reverse: this is a same-line status swap
+            // (never disappear, never show both), so it's checked and added first, before anything that
+            // could otherwise report "safe" for a device that is, right now, being written to.
+            if (jobsForDevice.Any(job => !job.IsTerminal)) { RemovalBanners.Add(DeviceRemovalBannerViewModel.BackingUp(device)); continue; }
+            if (device.ConnectedAt is not { } connectedAt) continue;
+            var completedSinceConnecting = jobsForDevice.Where(job => job.StartedAt is { } startedAt && startedAt >= connectedAt).ToArray();
+            if (completedSinceConnecting.Length == 0) continue; // nothing happened on this device during this connection - stay quiet rather than claim old history "just finished".
+            var anyDidNotFinish = completedSinceConnecting.Any(job => job.State is "FAILED" or "CANCELLED");
+            RemovalBanners.Add(DeviceRemovalBannerViewModel.Finished(device, anyDidNotFinish));
+        }
     }
 
     private async Task CancelSelectedJobAsync()
@@ -228,14 +260,36 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (TaskCanceledException) { FooterStatus = "The cancellation request timed out."; }
     }
 
-    private async Task EjectSelectedDeviceAsync()
+    private Task EjectSelectedDeviceAsync()
     {
-        if (SelectedDevice is not { IsConnected: true, CanEject: true } device) { FooterStatus = "Select a connected removable device first."; return; }
+        if (SelectedDevice is not { IsConnected: true, CanEject: true } device) { FooterStatus = "Select a connected removable device first."; return Task.CompletedTask; }
+        return EjectDeviceAsync(device);
+    }
+
+    // Shared by the Devices tab's "Safely remove selected device" button and the header removal banner's
+    // per-device "Remove safely" button, so both paths get the same STORAGE_BUSY/EJECT_REFUSED handling.
+    private async Task EjectDeviceAsync(DeviceViewModel device)
+    {
         try
         {
             await _storageDeviceClient.EjectAsync(device.Id, _shutdown.Token);
             FooterStatus = $"Safe-removal requested for {device.DisplayName}.";
             AddActivity(FooterStatus);
+        }
+        catch (StorageDeviceEjectRefusedException exception)
+        {
+            // STORAGE_BUSY means the answer is "wait" - the removal banner itself is only ever shown once
+            // this client's own job list agrees nothing is active, so seeing this at all means the server
+            // knows about a job the client doesn't yet (a race, not a bug) and it will resolve on its own
+            // shortly. EJECT_REFUSED means Windows itself said no (e.g. a file still open) and waiting
+            // will not fix it - the two need different next actions from the user, so they read
+            // differently.
+            FooterStatus = exception.Code switch
+            {
+                "STORAGE_BUSY" => $"Can't remove {device.DisplayName} yet - Storage still considers a backup active. Wait a moment and try again.",
+                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message}",
+                _ => $"Safe removal was refused: {exception.Message}"
+            };
         }
         catch (HttpRequestException exception) { FooterStatus = $"Safe removal was refused: {exception.Message}"; }
         catch (TaskCanceledException) { FooterStatus = "Safe-removal request timed out."; }
@@ -873,13 +927,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (!wasConnected && device.IsConnected)
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
+                device.ConnectedAt = DateTimeOffset.UtcNow;
                 AddActivity($"Registered device connected: {device.DisplayName}.");
                 if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
+            }
+            else if (wasConnected && !device.IsConnected)
+            {
+                device.ConnectedAt = null;
             }
         }
         _connectedRoots.Clear();
         foreach (var root in nowConnected) _connectedRoots.Add(root);
         NotifyCounts();
+        UpdateRemovalBanners();
     }
 
     private void AddActivity(string text)
@@ -1079,6 +1139,12 @@ public sealed class DeviceViewModel : ObservableObject
     public DateTimeOffset RegisteredAt { get; }
     public DateTimeOffset? LastSeenAt { get => _lastSeenAt; set { Set(ref _lastSeenAt, value); OnPropertyChanged(nameof(LastSeenDisplay)); } }
     public bool IsConnected { get => _isConnected; set { Set(ref _isConnected, value); OnPropertyChanged(nameof(Status)); } }
+    // When this device was last observed to transition from disconnected to connected - not persisted, so
+    // for a device already connected when the app starts this is the app's start time, not the drive's
+    // true plug-in time. The removal banner only counts jobs that started at or after this timestamp, so
+    // days-old, already-persisted job history for that device can't read as "just finished" the moment
+    // the app happens to notice it; a genuinely new job that starts and completes after that still counts.
+    public DateTimeOffset? ConnectedAt { get; set; }
     public bool CanEject { get => _canEject; set => Set(ref _canEject, value); }
     public string? CurrentRoot { get => _currentRoot; set { if (Set(ref _currentRoot, value)) OnPropertyChanged(nameof(DisplayNameWithDetails)); } }
     // Not persisted to RegisteredDevice/config - this is live capacity, refreshed opportunistically
@@ -1137,6 +1203,35 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
     // shorten it) measurably reintroduced the confusion it had fixed.
     public string SavesToLine => $"Already saves to {Device.DisplayNameWithDetails}.";
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
+}
+
+// One line, wherever the user already is, answering the exact task a first-click study found no tab
+// arrangement could pass: "confirm the backup finished, then safely remove the drive." The same line
+// swaps wording rather than appearing/disappearing/growing a second line, so "safe" and "backing up" are
+// never ambiguous about which device they describe or momentarily absent while a job starts.
+public enum DeviceRemovalBannerKind { BackingUp, Safe, SafeButIncomplete }
+
+public sealed class DeviceRemovalBannerViewModel
+{
+    private DeviceRemovalBannerViewModel(DeviceViewModel device, DeviceRemovalBannerKind kind, string message, bool showRemoveButton)
+    {
+        Device = device;
+        Kind = kind;
+        Message = message;
+        ShowRemoveButton = showRemoveButton;
+    }
+
+    public DeviceViewModel Device { get; }
+    public DeviceRemovalBannerKind Kind { get; }
+    public string Message { get; }
+    public bool ShowRemoveButton { get; }
+
+    public static DeviceRemovalBannerViewModel BackingUp(DeviceViewModel device) =>
+        new(device, DeviceRemovalBannerKind.BackingUp, $"{device.DisplayNameWithDetails} — backing up now. Do not remove.", showRemoveButton: false);
+
+    public static DeviceRemovalBannerViewModel Finished(DeviceViewModel device, bool anyDidNotFinish) => anyDidNotFinish
+        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"{device.DisplayNameWithDetails} — backup did not finish. Safe to remove, but nothing new was saved.", showRemoveButton: true)
+        : new(device, DeviceRemovalBannerKind.Safe, $"{device.DisplayNameWithDetails} — all backups finished. Safe to remove now.", showRemoveButton: true);
 }
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
@@ -1198,4 +1293,11 @@ public sealed class RelayCommand(Action execute) : ICommand
     public event EventHandler? CanExecuteChanged { add { } remove { } }
     public bool CanExecute(object? parameter) => true;
     public void Execute(object? parameter) => execute();
+}
+
+public sealed class RelayCommand<T>(Action<T> execute) : ICommand
+{
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
+    public bool CanExecute(object? parameter) => true;
+    public void Execute(object? parameter) { if (parameter is T value) execute(value); }
 }
