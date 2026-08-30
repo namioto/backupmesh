@@ -41,20 +41,20 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 ## 3. 저장장치 등록
 
-시스템 트레이에서 BackupMesh를 열고 **Devices**로 이동합니다.
+저장장치 등록은 더 이상 독립된 단계가 아닙니다. **Backups** 탭에서 백업을 추가할 때 Target device 콤보 옆의 **New…** 버튼을 누르면 그 자리에서 등록할 수 있습니다.
 
-- 감지된 고정식·이동식 볼륨을 선택해 등록하거나 **Register folder…**로 로컬·네트워크 폴더를 논리 장치로 등록합니다.
-- 알아보기 쉬운 장치 이름을 지정합니다.
-- 장치별 arrival delay를 지정합니다. Windows와 느린 디스크가 마운트를 끝낼 시간을 확보하는 설정입니다.
-- repository는 볼륨 루트가 아닌 안전한 하위 폴더에 저장해야 합니다.
+- 열리는 대화상자에서 감지된 고정식·이동식 드라이브를 선택해 **Register drive**를 누르거나, **Register folder instead…**로 로컬·네트워크 폴더를 논리 장치로 등록합니다.
+- 등록한 장치는 대화상자가 닫히면 Target device 콤보에 자동으로 선택됩니다.
+- repository는 볼륨 루트가 아닌 안전한 하위 폴더에 저장해야 합니다 — 실제 대상 폴더는 6장에서 매핑을 추가할 때 지정합니다.
+- 장치별 arrival delay는 더 이상 없습니다. Windows와 느린 디스크가 마운트를 끝낼 시간을 확보하는 지연은 이제 **Settings** 탭의 전역 기본값("Wait before starting, after any device connects")으로 등록된 모든 장치에 함께 적용됩니다.
 
-폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
+등록된 장치 목록과 여유 공간, 안전 제거는 **Overview** 탭의 "Connected storage"에서 확인합니다. 폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
 
 ## 3b. 이 PC 자체의 파일 백업하기 (Source Agent 불필요)
 
-**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Sources & mappings** 탭의 Source 목록 맨 위에 항상 표시됩니다. **Add local Backup Set…**을 선택해 폴더를 고르면, 페어링된 Source의 Backup Set과 똑같이 등록된 대상 장치에 매핑할 수 있는 Backup Set으로 나타납니다. 매핑된 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
+**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Source Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Source Agent의 Backup Set과 똑같이 등록된 대상 장치에 매핑할 수 있는 Backup Set으로 나타납니다. 매핑된 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
 
-이 방식으로 폴더 백업을 그만두려면 **Remove local Backup Set**을 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Source Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
+이 방식으로 폴더 백업을 그만두려면 같은 탭의 **Remove folder**를 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Source Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
 
 ## 4. Linux Source Agent 설치와 설정
 
@@ -92,7 +92,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-트레이의 **Pair Source Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
+트레이의 **Pair a Source Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
@@ -106,7 +106,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 
 ## 5. Source 페어링
 
-Windows 트레이 앱에서 **Pair Source Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
+Windows 트레이 앱에서 **Pair a Source Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \
@@ -119,7 +119,7 @@ sudo /opt/backupmesh/backupmesh-agent pair \
 
 Source는 코드를 보내기 전에 표시된 인증서 지문을 고정 검증하고, 이후 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서를 소유자 전용 권한으로 설치합니다. 개인 키가 전송 파일에 기록되지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
-Source Agent의 개인 키나 인증서를 잃어버렸다면(예: `pairing` 디렉터리를 삭제한 경우) **Pair Source Agent** 대신 트레이의 Connections 목록에서 해당 Source를 선택하고 **Re-pair**를 사용하세요. 이 코드는 그 특정 Source의 자격 증명만 재발급할 수 있으며, 새 Source를 만들거나 다른 Source의 신원을 대신 차지할 수 없습니다.
+Source Agent의 개인 키나 인증서를 잃어버렸다면(예: `pairing` 디렉터리를 삭제한 경우) **Pair a Source Agent** 대신 **Source Agents** 탭의 목록에서 해당 Source를 선택하고 **Re-pair**를 사용하세요. 이 코드는 그 특정 Source의 자격 증명만 재발급할 수 있으며, 새 Source를 만들거나 다른 Source의 신원을 대신 차지할 수 없습니다.
 
 명령 감시 서비스를 시작합니다.
 
@@ -130,20 +130,22 @@ sudo systemctl status backupmesh-source-watch.service
 
 ## 6. Backup Set과 저장 위치 매핑
 
-Source가 동기화되면 트레이 앱의 **Sources & mappings**를 엽니다.
+Source가 동기화되면 트레이 앱의 **Backups** 탭을 엽니다.
 
-1. Source Agent와 Backup Set을 선택합니다.
-2. 등록된 저장장치를 선택합니다.
-3. 장치 안의 저장 하위 폴더를 선택합니다.
-4. 매핑을 추가하고 설정을 저장합니다.
+1. **What to back up**에서 Backup Set을 선택합니다 — Source Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
+2. **Target device**에서 등록된 저장장치를 선택합니다. 아직 등록한 장치가 없다면 옆의 **New…**로 그 자리에서 등록합니다(3장 참고).
+3. **Target folder**에 장치 안의 저장 하위 폴더를 입력하거나 **Browse…**로 선택합니다.
+4. **Add backup**을 누릅니다 — 즉시 저장되며 Settings 탭에서 따로 저장할 필요가 없습니다.
 
-매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요.
+매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요. 표의 **Enabled** 확인란으로 특정 백업만 삭제하지 않고 일시 중단할 수 있습니다.
 
 Source Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용해 같은 PC에서 실행할 수 있습니다. USB뿐 아니라 로컬 고정 드라이브와 등록 폴더도 대상 장치로 사용할 수 있으므로 로컬 데이터→외장 저장장치와 외장 원본→로컬 저장장치 구성을 모두 만들 수 있습니다. 후자의 경우 외장 원본 볼륨을 Storage 장치로 등록합니다. Storage가 도착을 감지하고 그 볼륨 안에 원본 경로가 있는 Backup Set을 찾아 준비된 모든 대상 매핑의 명령을 보냅니다. Source Agent는 Storage가 승인한 명령만 실행하며 장치 감지나 정책을 소유하지 않습니다.
 
 ## 7. 백업 실행과 확인
 
-등록된 장치를 연결하고 장치별 arrival delay가 끝날 때까지 기다립니다. BackupMesh가 매핑된 Source에 자동으로 백업을 요청합니다. 트레이 앱에서 대기·실행 상태, 처리 파일과 바이트, 진행률, 결과, 최근 성공 시각을 확인할 수 있습니다. 실행 중인 작업을 취소하면 Source가 restic을 종료하고 `CANCELLED` 결과를 보고합니다.
+등록된 장치를 연결하고 Settings 탭에서 설정한 arrival delay가 끝날 때까지 기다립니다. BackupMesh가 매핑된 Source에 자동으로 백업을 요청합니다. 트레이 앱에서 대기·실행 상태, 처리 파일과 바이트, 진행률, 결과, 최근 성공 시각을 확인할 수 있습니다. 실행 중인 작업을 취소하면 Source가 restic을 종료하고 `CANCELLED` 결과를 보고합니다.
+
+백업이 시작되면 트레이 아이콘 옆에 진행률과 취소 버튼을 보여주는 작은 팝업(트레이 플라이아웃)이 뜹니다. Settings 탭의 "Show a status window when a backup starts" 토글(기본 켜짐)로 켜고 끌 수 있습니다.
 
 Source에서 직접 실행하려면 다음 명령을 사용합니다.
 
@@ -154,7 +156,7 @@ sudo /opt/backupmesh/backupmesh-agent backup \
   -restic /opt/backupmesh/restic
 ```
 
-해당 장치를 사용하는 모든 작업이 멈춘 뒤에만 **Safely eject**를 사용하세요. BackupMesh는 Windows에 제거를 요청하기 전에 해당 repository listener를 닫습니다.
+어느 탭을 열어 두었든 상단에는 연결된 장치의 백업이 모두 끝나 제거해도 되는지 알려주는 배너가 표시되며, 준비되면 배너의 **Remove safely** 버튼으로 바로 제거할 수 있습니다. 직접 선택해서 제거하려면 **Overview** 탭의 "Connected storage"에서 **Safely remove selected device**를 사용하세요. 해당 장치를 사용하는 모든 작업이 멈춘 뒤에만 제거하십시오 — BackupMesh는 Windows에 제거를 요청하기 전에 해당 repository listener를 닫습니다.
 
 ## 8. 복원 시험
 

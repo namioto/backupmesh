@@ -50,9 +50,9 @@ The first version builds on the proven Restic ecosystem. BackupMesh itself is an
 
 ## Storage Agent for Windows
 
-The Windows tray app keeps backup storage understandable without turning it into an always-on server. Register a physical device or an ordinary local/network folder as a logical storage device, review synchronized Source Agents and their Backup Sets, then map each Backup Set to a device and a relative repository path. The mapping model supports multiple Sources per device and multiple devices per Source.
+The Windows tray app keeps backup storage understandable without turning it into an always-on server. On the **Backups** tab, choose what to back up and where it goes: register a physical device or an ordinary local/network folder as a logical storage device inline with **New…** next to the target-device picker, then map each Backup Set to that device and a relative repository path. The **Source Agents** tab lists paired Source Agents and the Backup Sets they offer; **Overview** shows connected storage, free space, and when it is safe to remove a device. The mapping model supports multiple Sources per device and multiple devices per Source.
 
-To pair a Source, choose **Pair Source Agent** in the tray app. Enter the displayed Storage address, ten-minute one-time code, and certificate SHA-256 fingerprint with `backupmesh-agent pair`. The Source pins the Storage certificate before transmitting the code and installs its identity-bound token, client certificate, private key, and Storage trust material with owner-only permissions. New pairing never places a private key in a transfer bundle or modifies the operating-system trust store.
+To pair a Source, choose **Pair a Source Agent** on the **Source Agents** tab. Enter the displayed Storage address, ten-minute one-time code, and certificate SHA-256 fingerprint with `backupmesh-agent pair`. The Source pins the Storage certificate before transmitting the code and installs its identity-bound token, client certificate, private key, and Storage trust material with owner-only permissions. New pairing never places a private key in a transfer bundle or modifies the operating-system trust store.
 
 The Linux installer creates `/etc/backupmesh/restic-password` for repository encryption. Store a protected recovery copy: BackupMesh cannot restore snapshots if this password is lost.
 
