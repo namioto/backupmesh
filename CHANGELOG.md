@@ -131,6 +131,16 @@ A Source's network address, previously seen by the server on every request but n
 
 - The Storage Service now records the caller's address at the same event `last_seen_at` is already derived from (a Source's most recent catalog upload), so the two describe the same moment rather than two different ones. `GET /sources` gained an `address` field (nullable - null until a Source has published a catalog at least once), and the Computers tab's grid shows it. DHCP-mutable and shown for context only; it is not this Source's stable identity.
 
+A follow-up measurement on the Backups grid redesign (2 evaluators) confirmed the core lookup accuracy (2/2 on every task, including "why is this 6 days old" - 0/4 the round before) and surfaced four fixable issues:
+
+- The grid's **Target**/**Target folder** columns and the create-form's **Device**/**Destination folder** labels below them named the same two things differently; both evaluators had to re-check they were the same concept. Unified to **Target device**/**Target folder** everywhere; **Source** was already understood (2/2) and is unchanged.
+- The `″` ditto mark for a row repeating the previous row's Source or Source folder is removed - both evaluators read it as a typo or an empty cell, and it made the Enabled checkbox's per-row scope ambiguous (two rows sharing a mark read as one unit). Repeats now show the real text again, dimmed, instead of substituting a mark.
+- Last backup's second line (a trigger note or a staleness reason) read as part of the same fact as the time above it. It's now visually distinct: a gray "ⓘ" for an informational trigger note, an orange "⚠" for a reason staleness needs attention.
+
+"Computers" is renamed **Source Agents** - a deliberate reversal of the earlier measured finding that this term failed with evaluators, on the judgment that this product's actual users install a Linux agent and edit its YAML config directly, so the measured pool likely underestimated the real audience for the exact technical term. Not itself re-measured. The grid gained a **Paths served** column (that computer's own Backup Set names) and, below it, the selected agent's certificate fingerprint and expiry - IP address is DHCP-mutable context only; the fingerprint is this Source's actual identity, now recorded by the Storage Service alongside expiry whenever a certificate is issued or renewed.
+
+The tray flyout added in the previous commit is now wired up: it appears near the tray icon when a backup starts (a new "Show a status window when a backup starts" Settings toggle, on by default), never takes keyboard focus, and is skipped entirely while a fullscreen app is active. The tray icon's tooltip shows live progress for a running backup instead of just the connected-device count. Completion is still a balloon notification only; the flyout does not reappear for it.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
