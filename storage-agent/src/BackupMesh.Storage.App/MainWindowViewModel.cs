@@ -614,6 +614,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await SaveAsync();
     }
 
+    // Applies whatever's already in _skipDisabledMappingIds to the current Mappings collection, without
+    // clearing the set or persisting - safe to call every time Mappings is (re)built (Load(), ApplyTopology())
+    // regardless of which one turns out to be authoritative for this run. Restart recovery (see
+    // AppConfiguration.SkipDisabledMappingIds) always means every tracked mapping, not just one device's -
+    // "this connection" stopped meaning anything the moment the process that was tracking it exited.
+    private void RestoreSkipDisabledMappingsIntoCurrentSet()
+    {
+        foreach (var mapping in Mappings.Where(mapping => _skipDisabledMappingIds.Contains(mapping.Id)))
+            mapping.SetEnabledWithoutSaving(true);
+    }
+
     public Task QueueEligibleBackupsAsync() => QueueEligibleBackupsAsync(_ => true);
 
     private async Task QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
@@ -675,6 +686,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var set = BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
             var device = Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
             if (set is not null && device is not null) Mappings.Add(CreateMapping(mapping, set, device));
+        }
+        if (state.SkipDisabledMappingIds is { Count: > 0 } skipped)
+        {
+            _skipDisabledMappingIds.UnionWith(skipped);
+            RestoreSkipDisabledMappingsIntoCurrentSet();
         }
         Activity.Add("Storage Agent UI started.");
     }
@@ -749,7 +765,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {
-                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes, ShowFlyoutOnBackupStart));
+                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes, ShowFlyoutOnBackupStart, _skipDisabledMappingIds.ToArray()));
                 ConfigureStartup(StartWithWindows);
             }
             FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
@@ -815,6 +831,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RefreshDrives();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
+        // This is the authoritative rebuild of Mappings (from the Storage Service, not just the local
+        // file Load() read before the service was reachable), so this is also the authoritative point to
+        // finish restoring anything Skip this time left disabled across a restart and clear the tracking
+        // list for good - Load()'s own restore of the same IDs may have applied to a Mappings snapshot
+        // that's already being replaced here, so nothing is lost by redoing it once more before persisting.
+        if (_skipDisabledMappingIds.Count > 0)
+        {
+            RestoreSkipDisabledMappingsIntoCurrentSet();
+            _skipDisabledMappingIds.Clear();
+            _ = SaveAsync();
+        }
     }
 
     // Persists the mapping's own pause toggle immediately (Enabled has no separate "save" step, matching
@@ -1432,7 +1459,12 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
     }
 }
 
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true);
+// SkipDisabledMappingIds must survive a restart even though "this connection only" is the whole promise
+// of the flyout's Skip this time - the in-memory tracking set that normally restores them on disconnect
+// is gone if the app exits (crash, forced close, or simply quitting) before that disconnect happens, and
+// without this, the mapping stays persisted as Enabled=false forever with nothing in the UI explaining why
+// (a peer review finding: this is a backup product, and a silently-disabled backup is the worst failure).
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true, IReadOnlyList<Guid>? SkipDisabledMappingIds = null);
 
 internal sealed class ConfigurationStore
 {

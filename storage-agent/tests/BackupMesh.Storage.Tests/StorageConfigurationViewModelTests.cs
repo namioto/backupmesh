@@ -575,6 +575,40 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Contains(client.Document.Configuration.Mappings, m => m.Id == enabled.Id && !m.Enabled);
     }
 
+    // Regression coverage for a peer-review finding: SkipDeviceThisConnectionAsync persisted Enabled=false
+    // via SaveAsync(), but the tracking set that undoes it on disconnect was in-memory only - if the app
+    // exited before the device disconnected (crash, forced close, or just quitting), the mapping stayed
+    // disabled forever with nothing on screen explaining why. AppConfiguration.SkipDisabledMappingIds
+    // persists that tracking, and ApplyTopology - the authoritative rebuild of Mappings from the Storage
+    // Service, which always runs once at startup - restores every tracked mapping unconditionally and
+    // clears the list, since "this connection" stopped meaning anything the moment the tracking process
+    // that remembered it was gone.
+    [Fact]
+    public async Task ConfigRefreshAfterRestartRestoresAMappingSkipLeftDisabled()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var mapping = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "docs"), set, device);
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        await viewModel.RefreshConfigurationAsync();
+        viewModel.Devices.Add(device);
+        viewModel.BackupSets.Add(set);
+        viewModel.Mappings.Add(mapping);
+        await viewModel.SkipDeviceThisConnectionAsync(device.Id);
+        Assert.False(mapping.Enabled);
+        Assert.Contains(client.Document.Configuration.Mappings, m => m.Id == mapping.Id && !m.Enabled);
+
+        // Simulates the app restarting and refreshing configuration from the Storage Service, rather than
+        // the device disconnecting (which is the path already covered above) - ApplyTopology rebuilds
+        // Mappings from scratch, so this is intentionally a fresh MappingViewModel instance, not `mapping`.
+        await viewModel.RefreshConfigurationAsync();
+
+        var rebuilt = Assert.Single(viewModel.Mappings);
+        Assert.Equal(mapping.Id, rebuilt.Id);
+        Assert.True(rebuilt.Enabled);
+    }
+
     [Fact]
     public void SkippedMappingsAreRestoredOnlyWhenTheSameDeviceDisconnectsAgain()
     {
