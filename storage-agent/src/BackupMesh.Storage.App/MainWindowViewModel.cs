@@ -150,14 +150,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
     public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) { OnPropertyChanged(nameof(HasSelectedSourceConnection)); OnPropertyChanged(nameof(SelectedComputerActionHint)); } } }
     public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
-    // Visible explanation (not just a tooltip) for why Block access/Re-pair/Rename/Remove computer are
+    // Visible explanation (not just a tooltip) for why Block access/Re-pair/Rename/Remove Source Agent are
     // disabled for the current selection - evaluators guessed correctly that "This PC" disables them, but
-    // weren't sure, and had no way to tell a not-yet-connected computer from one that would never work.
+    // weren't sure, and had no way to tell a not-yet-connected Source Agent from one that would never work.
     public string SelectedComputerActionHint => SelectedSourceAgent switch
     {
         null => string.Empty,
-        { Id: var id } when id == LocalSourceIdentity.AgentId => "This PC has no connection to manage - these actions apply only to other computers.",
-        _ when SelectedSourceConnection is null => "This computer hasn't connected yet, so there's nothing to manage here.",
+        { Id: var id } when id == LocalSourceIdentity.AgentId => "This PC has no Source Agent to manage - these actions apply only to other rows.",
+        _ when SelectedSourceConnection is null => "This Source Agent hasn't connected yet, so there's nothing to manage here.",
         _ => string.Empty
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
@@ -1107,6 +1107,10 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
     private SourceConnectionViewModel? _connection;
     public Guid Id { get; } = id;
     public string DisplayName { get; } = displayName;
+    // "This PC" alone left Address/Status's "—" reading as an error rather than "not applicable" (measured:
+    // 2/2 evaluators unsure). Naming the reason directly in the same cell the "—"s sit next to answers it
+    // without relying on the reader already knowing "This PC" is special.
+    public string DisplayNameWithHint => Id == LocalSourceIdentity.AgentId ? $"{DisplayName} (no agent needed)" : DisplayName;
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public SourceConnectionViewModel? Connection
     {
@@ -1117,24 +1121,14 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
             OnPropertyChanged(nameof(LastSeenDisplay));
             OnPropertyChanged(nameof(StatusDisplay));
             OnPropertyChanged(nameof(AddressDisplay));
-            OnPropertyChanged(nameof(CertificateFingerprintDisplay));
-            OnPropertyChanged(nameof(CertificateSummaryDisplay));
         }
     }
     public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
     public string StatusDisplay => Connection?.StatusDisplay ?? "—";
     public string AddressDisplay => Connection?.AddressDisplay ?? "—";
-    public string CertificateFingerprintDisplay => Connection?.CertificateFingerprintDisplay ?? "—";
-    // The names of this computer's own Backup Sets, for the Source Agents grid's "Paths served" column -
-    // "paths" because that's what a person configuring the other end sees; "Backup Set" is this tray's own
-    // internal grouping of them.
+    // "Offers" (formerly "Paths served") - the names of this computer's own Backup Sets. "Backup Set" is
+    // this tray's own internal grouping; a person configuring the other end thinks of these as folders.
     public string PathsServedDisplay => BackupSets.Count == 0 ? "—" : string.Join(", ", BackupSets.Select(set => set.Model.Name));
-    // IP address is DHCP-mutable and shown only for context (AddressDisplay above); this is the identity
-    // that actually matters, so it lives below the grid rather than as a column no one would read closely
-    // enough to compare against a real threat model there.
-    public string CertificateSummaryDisplay => Connection?.CertificateExpiresAt is { } expires
-        ? $"Certificate {CertificateFingerprintDisplay} · expires {expires.LocalDateTime:d}"
-        : "No certificate on record - paired only through the deprecated file-bundle path.";
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -1153,12 +1147,6 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     // the two describe the same event rather than two different points in time. DHCP-mutable and shown for
     // context only - the certificate fingerprint below is this Source's actual identity.
     public string AddressDisplay => model.Address ?? "—";
-    // A colon-grouped hex fingerprint (openssl/browser convention) reads as a fingerprint on sight,
-    // unlike a bare 64-character hex run - null only for a Source that paired through the deprecated
-    // file-bundle path and has not yet renewed or re-paired since certificate_fingerprint was added.
-    public string CertificateFingerprintDisplay => model.CertificateFingerprint is { Length: > 0 } fingerprint
-        ? string.Join(':', Enumerable.Range(0, fingerprint.Length / 2).Select(i => fingerprint.Substring(i * 2, 2)))
-        : "—";
     public int BackupSetCount { get; } = model.BackupSetCount;
     public bool IsRevoked { get; } = model.Revoked;
     public DateTimeOffset? CertificateExpiresAt { get; } = model.CertificateExpiresAt;

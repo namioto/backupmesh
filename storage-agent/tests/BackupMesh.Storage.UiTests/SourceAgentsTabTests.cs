@@ -91,38 +91,22 @@ public sealed class SourceAgentsTabTests : IClassFixture<StorageAppFixture>
     /// "This PC" is always shown as a computer, even with no local Backup Sets configured yet. The
     /// Source Agents grid merges what used to be a separate tree (unused by evaluators in a first-click
     /// study: 0/4) and a Connections grid that never listed "This PC" at all - so this now checks the
-    /// one merged grid instead of a tree that no longer exists.
+    /// one merged grid instead of a tree that no longer exists. It now reads "This PC (no agent needed)"
+    /// (measured: 2/2 evaluators were unsure why its Address/Status showed "—" with no explanation).
     /// </summary>
     [Fact]
-    public void ThisPCIsAlwaysListedInTheGrid()
+    public void ThisPCIsAlwaysListedInTheGridWithAnExplanation()
     {
         var grid = Find("SourceConnectionsGrid");
-        Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC");
+        Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC (no agent needed)");
     }
 
     [Fact]
-    public void AddressAndPathsServedColumnsArePresent()
+    public void AddressAndOffersColumnsArePresent()
     {
         var grid = Find("SourceConnectionsGrid");
         var headers = grid.FindAllDescendants(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.HeaderItem)).Select(header => header.Name).ToArray();
         Assert.Contains("Address", headers);
-        Assert.Contains("Paths served", headers);
-    }
-
-    /// <summary>
-    /// The certificate summary line only makes sense once a row is selected - it names IP address as
-    /// context-only and the fingerprint as the real identity, since a Source's address can change (DHCP)
-    /// but its certificate cannot without a re-pair.
-    /// </summary>
-    [Fact]
-    public void SelectingASourceAgentShowsItsCertificateSummary()
-    {
-        var grid = Find("SourceConnectionsGrid");
-        var row = Retry.WhileNull(() => grid.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.DataItem)), TimeSpan.FromSeconds(10)).Result;
-        Assert.NotNull(row);
-        row!.Patterns.SelectionItem.Pattern.Select();
-
-        var summary = Find("SelectedSourceCertificateSummaryText");
-        Assert.False(string.IsNullOrWhiteSpace(summary.Name));
+        Assert.Contains("Offers", headers);
     }
 }

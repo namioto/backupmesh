@@ -281,29 +281,20 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Equal("Connected", connection.StatusDisplay);
     }
 
-    [Fact]
-    public void CertificateFingerprintDisplaysColonGroupedHex()
-    {
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75), "AABBCC"));
-        Assert.Equal("AA:BB:CC", connection.CertificateFingerprintDisplay);
-    }
+    // The certificate fingerprint/expiry line below the Source Agents grid was removed after being
+    // measured (2/2 "not sure if this needs action") - the same failure mode the removed "Certificate
+    // expires" column had, just relocated rather than actually fixed. Server-side recording
+    // (IssuedCertificateStoreTests) is kept for later use; SourceConnectionDto.CertificateFingerprint is
+    // now dormant client-side data with no UI consumer.
 
     [Fact]
-    public void CertificateFingerprintIsADashWithoutOne()
+    public void DisplayNameWithHintExplainsThisPCNeedsNoAgent()
     {
-        var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75)));
-        Assert.Equal("—", connection.CertificateFingerprintDisplay);
-    }
+        var thisPc = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        Assert.Equal("This PC (no agent needed)", thisPc.DisplayNameWithHint);
 
-    [Fact]
-    public void CertificateSummaryNamesTheFingerprintAsTheRealIdentity()
-    {
-        var agent = new SourceAgentViewModel(Guid.NewGuid(), "Home Server")
-        {
-            Connection = new(new(Guid.NewGuid(), "Home Server", "Home Server", DateTimeOffset.UtcNow, null, 1, false, DateTimeOffset.UtcNow.AddDays(75), "AABBCC"))
-        };
-        Assert.Contains("AA:BB:CC", agent.CertificateSummaryDisplay);
-        Assert.Contains("expires", agent.CertificateSummaryDisplay);
+        var remote = new SourceAgentViewModel(Guid.NewGuid(), "Home Server");
+        Assert.Equal("Home Server", remote.DisplayNameWithHint);
     }
 
     [Fact]

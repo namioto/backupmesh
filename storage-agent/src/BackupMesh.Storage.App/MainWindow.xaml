@@ -231,41 +231,46 @@
             <!-- Renamed from "Computers" (peer review): "Source Agent" measured as a term evaluators failed
                  on in an earlier study, but this product's actual users install one on Linux and edit its
                  YAML config directly - a case of the measured pool likely underestimating the real
-                 audience for exact technical terminology. Not re-measured; tracked as a judgment call, not
-                 a finding. -->
+                 audience for exact technical terminology. Re-measured after this rename: evaluators found
+                 "Source Agent" itself ambiguous (reasonably - it names software, not the computer it runs
+                 on) exactly because the grid mixed it with "computer" wording in the same screen. The fix
+                 is not a different word, it's defining the relationship once (below) and then using
+                 "Source Agent" consistently everywhere on this tab rather than switching between the two. -->
             <TabItem Header="Source Agents" AutomationProperties.AutomationId="SourceAgentsTab">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <Grid Margin="16">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Pair a computer, or back up a folder on this PC directly." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
+                    <TextBlock Grid.Row="0" Text="Each computer you pair runs a Source Agent that offers folders for backup. This PC is included without one." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
                     <GroupBox Grid.Row="1" Header="Source Agents" Padding="10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid MinHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSourceAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Source Agent" Binding="{Binding DisplayName}" Width="2*"/>
+                                    <DataGridTextColumn Header="Source Agent" Binding="{Binding DisplayNameWithHint}" Width="2*"/>
                                     <DataGridTextColumn Header="Address" Binding="{Binding AddressDisplay}" Width="1.4*" ToolTipService.ToolTip="The address this computer last connected from - it can change (DHCP), so it is not a stable identity."/>
                                     <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeenDisplay}" Width="1.6*"/>
                                     <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="1.6*"/>
-                                    <DataGridTextColumn Header="Paths served" Binding="{Binding PathsServedDisplay}" Width="2*" ToolTipService.ToolTip="The names of this computer's own Backup Sets."/>
+                                    <DataGridTextColumn Header="Offers" Binding="{Binding PathsServedDisplay}" Width="2*" ToolTipService.ToolTip="The names of this Source Agent's own Backup Sets."/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Grid.Row="1" Text="{Binding SelectedSourceAgent.CertificateSummaryDisplay}" TextWrapping="Wrap" Foreground="#607086" FontSize="11" Margin="0,6,0,0" Visibility="{Binding SelectedSourceAgent, Converter={StaticResource NullToCollapsedConverter}}" AutomationProperties.AutomationId="SelectedSourceCertificateSummaryText"/>
-                            <TextBlock Grid.Row="2" Text="{Binding SelectedComputerActionHint}" TextWrapping="Wrap" Foreground="#8493A6" FontSize="11" Margin="0,6,0,0"/>
-                            <WrapPanel Grid.Row="3" Margin="0,6,0,0">
-                                <Button Content="Block access" Command="{Binding RevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="Immediately block this computer from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
+                            <!-- "—" in Address/Status for This PC otherwise reads as an error, not as "not
+                                 applicable" - naming the reason directly in the row it's true of avoids
+                                 relying on the reader to already know This PC needs no Source Agent. -->
+                            <TextBlock Grid.Row="1" Text="{Binding SelectedComputerActionHint}" TextWrapping="Wrap" Foreground="#8493A6" FontSize="11" Margin="0,6,0,0"/>
+                            <WrapPanel Grid.Row="2" Margin="0,6,0,0">
+                                <Button Content="Block access" Command="{Binding RevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="Immediately block this Source Agent from the control API, even with a valid certificate and token." AutomationProperties.AutomationId="RevokeSourceButton"/>
                                 <Button Content="Restore access" Command="{Binding UnrevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" AutomationProperties.AutomationId="UnrevokeSourceButton"/>
-                                <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="Issue a new one-time code that can only re-pair this specific computer (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
-                                <Button Content="Rename" Command="{Binding RenameSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="Change only what the tray displays for this computer." AutomationProperties.AutomationId="RenameSourceButton"/>
-                                <Button Content="Remove computer" Command="{Binding ForgetSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="Block this computer and remove it from this list. Its backups are kept but stop being reported until it is re-paired." AutomationProperties.AutomationId="ForgetSourceButton"/>
+                                <Button Content="Re-pair" Command="{Binding RePairSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost)." AutomationProperties.AutomationId="RePairSourceButton"/>
+                                <Button Content="Rename" Command="{Binding RenameSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="Change only what the tray displays for this Source Agent." AutomationProperties.AutomationId="RenameSourceButton"/>
+                                <Button Content="Remove Source Agent" Command="{Binding ForgetSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="Block this Source Agent and remove it from this list. Its backups are kept but stop being reported until it is re-paired." AutomationProperties.AutomationId="ForgetSourceButton"/>
                             </WrapPanel>
-                            <StackPanel Grid.Row="4" Margin="0,12,0,0">
-                                <Button Content="Pair a computer" Command="{Binding PairSourceCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
+                            <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                                <Button Content="Pair a Source Agent" Command="{Binding PairSourceCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" ToolTip="Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint." AutomationProperties.AutomationId="PairSourceButton"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Content="Back up a folder on this PC…" Command="{Binding AddLocalBackupSetCommand}" ToolTip="Back up a folder on this PC directly - no other computer or pairing needed." AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
+                                    <Button Content="Back up a folder on this PC…" Command="{Binding AddLocalBackupSetCommand}" ToolTip="Back up a folder on this PC directly - no Source Agent or pairing needed." AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
                                     <Button Content="Remove folder" Command="{Binding RemoveLocalBackupSetCommand}" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" ToolTip="Stop backing up the selected local folder. Its Backups are removed with it." AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
                                 </StackPanel>
-                                <TextBlock Text="Backups sync from paired computers; &quot;This PC&quot; is always available for local folders." TextWrapping="Wrap" Foreground="#607086" Margin="4,4" FontSize="11"/>
+                                <TextBlock Text="Backups sync from paired Source Agents; &quot;This PC&quot; is always available for local folders." TextWrapping="Wrap" Foreground="#607086" Margin="4,4" FontSize="11"/>
                             </StackPanel>
                         </Grid>
                     </GroupBox>
