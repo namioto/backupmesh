@@ -17,7 +17,7 @@ pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.1.1-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.2.0-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Source Agent)
@@ -26,9 +26,9 @@ pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.2.0-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.1.1-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.2.0-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -82,7 +82,7 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.1.1-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.2.0-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 

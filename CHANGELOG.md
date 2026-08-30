@@ -4,6 +4,15 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-31
+
+### Upgrading from 0.1.1
+
+- Backup job history recorded before this release has no destination-mapping identifier, so it is silently ignored by the Backups grid's own **Last backup** column and by the safe-removal banner's "has this device finished?" check - both work normally starting with the first job a mapping runs after upgrading. Nothing is deleted; old history still appears in this release's job list, just without that cross-reference.
+- Job history is now capped at the 20 most recent finished jobs per destination mapping (every still-running job is always kept); if a mapping already has more than that, the oldest excess is pruned once, the first time the Storage Service starts after upgrading.
+- Per-device arrival delay is replaced by one global default (Settings). An existing device that had its own custom delay is not touched until the next time the tray saves its configuration (adding a backup, registering a device, or clicking **Save settings**), at which point every device's delay is set to match the global default - if you had set device-specific delays and rely on them differing, this changes actual backup timing, not just the screen.
+- Pairing, credentials, and certificate handling are unchanged by this release.
+
 ### Security
 
 - `/pairing/exchange` no longer accepts an arbitrary caller-supplied `agent_id`. A one-time code either mints a brand new Source identity, or - only when the tray's new **Re-pair** action created it - reissues credentials for one specific, already-paired Source. Previously any valid code could claim an unrelated Source's `agent_id` (visible in the tray's Connections list, not a secret) and take over its identity and catalog.
@@ -223,4 +232,6 @@ First end-to-end MVP release.
 - Windows package build, Linux package build and installation under Ubuntu, .NET tests, Go tests and vet, protocol validation, and systemd unit validation.
 
 [0.1.0]: https://github.com/namioto/backupmesh/releases/tag/v0.1.0
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/namioto/backupmesh/compare/v0.1.0...v0.1.1
+[0.2.0]: https://github.com/namioto/backupmesh/compare/v0.1.1...v0.2.0
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.2.0...HEAD

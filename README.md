@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current release: **0.1.1** — the first end-to-end MVP with a guided Windows installer, verified with an admin-approved install, upgrade, and uninstall on a real machine. See the [changelog](CHANGELOG.md).
+Current release: **0.2.0** — a tray UI redesign driven by blind usability studies: four tabs (Overview, Backups, Source Agents, Settings), inline device registration, a cross-tab safe-to-remove banner, and a tray status popup for running backups. Builds on 0.1.1's guided Windows installer, verified with an admin-approved install, upgrade, and uninstall on a real machine. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
@@ -60,7 +60,7 @@ The Linux installer creates `/etc/backupmesh/restic-password` for repository enc
 
 ### Try the current Windows build
 
-For the normal Windows experience, build `BackupMesh-Storage-0.1.1-win-x64-Setup.exe` with `pwsh -NoProfile -File scripts/build-windows-installer.ps1`, then run the installer. It installs the service, tray app, firewall rules, bundled tools, automatic startup, and uninstaller, and launches BackupMesh when setup finishes. Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+For the normal Windows experience, build `BackupMesh-Storage-0.2.0-win-x64-Setup.exe` with `pwsh -NoProfile -File scripts/build-windows-installer.ps1`, then run the installer. It installs the service, tray app, firewall rules, bundled tools, automatic startup, and uninstaller, and launches BackupMesh when setup finishes. Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 
 The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher** (and Windows SmartScreen may warn before you can run it) — this is expected for an unsigned build, not a sign of tampering. The build script writes a `BackupMesh-Storage-<version>-win-x64-Setup.exe.sha256` file next to the installer; before approving installation, compare it with `Get-FileHash BackupMesh-Storage-<version>-win-x64-Setup.exe -Algorithm SHA256` (or `sha256sum` on the release archive) and only proceed if they match exactly.
 
