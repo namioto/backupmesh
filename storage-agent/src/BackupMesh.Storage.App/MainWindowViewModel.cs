@@ -163,7 +163,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
-    public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
+    public MappingViewModel? SelectedMapping
+    {
+        get => _selectedMapping;
+        set { if (Set(ref _selectedMapping, value)) OnPropertyChanged(nameof(HasSelectedMapping)); }
+    }
+    public bool HasSelectedMapping => SelectedMapping is not null;
     public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
     public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
@@ -244,7 +249,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     // "Last backup" answers both "when" and, if it's stale for a reason the user can act on, "why" in the
-    // same cell - a study found a separate Status column just duplicated the time already shown here. The
+    // same cell; a separate Status column would only duplicate the time already shown here. The
     // reason only ever appears when it actually explains staleness (a failed/cancelled attempt, or the
     // source computer being offline), never as a caveat on an otherwise-healthy row.
     private void UpdateMappingLastBackupInfo()
@@ -583,7 +588,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // (the Windows Service background loop) is what actually enforces ArrivalDelayMinutes, entirely
     // independent of this client, so there is no delay to "cancel" client-side; enqueuing the job directly
     // is the correct way to start it now regardless of what the service's own poll timer is waiting on.
-    public Task QueueBackupsForDeviceAsync(Guid deviceId) => QueueEligibleBackupsAsync(mapping => mapping.Device.Id == deviceId);
+    public Task<int> QueueBackupsForDeviceAsync(Guid deviceId) => QueueEligibleBackupsAsync(mapping => mapping.Device.Id == deviceId);
 
     // "Skip this time" (tray flyout) must actually prevent the automatic backup it's warning about, not
     // just dismiss its own card - StorageMonitorService enqueues arrival commands entirely on its own
@@ -619,9 +624,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             mapping.SetEnabledWithoutSaving(true);
     }
 
-    public Task QueueEligibleBackupsAsync() => QueueEligibleBackupsAsync(_ => true);
+    public Task<int> QueueEligibleBackupsAsync() => QueueEligibleBackupsAsync(_ => true);
 
-    private async Task QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
+    private async Task<int> QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
     {
         var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected && filter(mapping)).ToArray();
         if (eligible.Length == 0)
@@ -630,7 +635,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = noTargets;
             AddActivity(noTargets);
             NotificationRequested?.Invoke(this, new("BackupMesh", noTargets));
-            return;
+            return 0;
         }
 
         try
@@ -643,14 +648,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 : $"Queued {Pluralize(queued, "backup")}.";
             FooterStatus = message;
             NotificationRequested?.Invoke(this, new("BackupMesh", message));
+            return queued;
         }
-        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return 0; }
         catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or TaskCanceledException)
         {
             var message = $"Backup queue request failed: {exception.Message}";
             FooterStatus = message;
             AddActivity(message);
             NotificationRequested?.Invoke(this, new("BackupMesh", message, true));
+            return 0;
         }
     }
 
@@ -851,23 +858,46 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             FooterStatus = "Choose a backup set and a device first.";
             return;
         }
-        var repositoryPath = RelativeDestinationPath(SelectedDevice, NewDestinationFolder);
-        if (repositoryPath is null)
-        {
-            FooterStatus = "Choose a destination folder inside the selected device.";
-            return;
-        }
-        var candidate = new BackupTargetMapping(Guid.NewGuid(), SelectedBackupSet.Id, SelectedDevice.Id, repositoryPath, true);
-        var all = Mappings.Select(mapping => mapping.ToModel()).Append(candidate).ToArray();
+        var error = await SaveMappingAsync(null, SelectedBackupSet, SelectedDevice, NewDestinationFolder, enabled: true);
+        if (error is not null) FooterStatus = error;
+    }
+
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled)
+    {
+        if (backupSet is null || device is null) return "Choose what to back up and a target device.";
+        var repositoryPath = RelativeDestinationPath(device, destination);
+        if (repositoryPath is null) return "Choose a destination folder inside the selected device.";
+        if (Mappings.Any(mapping => mapping.Id != existing?.Id
+            && mapping.BackupSet.Id == backupSet.Id
+            && mapping.Device.Id == device.Id
+            && string.Equals(NormalizeRepositoryPath(mapping.RepositoryPath), NormalizeRepositoryPath(repositoryPath), StringComparison.OrdinalIgnoreCase)))
+            return "That backup rule already exists.";
+
+        var candidate = new BackupTargetMapping(existing?.Id ?? Guid.NewGuid(), backupSet.Id, device.Id, repositoryPath, enabled);
+        var all = existing is null
+            ? Mappings.Select(mapping => mapping.ToModel()).Append(candidate).ToArray()
+            : Mappings.Select(mapping => mapping.Id == existing.Id ? candidate : mapping.ToModel()).ToArray();
         var topology = new StorageAgentConfiguration(Devices.Select(device => device.ToModel()).ToArray(), BackupSets.Select(set => set.Model).ToArray(), all);
         var errors = BackupTopologyValidator.Validate(topology);
-        if (errors.Count > 0) { FooterStatus = errors[0]; return; }
-        Mappings.Add(CreateMapping(candidate, SelectedBackupSet, SelectedDevice));
+        if (errors.Count > 0) return errors[0];
+
+        var saved = CreateMapping(candidate, backupSet, device);
+        if (existing is null) Mappings.Add(saved);
+        else
+        {
+            var index = Mappings.IndexOf(existing);
+            if (index < 0) return "The backup rule no longer exists.";
+            Mappings[index] = saved;
+        }
+        SelectedMapping = saved;
         RefreshDeviceTriggerRoles();
         NotifyCounts();
-        // Save immediately so the new backup cannot silently revert on the next configuration refresh.
         await SaveAsync();
+        return null;
     }
+
+    internal static string NormalizeRepositoryPath(string path) =>
+        path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
 
     private void BrowseDestination()
     {
@@ -926,7 +956,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     // Let a backup be created start-to-finish from the Backups group. RegisterDeviceAsync
-    // and RegisterFolderAsync both auto-select the new device on SelectedDevice, which MappingDeviceCombo
+    // and RegisterFolderAsync both auto-select the new device on SelectedDevice, which the rule dialog
     // is already bound to, so closing the dialog leaves the new device chosen with no extra step.
     private void OpenRegisterDeviceDialog() => new RegisterDeviceWindow(this).ShowDialog();
 

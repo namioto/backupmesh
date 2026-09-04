@@ -1,0 +1,60 @@
+<Window x:Class="BackupMesh.Storage.App.BackupRuleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Add backup rule" Width="540" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        AutomationProperties.AutomationId="BackupRuleWindow">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeadingText" Text="Add backup rule" FontSize="18" FontWeight="SemiBold"/>
+        <TextBlock Grid.Row="1" Text="Choose the source and where its backups are stored. You can edit this rule later by double-clicking it in the list."
+                   TextWrapping="Wrap" Foreground="#607086" Margin="0,4,0,14"/>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                <TextBlock Text="What to back up" Foreground="#607086" Margin="4,0"/>
+                <ComboBox x:Name="BackupSetCombo" ItemsSource="{Binding BackupSets}" DisplayMemberPath="DisplayName"
+                          AutomationProperties.AutomationId="BackupRuleBackupSetCombo"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <TextBlock Text="Target storage" Foreground="#607086" Margin="4,0"/>
+                <DockPanel>
+                    <Button Content="New…" DockPanel.Dock="Right" Click="OnRegisterStorageClick" Padding="9,5"
+                            AutomationProperties.AutomationId="BackupRuleRegisterStorageButton"/>
+                    <ComboBox x:Name="TargetDeviceCombo" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayNameWithDetails"
+                              AutomationProperties.AutomationId="BackupRuleDeviceCombo"/>
+                </DockPanel>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Text="Target folder" Foreground="#607086" Margin="4,0"/>
+            <DockPanel>
+                <Button Content="Browse…" DockPanel.Dock="Right" Click="OnBrowseClick" Padding="10,5"
+                        AutomationProperties.AutomationId="BackupRuleBrowseButton"/>
+                <TextBox x:Name="DestinationInput" AutomationProperties.AutomationId="BackupRuleDestinationInput"/>
+            </DockPanel>
+            <TextBlock Text="A folder inside the selected storage device." Foreground="#8493A6" FontSize="11" Margin="4,0"/>
+            <CheckBox x:Name="EnabledCheckBox" Content="Enable this backup rule" IsChecked="True" Margin="4,12,4,0"
+                      AutomationProperties.AutomationId="BackupRuleEnabledCheckBox"/>
+            <TextBlock x:Name="ValidationText" Foreground="#C0392B" TextWrapping="Wrap" Margin="4,8,4,0"
+                       AutomationProperties.AutomationId="BackupRuleValidationText"/>
+        </StackPanel>
+
+        <Separator Grid.Row="4" Margin="0,16,0,10"/>
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" Click="OnCancelClick" IsCancel="True"/>
+            <Button x:Name="SaveButton" Content="Add backup" Click="OnSaveClick" IsDefault="True"
+                    Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="BackupRuleSaveButton"/>
+        </StackPanel>
+    </Grid>
+</Window>

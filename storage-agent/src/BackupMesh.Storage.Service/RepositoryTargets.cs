@@ -39,7 +39,10 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
         if (mapping is null) return new(null, "TARGET_NOT_FOUND", "The enabled target mapping was not found.");
         var device = topology.Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
         var status = presence.List().FirstOrDefault(item => item.DeviceId == mapping.DeviceId);
-        if (device is null || status is null || !status.Ready || string.IsNullOrWhiteSpace(status.CurrentRoot))
+        // A direct backup request is an explicit action (for example, Start now in the tray), so the
+        // device only needs to be connected. Arrival-delay readiness remains the gate used by the
+        // automatic monitor and ListReady; applying it here made Start now impossible during the delay.
+        if (device is null || status is null || !status.Connected || string.IsNullOrWhiteSpace(status.CurrentRoot))
             return new(null, "TARGET_NOT_READY", status?.Reason ?? "The mapped device is not ready.");
         var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
         if (!IsWithinRoot(status.CurrentRoot, destination)) return new(null, "INVALID_CONFIGURATION", "The repository destination is outside the registered device.");
@@ -47,6 +50,12 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
     }
 
     public IReadOnlyList<ResolvedBackupTarget> ListReady(Guid[]? mappingIds)
+        => ListUsable(mappingIds, requireReady: true);
+
+    public IReadOnlyList<ResolvedBackupTarget> ListConnected(Guid[]? mappingIds)
+        => ListUsable(mappingIds, requireReady: false);
+
+    private IReadOnlyList<ResolvedBackupTarget> ListUsable(Guid[]? mappingIds, bool requireReady)
     {
         var selectedMappings = mappingIds?.ToHashSet() ?? [];
         var topology = configuration.Get().Configuration;
@@ -56,7 +65,8 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
         {
             var backupSet = topology.BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
             var device = topology.Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
-            if (backupSet is null || device is null || !presenceByDevice.TryGetValue(mapping.DeviceId, out var status) || !status.Ready || string.IsNullOrWhiteSpace(status.CurrentRoot)) continue;
+            if (backupSet is null || device is null || !presenceByDevice.TryGetValue(mapping.DeviceId, out var status)
+                || (requireReady ? !status.Ready : !status.Connected) || string.IsNullOrWhiteSpace(status.CurrentRoot)) continue;
             var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
             if (!IsWithinRoot(status.CurrentRoot, destination)) continue;
             targets.Add(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));

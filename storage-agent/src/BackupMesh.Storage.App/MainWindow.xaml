@@ -84,7 +84,7 @@
                     <!-- Registration happens inline from the Backups tab's "New…" dialog, so this group
                          shows the remaining device status and management actions: what's
                          connected, how much room is left, and whether it's safe to disconnect. -->
-                    <GroupBox Grid.Row="2" Header="Connected storage" Padding="12" Margin="0,0,0,10">
+                    <GroupBox Grid.Row="2" Header="Registered storage" Padding="12" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid MinHeight="140" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="RegisteredDevicesGrid">
@@ -111,17 +111,17 @@
             </TabItem>
 
             <TabItem Header="Backups" AutomationProperties.AutomationId="BackupsTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Choose what to back up and where each one saves to." TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
-                    <GroupBox Grid.Row="1" Header="Backups" Padding="10">
+                    <GroupBox Grid.Row="1" Header="Backup rules" Padding="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <!-- Source and target use symmetric columns. Last backup is per destination mapping.
                                  Repeated Source values remain visible with muted styling, Enabled is an actionable
                                  pause toggle, and labels match the creation form. -->
-                            <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="MappingsGrid">
+                            <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      MinHeight="300" MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
                                         <Style.Triggers>
@@ -194,26 +194,15 @@
                                     <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" IsReadOnly="False" Width="Auto" ToolTipService.ToolTip="Pause this backup without removing it."/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Text="No backups yet. Choose what to back up and a device below, then Add backup." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="320" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                            <Grid Grid.Row="1" Margin="0,12,0,0">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0"><TextBlock Text="What to back up" Margin="6,0" Foreground="#607086"/><ComboBox ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet}" DisplayMemberPath="DisplayName" AutomationProperties.AutomationId="BackupSetCombo"/><TextBlock Text="Folders shared by your computers, from the Source Agents tab" Margin="6,2,0,0" FontSize="11" Foreground="#8493A6"/></StackPanel>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="Target device" Margin="6,0" Foreground="#607086"/>
-                                    <DockPanel><Button Content="New…" Command="{Binding OpenRegisterDeviceDialogCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" ToolTip="Register a new drive or folder without leaving this tab." AutomationProperties.AutomationId="OpenRegisterDeviceDialogButton"/><ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayNameWithDetails" ToolTip="{Binding SelectedDevice.DisplayNameWithDetails}" AutomationProperties.AutomationId="MappingDeviceCombo"/></DockPanel>
-                                    <TextBlock Text="Register a drive or folder with New… to get started" Margin="6,2,0,0" FontSize="11" Foreground="#8493A6" Visibility="{Binding Devices.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2"><TextBlock Text="Target folder" Margin="6,0" Foreground="#607086"/><DockPanel><Button Content="Browse…" Command="{Binding BrowseDestinationCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" AutomationProperties.AutomationId="BrowseDestinationButton"/><TextBox Text="{Binding NewDestinationFolder, UpdateSourceTrigger=PropertyChanged}" ToolTip="Folder on the selected target device" AutomationProperties.AutomationId="DestinationFolderInput"/></DockPanel></StackPanel>
-                                <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="Remove backup" Command="{Binding RemoveMappingCommand}" AutomationProperties.AutomationId="RemoveMappingButton"/>
-                                    <Button Content="Add backup" Command="{Binding AddMappingCommand}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="AddMappingButton"/>
-                                </StackPanel>
-                            </Grid>
+                            <TextBlock Text="No backup rules yet. Add one to choose what to back up and where it should be stored." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="360" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                            <StackPanel Grid.Row="1" Margin="0,12,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Remove backup" Command="{Binding RemoveMappingCommand}" AutomationProperties.AutomationId="RemoveMappingButton"/>
+                                <Button Content="Edit backup…" Click="OnEditMappingClick" IsEnabled="{Binding HasSelectedMapping}" AutomationProperties.AutomationId="EditMappingButton"/>
+                                <Button Content="Add backup…" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="AddMappingButton"/>
+                            </StackPanel>
                         </Grid>
                     </GroupBox>
                 </Grid>
-                </ScrollViewer>
             </TabItem>
 
             <!-- Use Source Agent consistently for the managed software identity; use computer only when

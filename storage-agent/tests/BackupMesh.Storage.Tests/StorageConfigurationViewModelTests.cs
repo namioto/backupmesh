@@ -647,6 +647,45 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Equal(mappingA.Id, Assert.Single(client.EnqueuedMappingIds));
     }
 
+    [Fact]
+    public async Task SavingAnIdenticalBackupRuleIsRejectedWithoutAddingAnotherRow()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var existing = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "BackupMesh\\Documents"), set, device);
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        viewModel.Devices.Add(device);
+        viewModel.BackupSets.Add(set);
+        viewModel.Mappings.Add(existing);
+
+        var error = await viewModel.SaveMappingAsync(null, set, device, "backupmesh/Documents/", enabled: true);
+
+        Assert.Equal("That backup rule already exists.", error);
+        Assert.Single(viewModel.Mappings);
+    }
+
+    [Fact]
+    public async Task EditingABackupRuleKeepsItsIdentityAndReplacesTheRow()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var existing = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "old"), set, device);
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        viewModel.Devices.Add(device);
+        viewModel.BackupSets.Add(set);
+        viewModel.Mappings.Add(existing);
+
+        var error = await viewModel.SaveMappingAsync(existing, set, device, "new", enabled: false);
+
+        Assert.Null(error);
+        var saved = Assert.Single(viewModel.Mappings);
+        Assert.Equal(existing.Id, saved.Id);
+        Assert.Equal("new", saved.RepositoryPath);
+        Assert.False(saved.Enabled);
+    }
+
     private sealed class FakeDeviceInventory(IReadOnlyList<AvailableDriveViewModel> drives) : IDeviceInventory
     {
         public IReadOnlyList<AvailableDriveViewModel> GetStorageDevices() => drives;

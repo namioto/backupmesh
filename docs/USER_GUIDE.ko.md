@@ -48,7 +48,7 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 - repository는 볼륨 루트가 아닌 안전한 하위 폴더에 저장해야 합니다 — 실제 대상 폴더는 6장에서 매핑을 추가할 때 지정합니다.
 - 장치별 arrival delay는 더 이상 없습니다. Windows와 느린 디스크가 마운트를 끝낼 시간을 확보하는 지연은 이제 **Settings** 탭의 전역 기본값("Wait before starting, after any device connects")으로 등록된 모든 장치에 함께 적용됩니다.
 
-등록된 장치 목록과 여유 공간, 안전 제거는 **Overview** 탭의 "Connected storage"에서 확인합니다. 폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
+등록된 장치 목록과 여유 공간, 안전 제거는 **Overview** 탭의 "Registered storage"에서 확인합니다. 폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
 
 ## 3b. 이 PC 자체의 파일 백업하기 (Source Agent 불필요)
 
@@ -135,7 +135,7 @@ Source가 동기화되면 트레이 앱의 **Backups** 탭을 엽니다.
 1. **What to back up**에서 Backup Set을 선택합니다 — Source Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
 2. **Target device**에서 등록된 저장장치를 선택합니다. 아직 등록한 장치가 없다면 옆의 **New…**로 그 자리에서 등록합니다(3장 참고).
 3. **Target folder**에 장치 안의 저장 하위 폴더를 입력하거나 **Browse…**로 선택합니다.
-4. **Add backup**을 누릅니다 — 즉시 저장되며 Settings 탭에서 따로 저장할 필요가 없습니다.
+4. **Add backup…**을 눌러 백업 규칙 창을 작성한 뒤 **Add backup**을 누릅니다. 기존 행을 더블클릭하면 같은 창에서 규칙을 수정할 수 있습니다. 원본·대상 장치·대상 폴더가 모두 같은 규칙은 중복 저장되지 않습니다.
 
 매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요. 표의 **Enabled** 확인란으로 특정 백업만 삭제하지 않고 일시 중단할 수 있습니다.
 
@@ -156,7 +156,7 @@ sudo /opt/backupmesh/backupmesh-agent backup \
   -restic /opt/backupmesh/restic
 ```
 
-어느 탭을 열어 두었든 상단에는 연결된 장치의 백업이 모두 끝나 제거해도 되는지 알려주는 배너가 표시되며, 준비되면 배너의 **Remove safely** 버튼으로 바로 제거할 수 있습니다. 직접 선택해서 제거하려면 **Overview** 탭의 "Connected storage"에서 **Safely remove selected device**를 사용하세요. 해당 장치를 사용하는 모든 작업이 멈춘 뒤에만 제거하십시오 — BackupMesh는 Windows에 제거를 요청하기 전에 해당 repository listener를 닫습니다.
+어느 탭을 열어 두었든 상단에는 연결된 장치의 백업이 모두 끝나 제거해도 되는지 알려주는 배너가 표시되며, 준비되면 배너의 **Remove safely** 버튼으로 바로 제거할 수 있습니다. 직접 선택해서 제거하려면 **Overview** 탭의 "Registered storage"에서 **Safely remove selected device**를 사용하세요. 해당 장치를 사용하는 모든 작업이 멈춘 뒤에만 제거하십시오 — BackupMesh는 Windows에 제거를 요청하기 전에 해당 repository listener를 닫습니다.
 
 ## 8. 복원 시험
 

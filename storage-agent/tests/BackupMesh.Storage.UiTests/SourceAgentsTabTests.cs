@@ -32,11 +32,8 @@ public sealed class SourceAgentsTabTests : IClassFixture<StorageAppFixture>
     }
 
     /// <summary>
-    /// The app runs with --demo (see StorageAppFixture), so there is no Storage Service on
-    /// 127.0.0.1:7444 for PairSourceCommand to reach. Invoking it must fail gracefully - reporting
-    /// the error on the footer status - rather than hanging, crashing, or opening
-    /// PairingDetailsWindow with no data. That dialog itself needs a live paired session to test
-    /// and is out of reach of this fixture.
+    /// Demo mode uses an isolated, unreachable service endpoint. Invoking pairing must fail gracefully
+    /// in the footer instead of contacting an installed Storage Service on the test machine.
     /// </summary>
     [Fact]
     public void PairSourceButton_ReportsAFailureWhenNoStorageServiceIsRunning()

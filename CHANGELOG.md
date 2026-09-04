@@ -4,6 +4,17 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Connected backup destinations are labeled Registered storage, and the backup-rule list uses the available tab height.
+- Adding or editing a backup rule uses a dedicated window; an existing rule can also be opened by double-clicking its row.
+
+### Fixed
+
+- Identical backup rules are rejected instead of being saved repeatedly.
+- Start now can queue a backup while its registered storage is still inside the arrival-delay window.
+- Arrival flyouts close automatically after six seconds while pending decisions remain available from the tray icon.
+
 ## [0.2.0] - 2026-08-31
 
 ### Upgrading from 0.1.1

@@ -464,7 +464,9 @@ public static class ControlApi
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Backup commands can only be queued from the local tray app.");
             var invalid = Validate(request);
             if (invalid is not null) return invalid;
-            var readyTargets = targets.ListReady(request.MappingIds);
+            // This loopback-only endpoint represents an explicit user action. It deliberately bypasses
+            // the arrival delay while still requiring each target device to be connected.
+            var readyTargets = targets.ListConnected(request.MappingIds);
             var reason = string.IsNullOrWhiteSpace(request.Reason) ? "manual" : request.Reason.Trim();
             var drafts = readyTargets.Select(target => new BackupCommandDraft(target.SourceAgentId, target.BackupSetId, target.MappingId, reason)).ToArray();
             var result = commands.Enqueue(http.Request.Headers["Idempotency-Key"].ToString(), drafts, DateTimeOffset.UtcNow);

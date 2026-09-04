@@ -6,7 +6,7 @@ namespace BackupMesh.Storage.UiTests;
 
 // Replaces DevicesTabTests: the Devices tab was removed and registration now happens inline
 // from the Backups tab's "New…" dialog (see BackupsTabTests), and what's left - the registered-device
-// list, safe-removal, and "stop using this device" - moved to a "Connected storage" group on Overview.
+// list, safe-removal, and "stop using this device" - moved to a "Registered storage" group on Overview.
 public sealed class OverviewTabTests : IClassFixture<StorageAppFixture>
 {
     private readonly StorageAppFixture _fixture;

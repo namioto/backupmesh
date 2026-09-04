@@ -23,6 +23,7 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     private readonly MainWindowViewModel _main;
     private readonly DispatcherTimer _displayTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly HashSet<Guid> _observedDeviceIds = [];
+    private readonly HashSet<(Guid DeviceId, DateTimeOffset ConnectedAt)> _handledArrivals = [];
 
     public ObservableCollection<FlyoutJobViewModel> InProgressJobs { get; } = [];
     public ObservableCollection<FlyoutJobViewModel> QueuedJobs { get; } = [];
@@ -45,7 +46,7 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
         OpenMainWindowCommand = new RelayCommand(() => OpenMainWindowRequested?.Invoke(this, EventArgs.Empty));
         CancelAllCommand = new RelayCommand(CancelAll);
         CancelJobCommand = new RelayCommand<FlyoutJobViewModel>(CancelJob);
-        StartNowCommand = new RelayCommand<PendingArrivalViewModel>(pending => _ = _main.QueueBackupsForDeviceAsync(pending.Device.Id));
+        StartNowCommand = new RelayCommand<PendingArrivalViewModel>(StartNow);
         // SkipDeviceThisConnectionAsync flips each mapping's Enabled synchronously before its first await,
         // so by the time this line runs the card's disappearance condition (RefreshPendingArrivals'
         // mapping.Enabled filter) is already true - refreshing here makes the card vanish immediately
@@ -135,9 +136,15 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     private void RefreshPendingArrivals()
     {
         var cards = new List<PendingArrivalViewModel>();
+        var liveConnections = _main.Devices
+            .Where(device => device.IsConnected && device.ConnectedAt is not null)
+            .Select(device => (device.Id, device.ConnectedAt!.Value))
+            .ToHashSet();
+        _handledArrivals.RemoveWhere(connection => !liveConnections.Contains(connection));
         foreach (var device in _main.Devices)
         {
             if (!device.IsConnected || device.ConnectedAt is not { } connectedAt) continue;
+            if (_handledArrivals.Contains((device.Id, connectedAt))) continue;
             var mappingsForDevice = _main.Mappings.Where(mapping => mapping.Enabled && mapping.Device.Id == device.Id).ToArray();
             if (mappingsForDevice.Length == 0) continue;
             var mappingIds = mappingsForDevice.Select(mapping => mapping.Id).ToHashSet();
@@ -149,6 +156,20 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
         PendingArrivals.Clear();
         foreach (var card in cards) PendingArrivals.Add(card);
         NotifyDerivedPropertiesChanged();
+    }
+
+    private void StartNow(PendingArrivalViewModel? pending)
+    {
+        if (pending is null) return;
+        _ = StartNowAsync(pending);
+    }
+
+    private async Task StartNowAsync(PendingArrivalViewModel pending)
+    {
+        var queued = await _main.QueueBackupsForDeviceAsync(pending.Device.Id);
+        if (queued <= 0 || pending.Device.ConnectedAt is not { } connectedAt) return;
+        _handledArrivals.Add((pending.Device.Id, connectedAt));
+        RefreshPendingArrivals();
     }
 
     // MainWindowViewModel exposes cancellation only through CancelJobCommand, which always acts on

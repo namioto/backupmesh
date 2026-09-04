@@ -51,7 +51,7 @@ Registering a device is not a separate step or tab anymore — it happens inline
 
 Folder devices are useful for evaluation and for storage that is not exposed as a removable USB volume. They also allow multi-target behavior to be tested with ordinary folders.
 
-Once registered, a device's connection status, free space, and safe-removal readiness are shown on the **Overview** tab's **Connected storage** group. How long BackupMesh waits after any device connects before starting a backup is now a single global default on the **Settings** tab ("Wait before starting, after any device connects"), not a per-device setting.
+Once registered, a device's connection status, free space, and safe-removal readiness are shown on the **Overview** tab's **Registered storage** group. How long BackupMesh waits after any device connects before starting a backup is now a single global default on the **Settings** tab ("Wait before starting, after any device connects"), not a per-device setting.
 
 ## 3b. Back up this PC's own files (no Source Agent needed)
 
@@ -138,7 +138,7 @@ After the Source synchronizes, open **Backups** in the tray app.
 1. Under **What to back up**, select a Backup Set — synced from a paired Source Agent, or a local folder added from **This PC** on the **Source Agents** tab (section 3b).
 2. Under **Target device**, select a registered device, or choose **New…** to register one inline if it is not registered yet (see step 3).
 3. Under **Target folder**, browse to or type a destination subfolder on that device.
-4. Choose **Add backup**. The entry appears immediately in the grid above and is saved right away — there is no separate save step.
+4. Choose **Add backup…**, complete the backup-rule window, and select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
 
@@ -157,7 +157,7 @@ sudo /opt/backupmesh/backupmesh-agent backup \
   -restic /opt/backupmesh/restic
 ```
 
-A banner above the tabs — visible no matter which one is open — tells you once a connected device has finished all its backups and is safe to remove, with a **Remove safely** button right there; it also warns while a backup to that device is still running, so you never have to guess. Use that banner, or **Safely remove selected device** in the **Overview** tab's **Connected storage** group, only after all jobs targeting the device have stopped. BackupMesh closes its repository listeners before asking Windows to eject the volume.
+A banner above the tabs — visible no matter which one is open — tells you once a connected device has finished all its backups and is safe to remove, with a **Remove safely** button right there; it also warns while a backup to that device is still running, so you never have to guess. Use that banner, or **Safely remove selected device** in the **Overview** tab's **Registered storage** group, only after all jobs targeting the device have stopped. BackupMesh closes its repository listeners before asking Windows to eject the volume.
 
 ## 8. Test restoration
 

@@ -15,6 +15,7 @@ public partial class App : System.Windows.Application
     private string _baseTrayText = "BackupMesh Storage Agent — starting";
     private bool _wasBackingUp;
     private bool _wasAwaitingDecision;
+    private bool _flyoutStateUpdateScheduled;
     private readonly DispatcherTimer _flyoutAutoHideTimer = new() { Interval = TimeSpan.FromSeconds(6) };
 
     protected override void OnStartup(StartupEventArgs e)
@@ -46,12 +47,19 @@ public partial class App : System.Windows.Application
 
         var flyoutViewModel = new TrayFlyoutViewModel(_window.ViewModel);
         _flyout = new TrayFlyoutWindow(flyoutViewModel);
+        _trayIcon.MouseClick += (_, args) =>
+        {
+            if (args.Button != Forms.MouseButtons.Left || _flyout is null) return;
+            _flyoutAutoHideTimer.Stop();
+            _flyout.ShowNearTray();
+        };
         flyoutViewModel.OpenMainWindowRequested += (_, _) => { _flyout?.Hide(); ShowWindow(); };
         // Start now and Skip this time update the Storage configuration through TrayFlyoutViewModel;
         // collection changes then drive visibility and auto-hide behavior below.
         _flyoutAutoHideTimer.Tick += (_, _) => { _flyoutAutoHideTimer.Stop(); _flyout?.Hide(); };
-        _window.ViewModel.Jobs.CollectionChanged += (_, _) => UpdateFlyoutState();
-        flyoutViewModel.PendingArrivals.CollectionChanged += (_, _) => UpdateFlyoutState();
+        _flyout.UserInteracted += (_, _) => _flyoutAutoHideTimer.Stop();
+        _window.ViewModel.Jobs.CollectionChanged += (_, _) => ScheduleFlyoutStateUpdate();
+        flyoutViewModel.PendingArrivals.CollectionChanged += (_, _) => ScheduleFlyoutStateUpdate();
 
         _window.ViewModel.StartDeviceMonitoring();
         ShowWindow();
@@ -61,10 +69,9 @@ public partial class App : System.Windows.Application
     // "_was..." fields gate auto-show to the actual edge - otherwise it would reappear on every poll tick
     // for the whole duration of a backup instead of once at the start.
     //
-    // Pending Start now/Skip this time decisions must remain visible until the user acts. A decision
-    // (HasPendingArrivals) is a hard veto on the auto-hide timer, re-checked on every state change - not
-    // just suppressed at the moment the decision first appears - so it can never be left running
-    // underneath a decision that shows up while it's already ticking down.
+    // The popup is transient even when a pending-arrival card exists. The card remains in the ViewModel
+    // and can be reopened with a single tray-icon click; keeping the window itself open for the whole
+    // arrival delay made a 30-minute decision behave like a permanently pinned toast.
     private void UpdateFlyoutState()
     {
         if (_window is null || _flyout is null) return;
@@ -73,20 +80,34 @@ public partial class App : System.Windows.Application
         var justStartedNeedingAttention = (awaitingDecision && !_wasAwaitingDecision) || (isBackingUp && !_wasBackingUp);
 
         if (justStartedNeedingAttention && _window.ViewModel.ShowFlyoutOnBackupStart && !IsFullScreenAppActive())
-            _flyout.ShowNearTray();
-
-        if (awaitingDecision) _flyoutAutoHideTimer.Stop();
-        else if (justStartedNeedingAttention || (_wasAwaitingDecision && isBackingUp))
         {
-            // Either a fresh progress-only show, or a decision that just resolved into a running backup -
-            // both are now the auto-hiding kind of popup.
+            _flyout.ShowNearTray();
             _flyoutAutoHideTimer.Stop();
             _flyoutAutoHideTimer.Start();
+        }
+        else if (_wasAwaitingDecision && !awaitingDecision && !isBackingUp)
+        {
+            _flyoutAutoHideTimer.Stop();
+            _flyout.Hide();
         }
 
         _wasBackingUp = isBackingUp;
         _wasAwaitingDecision = awaitingDecision;
         UpdateTrayText();
+    }
+
+    // Both projections refresh with Clear()+Add(), which raises several CollectionChanged events for
+    // one logical state update. Coalescing them onto the dispatcher prevents a momentary empty
+    // collection from hiding and immediately re-showing the flyout on every polling tick.
+    private void ScheduleFlyoutStateUpdate()
+    {
+        if (_flyoutStateUpdateScheduled) return;
+        _flyoutStateUpdateScheduled = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _flyoutStateUpdateScheduled = false;
+            UpdateFlyoutState();
+        }));
     }
 
     // The tray tooltip normally mirrors OverallStatus ("N devices connected"), but a running backup is

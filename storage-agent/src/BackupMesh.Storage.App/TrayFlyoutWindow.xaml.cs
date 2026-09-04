@@ -58,6 +58,7 @@ public partial class TrayFlyoutWindow : Window
     private IntPtr _mouseHook = IntPtr.Zero;
 
     public TrayFlyoutViewModel ViewModel { get; }
+    public event EventHandler? UserInteracted;
 
     public TrayFlyoutWindow(TrayFlyoutViewModel viewModel)
     {
@@ -69,6 +70,7 @@ public partial class TrayFlyoutWindow : Window
         IsVisibleChanged += (_, _) => { if (IsVisible) InstallMouseHook(); else RemoveMouseHook(); };
         Closed += (_, _) => RemoveMouseHook();
         Deactivated += (_, _) => Hide();
+        PreviewMouseDown += (_, _) => UserInteracted?.Invoke(this, EventArgs.Empty);
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Hide(); };
     }
 
