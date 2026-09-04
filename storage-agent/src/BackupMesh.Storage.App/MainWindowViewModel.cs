@@ -24,7 +24,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly ISourceCatalogClient _catalogClient;
     private readonly IStorageConfigurationClient _configurationClient;
     private readonly IBackupJobClient _jobClient;
-    private readonly IStorageDeviceClient _storageDeviceClient;
     private readonly IPairingClient _pairingClient;
     private readonly ISourceConnectionsClient _connectionsClient;
     private readonly CancellationTokenSource _shutdown = new();
@@ -38,10 +37,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private SourceAgentViewModel? _selectedSourceAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
     private DeviceViewModel? _selectedDevice;
-    private AvailableDriveViewModel? _selectedAvailableDrive;
     private MappingViewModel? _selectedMapping;
     private BackupJobViewModel? _selectedJob;
-    private string _newDestinationFolder = string.Empty;
     private string _overallStatus = "Ready";
     private string _footerStatus = "Configuration loaded.";
     private long _configurationRevision;
@@ -52,30 +49,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<SourceConnectionViewModel> SourceConnections { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
+    public ObservableCollection<BackupDestinationOptionViewModel> BackupDestinations { get; } = [];
     public ObservableCollection<MappingViewModel> Mappings { get; } = [];
     public ObservableCollection<AvailableDriveViewModel> AvailableDrives { get; } = [];
     public ObservableCollection<string> Activity { get; } = [];
     public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
-    // Surface backup completion and safe-removal actions together regardless of the active tab.
-    public ObservableCollection<DeviceRemovalBannerViewModel> RemovalBanners { get; } = [];
 
     public event EventHandler<AppNotification>? NotificationRequested;
     public event EventHandler<string>? StatusChanged;
 
-    public ICommand AddMappingCommand { get; }
-    public ICommand BrowseDestinationCommand { get; }
     public ICommand RemoveMappingCommand { get; }
     public ICommand RefreshDrivesCommand { get; }
-    public ICommand RegisterDeviceCommand { get; }
-    public ICommand RegisterFolderCommand { get; }
-    public ICommand OpenRegisterDeviceDialogCommand { get; }
-    public ICommand ForgetDeviceCommand { get; }
     public ICommand AddLocalBackupSetCommand { get; }
     public ICommand RemoveLocalBackupSetCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
-    public ICommand EjectDeviceCommand { get; }
-    public ICommand SafelyRemoveDeviceCommand { get; }
     public ICommand PairSourceCommand { get; }
     public ICommand RePairSourceCommand { get; }
     public ICommand RevokeSourceCommand { get; }
@@ -84,7 +72,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand ForgetSourceCommand { get; }
     public ICommand RotateStorageIdentityCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
@@ -92,23 +80,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _configurationClient = configurationClient ?? new StorageConfigurationClient();
         _deviceInventory = deviceInventory ?? new WindowsDeviceInventory();
         _jobClient = jobClient ?? new BackupJobClient();
-        _storageDeviceClient = storageDeviceClient ?? new StorageDeviceClient();
         _pairingClient = pairingClient ?? new PairingClient();
         _connectionsClient = connectionsClient ?? new SourceConnectionsClient();
-        AddMappingCommand = new RelayCommand(() => _ = AddMappingAsync());
-        BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(() => _ = RemoveMappingAsync());
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
-        RegisterDeviceCommand = new RelayCommand(() => _ = RegisterDeviceAsync());
-        RegisterFolderCommand = new RelayCommand(() => _ = RegisterFolderAsync());
-        OpenRegisterDeviceDialogCommand = new RelayCommand(OpenRegisterDeviceDialog);
-        ForgetDeviceCommand = new RelayCommand(() => _ = ForgetDeviceAsync());
         AddLocalBackupSetCommand = new RelayCommand(() => _ = AddLocalBackupSetAsync());
         RemoveLocalBackupSetCommand = new RelayCommand(() => _ = RemoveLocalBackupSetAsync());
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
-        EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
-        SafelyRemoveDeviceCommand = new RelayCommand<DeviceViewModel>(device => _ = EjectDeviceAsync(device));
         PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: null));
         RePairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: SelectedSourceConnection));
         RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
@@ -125,7 +104,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (loadLocalState) Load();
         else Activity.Add("Storage Agent UI test state initialized.");
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
-        if (loadLocalState) RefreshDrives();
+        if (loadLocalState || demoMode) RefreshDrives();
     }
 
     public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, $"BackupMesh Storage Agent — {value}"); } }
@@ -162,7 +141,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _ => string.Empty
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
-    public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping
     {
         get => _selectedMapping;
@@ -170,7 +148,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
     public bool HasSelectedMapping => SelectedMapping is not null;
     public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
-    public string NewDestinationFolder { get => _newDestinationFolder; set => Set(ref _newDestinationFolder, value); }
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
     public bool AutomaticBackups { get; set; } = true;
@@ -215,37 +192,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Jobs.Clear();
             foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
-            UpdateRemovalBanners();
             UpdateMappingLastBackupInfo();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
-    }
-
-    // Recomputed on every job-list refresh (2s) and every drive-connection poll (3s), so a banner reacts
-    // to a backup starting or finishing within one of those cycles - the same cadence the rest of the tray
-    // already runs on, not a new promise. STORAGE_BUSY blocks an actually-stale removal request server
-    // side regardless (ControlApi checks HasActiveJobs itself), so this only needs to be timely, not exact.
-    private void UpdateRemovalBanners()
-    {
-        RemovalBanners.Clear();
-        foreach (var device in Devices)
-        {
-            if (!device.IsConnected || !device.CanEject) continue;
-            var jobsForDevice = Jobs.Where(job => job.TargetMappingId is { } mappingId
-                && Mappings.FirstOrDefault(mapping => mapping.Id == mappingId)?.Device.Id == device.Id).ToArray();
-            // A job in progress is a real-time fact, not a history claim, so this doesn't need ConnectedAt
-            // gating - and it must win over "safe", never the reverse: this is a same-line status swap
-            // (never disappear, never show both), so it's checked and added first, before anything that
-            // could otherwise report "safe" for a device that is, right now, being written to.
-            if (jobsForDevice.FirstOrDefault(job => !job.IsTerminal) is { } activeJob) { RemovalBanners.Add(DeviceRemovalBannerViewModel.BackingUp(device, activeJob.EstimatedTimeRemaining)); continue; }
-            if (device.ConnectedAt is not { } connectedAt) continue;
-            var completedSinceConnecting = jobsForDevice.Where(job => job.StartedAt is { } startedAt && startedAt >= connectedAt).ToArray();
-            if (completedSinceConnecting.Length == 0) continue; // nothing happened on this device during this connection - stay quiet rather than claim old history "just finished".
-            var anyDidNotFinish = completedSinceConnecting.Any(job => job.State is "FAILED" or "CANCELLED");
-            RemovalBanners.Add(DeviceRemovalBannerViewModel.Finished(device, anyDidNotFinish));
-        }
     }
 
     // "Last backup" answers both "when" and, if it's stale for a reason the user can act on, "why" in the
@@ -325,41 +276,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (HttpRequestException) { FooterStatus = "The cancellation request could not reach Storage Service."; }
         catch (TaskCanceledException) { FooterStatus = "The cancellation request timed out."; }
-    }
-
-    private Task EjectSelectedDeviceAsync()
-    {
-        if (SelectedDevice is not { IsConnected: true, CanEject: true } device) { FooterStatus = "Select a connected removable device first."; return Task.CompletedTask; }
-        return EjectDeviceAsync(device);
-    }
-
-    // Shared by the Devices tab's "Safely remove selected device" button and the header removal banner's
-    // per-device "Remove safely" button, so both paths get the same STORAGE_BUSY/EJECT_REFUSED handling.
-    private async Task EjectDeviceAsync(DeviceViewModel device)
-    {
-        try
-        {
-            await _storageDeviceClient.EjectAsync(device.Id, _shutdown.Token);
-            FooterStatus = $"Safe-removal requested for {device.DisplayName}.";
-            AddActivity(FooterStatus);
-        }
-        catch (StorageDeviceEjectRefusedException exception)
-        {
-            // STORAGE_BUSY means the answer is "wait" - the removal banner itself is only ever shown once
-            // this client's own job list agrees nothing is active, so seeing this at all means the server
-            // knows about a job the client doesn't yet (a race, not a bug) and it will resolve on its own
-            // shortly. EJECT_REFUSED means Windows itself said no (e.g. a file still open) and waiting
-            // will not fix it - the two need different next actions from the user, so they read
-            // differently.
-            FooterStatus = exception.Code switch
-            {
-                "STORAGE_BUSY" => $"Can't remove {device.DisplayName} yet — a backup is still running. Wait a moment and try again.",
-                "EJECT_REFUSED" => $"Windows would not remove {device.DisplayName}: {exception.Message} Close any File Explorer window or app using the drive, then try again.",
-                _ => $"Safe removal was refused: {exception.Message}"
-            };
-        }
-        catch (HttpRequestException exception) { FooterStatus = $"Safe removal was refused: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = "Safe-removal request timed out."; }
     }
 
     private async Task PairSourceAsync(SourceConnectionViewModel? rebind)
@@ -851,17 +767,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private MappingViewModel CreateMapping(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) =>
         new(model, set, device, mapping => _ = SaveAsync());
 
-    private async Task AddMappingAsync()
-    {
-        if (SelectedBackupSet is null || SelectedDevice is null)
-        {
-            FooterStatus = "Choose a backup set and a device first.";
-            return;
-        }
-        var error = await SaveMappingAsync(null, SelectedBackupSet, SelectedDevice, NewDestinationFolder, enabled: true);
-        if (error is not null) FooterStatus = error;
-    }
-
     internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled)
     {
         if (backupSet is null || device is null) return "Choose what to back up and a target device.";
@@ -890,39 +795,58 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Mappings[index] = saved;
         }
         SelectedMapping = saved;
+        RemoveUnreferencedDevices();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
         await SaveAsync();
         return null;
     }
 
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled)
+    {
+        if (destinationOption is null) return "Choose where to store the backup.";
+        var device = destinationOption.Device;
+        var added = false;
+        if (device is null && destinationOption.AvailableDrive is { } drive)
+        {
+            var model = new RegisteredDevice(Guid.NewGuid(), drive.StableId, drive.HardwareName, drive.VolumeLabel, drive.Root,
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DefaultArrivalDelayMinutes);
+            device = new DeviceViewModel(model)
+            {
+                CurrentRoot = drive.Root,
+                IsConnected = true,
+                CanEject = drive.CanEject,
+                AvailableBytes = drive.AvailableBytes,
+                TotalBytes = drive.TotalBytes
+            };
+            Devices.Add(device);
+            added = true;
+        }
+
+        var error = await SaveMappingAsync(existing, backupSet, device, destination, enabled);
+        if (error is not null && added) Devices.Remove(device!);
+        RefreshBackupDestinations();
+        return error;
+    }
+
+    internal BackupDestinationOptionViewModel AddFolderDestination(string root)
+    {
+        root = Path.GetFullPath(root);
+        var stableId = FolderStorageIdentity.Create(root);
+        var existing = Devices.FirstOrDefault(device => string.Equals(device.StableId, stableId, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return BackupDestinations.FirstOrDefault(option => option.Device?.Id == existing.Id) ?? new(existing, null);
+        long available = 0;
+        long total = 0;
+        try { var drive = new DriveInfo(Path.GetPathRoot(root) ?? root); available = drive.AvailableFreeSpace; total = drive.TotalSize; }
+        catch (Exception exception) when (exception is ArgumentException or IOException) { }
+        var name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : root;
+        var option = new BackupDestinationOptionViewModel(null, new(stableId, root, "Folder", available, total, name, 1, false));
+        BackupDestinations.Add(option);
+        return option;
+    }
+
     internal static string NormalizeRepositoryPath(string path) =>
         path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
-
-    private void BrowseDestination()
-    {
-        if (SelectedDevice is null)
-        {
-            FooterStatus = "Choose a device first.";
-            return;
-        }
-
-        var root = SelectedDevice.CurrentRoot ?? SelectedDevice.LastKnownRoot;
-        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-        {
-            FooterStatus = "The selected device is not currently available.";
-            return;
-        }
-
-        using var dialog = new Forms.FolderBrowserDialog
-        {
-            Description = "Choose or create the folder that will contain this backup repository.",
-            InitialDirectory = root,
-            SelectedPath = root,
-            ShowNewFolderButton = true
-        };
-        if (dialog.ShowDialog() == Forms.DialogResult.OK) NewDestinationFolder = dialog.SelectedPath;
-    }
 
     internal static string? RelativeDestinationPath(DeviceViewModel device, string destination)
     {
@@ -950,58 +874,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (SelectedMapping is null) return;
         Mappings.Remove(SelectedMapping);
         SelectedMapping = null;
+        RemoveUnreferencedDevices();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
         await SaveAsync();
     }
 
-    // Let a backup be created start-to-finish from the Backups group. RegisterDeviceAsync
-    // and RegisterFolderAsync both auto-select the new device on SelectedDevice, which the rule dialog
-    // is already bound to, so closing the dialog leaves the new device chosen with no extra step.
-    private void OpenRegisterDeviceDialog() => new RegisterDeviceWindow(this).ShowDialog();
-
-    private async Task RegisterDeviceAsync()
+    private void RemoveUnreferencedDevices()
     {
-        if (SelectedAvailableDrive is null) { FooterStatus = "Select a connected drive first."; return; }
-        if (Devices.Any(device => string.Equals(device.StableId, SelectedAvailableDrive.StableId, StringComparison.OrdinalIgnoreCase)))
-        {
-            FooterStatus = "That device is already registered.";
-            return;
-        }
-        var model = new RegisteredDevice(Guid.NewGuid(), SelectedAvailableDrive.StableId, SelectedAvailableDrive.HardwareName, SelectedAvailableDrive.VolumeLabel, SelectedAvailableDrive.Root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DefaultArrivalDelayMinutes);
-        var registered = new DeviceViewModel(model) { CurrentRoot = SelectedAvailableDrive.Root, IsConnected = true, AvailableBytes = SelectedAvailableDrive.AvailableBytes, TotalBytes = SelectedAvailableDrive.TotalBytes };
-        Devices.Add(registered);
-        SelectedDevice = registered;
-        AddActivity($"Registered device {model.DisplayName}.");
-        NotifyCounts();
-        await SaveAsync();
-    }
-
-    private async Task RegisterFolderAsync()
-    {
-        using var dialog = new Forms.FolderBrowserDialog
-        {
-            Description = "Choose a folder to use as a logical BackupMesh storage device.",
-            ShowNewFolderButton = true
-        };
-        if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
-        var root = Path.GetFullPath(dialog.SelectedPath);
-        var stableId = FolderStorageIdentity.Create(root);
-        if (Devices.Any(device => string.Equals(device.StableId, stableId, StringComparison.OrdinalIgnoreCase)))
-        {
-            FooterStatus = "That folder is already registered.";
-            return;
-        }
-        var displayName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } name ? name : root;
-        var model = new RegisteredDevice(Guid.NewGuid(), stableId, displayName, "Folder", root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DefaultArrivalDelayMinutes);
-        var registered = new DeviceViewModel(model) { CurrentRoot = root, IsConnected = true, CanEject = false };
-        try { var driveInfo = new DriveInfo(Path.GetPathRoot(root) ?? root); registered.AvailableBytes = driveInfo.AvailableFreeSpace; registered.TotalBytes = driveInfo.TotalSize; }
-        catch (Exception exception) when (exception is ArgumentException or IOException) { }
-        Devices.Add(registered);
-        SelectedDevice = registered;
-        AddActivity($"Registered storage folder {root}.");
-        NotifyCounts();
-        await SaveAsync();
+        var referenced = Mappings.Select(mapping => mapping.Device.Id)
+            .Concat(BackupSets.SelectMany(set => set.Model.TriggerDeviceIds))
+            .ToHashSet();
+        foreach (var device in Devices.Where(device => !referenced.Contains(device.Id)).ToArray()) Devices.Remove(device);
+        if (SelectedDevice is not null && !Devices.Contains(SelectedDevice)) SelectedDevice = Devices.FirstOrDefault();
+        RefreshBackupDestinations();
     }
 
     // "This PC" needs no pairing, Source Agent, or enable step: choosing a folder here is the entire
@@ -1043,39 +929,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         BackupSets.Remove(backupSet);
         Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId)?.BackupSets.Remove(backupSet);
         SelectedBackupSet = BackupSets.FirstOrDefault();
+        RemoveUnreferencedDevices();
         RefreshDeviceTriggerRoles();
-        NotifyCounts();
-        await SaveAsync();
-    }
-
-    private async Task ForgetDeviceAsync()
-    {
-        if (SelectedDevice is null) return;
-        if (Mappings.Any(mapping => mapping.Device.Id == SelectedDevice.Id))
-        {
-            FooterStatus = "Remove mappings for this device before forgetting it.";
-            return;
-        }
-        var confirmed = System.Windows.MessageBox.Show(
-            $"Stop using \"{SelectedDevice.DisplayName}\"? Backup data already stored on it is not deleted - only Storage stops sending new backups to it, until you register it again.",
-            "Stop using this device", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
-        if (!confirmed) return;
-        var displayName = SelectedDevice.DisplayName;
-        Devices.Remove(SelectedDevice);
-        SelectedDevice = null;
-        AddActivity($"Stopped using {displayName}. Backup data on it was not deleted.");
         NotifyCounts();
         await SaveAsync();
     }
 
     private void RefreshDrives()
     {
-        var selectedStableId = SelectedAvailableDrive?.StableId;
         var drives = _deviceInventory.GetStorageDevices();
         AvailableDrives.Clear();
         foreach (var drive in drives) AvailableDrives.Add(drive);
-        SelectedAvailableDrive = AvailableDrives.FirstOrDefault(drive => string.Equals(drive.StableId, selectedStableId, StringComparison.OrdinalIgnoreCase))
-            ?? AvailableDrives.FirstOrDefault();
 
         var nowConnected = drives.Select(drive => drive.Root).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var device in Devices)
@@ -1091,7 +955,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 device.ConnectedAt = DateTimeOffset.UtcNow;
-                AddActivity($"Registered device connected: {device.DisplayName}.");
+                AddActivity($"Backup target connected: {device.DisplayName}.");
                 if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
             }
             else if (wasConnected && !device.IsConnected)
@@ -1102,8 +966,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         _connectedRoots.Clear();
         foreach (var root in nowConnected) _connectedRoots.Add(root);
+        RefreshBackupDestinations();
         NotifyCounts();
-        UpdateRemovalBanners();
+    }
+
+    private void RefreshBackupDestinations()
+    {
+        BackupDestinations.Clear();
+        foreach (var drive in AvailableDrives)
+        {
+            var registered = Devices.FirstOrDefault(device => string.Equals(device.StableId, drive.StableId, StringComparison.OrdinalIgnoreCase));
+            BackupDestinations.Add(new(registered, drive));
+        }
+        foreach (var device in Devices.Where(device => BackupDestinations.All(option => option.Device?.Id != device.Id)))
+            BackupDestinations.Add(new(device, null));
     }
 
     private void AddActivity(string text)
@@ -1175,7 +1051,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (_catalogClient is IDisposable disposable) disposable.Dispose();
         if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
         if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
-        if (_storageDeviceClient is IDisposable storageDeviceDisposable) storageDeviceDisposable.Dispose();
         if (_pairingClient is IDisposable pairingDisposable) pairingDisposable.Dispose();
         if (_connectionsClient is IDisposable connectionsDisposable) connectionsDisposable.Dispose();
         _shutdown.Dispose();
@@ -1273,15 +1148,27 @@ public sealed class BackupSetViewModel : ObservableObject
     public Guid Id => Model.Id;
     public bool IsAvailable { get => _isAvailable; set { if (Set(ref _isAvailable, value)) OnPropertyChanged(nameof(DisplayName)); } }
     public string DisplayName => $"{Model.SourceAgentName} / {Model.Name}{(IsAvailable ? string.Empty : " (not reported)")}";
+    public string SourcePathsDisplay => string.Join(Environment.NewLine, Model.SourcePaths);
     public void Update(SourceBackupSet model)
     {
         _model = model;
         IsAvailable = true;
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(SourcePathsDisplay));
     }
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
+}
+
+public sealed class BackupDestinationOptionViewModel(DeviceViewModel? device, AvailableDriveViewModel? availableDrive)
+{
+    public DeviceViewModel? Device { get; } = device;
+    public AvailableDriveViewModel? AvailableDrive { get; } = availableDrive;
+    public string StableId => Device?.StableId ?? AvailableDrive!.StableId;
+    public string Root => AvailableDrive?.Root ?? Device?.CurrentRoot ?? Device?.LastKnownRoot ?? string.Empty;
+    public string DisplayName => AvailableDrive?.DisplayName ?? $"{Device!.DisplayNameWithDetails} (not connected)";
     public override string ToString() => DisplayName;
 }
 
@@ -1404,41 +1291,6 @@ public sealed class MappingViewModel : ObservableObject
     // "starts when Target connects" for a row that in fact does not.
     public string TriggerNote { get => _triggerNote; set => Set(ref _triggerNote, value); }
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
-}
-
-// One line combines backup completion and safe removal wherever the user is. The same line
-// swaps wording rather than appearing/disappearing/growing a second line, so "safe" and "backing up" are
-// never ambiguous about which device they describe or momentarily absent while a job starts.
-public enum DeviceRemovalBannerKind { BackingUp, Safe, SafeButIncomplete }
-
-public sealed class DeviceRemovalBannerViewModel
-{
-    private DeviceRemovalBannerViewModel(DeviceViewModel device, DeviceRemovalBannerKind kind, string message, bool showRemoveButton)
-    {
-        Device = device;
-        Kind = kind;
-        Message = message;
-        ShowRemoveButton = showRemoveButton;
-    }
-
-    public DeviceViewModel Device { get; }
-    public DeviceRemovalBannerKind Kind { get; }
-    public string Message { get; }
-    public bool ShowRemoveButton { get; }
-
-    // Put the discriminating state first so the three outcomes are easy to distinguish at a glance.
-    public static DeviceRemovalBannerViewModel BackingUp(DeviceViewModel device, TimeSpan? remaining)
-    {
-        var etaClause = remaining is { } eta
-            ? eta.TotalHours >= 1 ? $" (about {MainWindowViewModel.Pluralize((int)Math.Round(eta.TotalHours), "hour")} left)" : $" (about {MainWindowViewModel.Pluralize(Math.Max(1, (int)eta.TotalMinutes), "minute")} left)"
-            : string.Empty;
-        return new(device, DeviceRemovalBannerKind.BackingUp, $"Do not remove — {device.DisplayNameWithRoot} is backing up now{etaClause}.", showRemoveButton: false);
-    }
-
-    public static DeviceRemovalBannerViewModel Finished(DeviceViewModel device, bool anyDidNotFinish) => anyDidNotFinish
-        // Unlike the other two states, the failed backup is the main news; state safe removal separately.
-        ? new(device, DeviceRemovalBannerKind.SafeButIncomplete, $"Backup did not finish — nothing new was saved to {device.DisplayNameWithRoot}. You can still remove it safely. See the Overview tab for details.", showRemoveButton: true)
-        : new(device, DeviceRemovalBannerKind.Safe, $"Safe to remove — {device.DisplayNameWithRoot} finished all backups.", showRemoveButton: true);
 }
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)

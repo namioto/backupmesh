@@ -34,8 +34,8 @@ public sealed class StorageAppFixture : IDisposable
 
     public Window MainWindow { get; }
 
-    // Dialogs opened via Window.ShowDialog() (e.g. RegisterDeviceWindow) surface as their own top-level
-    // window in the automation tree, not as a descendant of MainWindow - this is how a test finds one.
+    // Dialogs opened via Window.ShowDialog() surface as their own top-level window in the automation
+    // tree, not as a descendant of MainWindow.
     public Window[] GetAllTopLevelWindows() => _app.GetAllTopLevelWindows(Automation);
 
     public void Dispose()

@@ -17,7 +17,7 @@ pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.2.0-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.2.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Source Agent)
@@ -26,9 +26,9 @@ pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.2.0-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.2.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.2.0-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.2.1-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -39,20 +39,20 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 설치 프로그램은 자동 재시작되는 `BackupMeshStorageAgent` Windows 서비스를 만들고, Private·Domain 네트워크의 로컬 서브넷에 인증된 Control/repository 포트를 허용하며, 현재 사용자의 다음 로그인부터 트레이 앱을 실행합니다. 서비스 데이터는 `%ProgramData%\BackupMesh` 아래에 보호됩니다.
 
-## 3. 저장장치 등록
+## 3. 백업 저장 위치 선택
 
-저장장치 등록은 더 이상 독립된 단계가 아닙니다. **Backups** 탭에서 백업을 추가할 때 Target device 콤보 옆의 **New…** 버튼을 누르면 그 자리에서 등록할 수 있습니다.
+저장장치 등록은 내부 동작입니다. 사용자는 백업 규칙 창에서 무엇을 백업하고 어디에 저장할지만 선택합니다.
 
-- 열리는 대화상자에서 감지된 고정식·이동식 드라이브를 선택해 **Register drive**를 누르거나, **Register folder instead…**로 로컬·네트워크 폴더를 논리 장치로 등록합니다.
-- 등록한 장치는 대화상자가 닫히면 Target device 콤보에 자동으로 선택됩니다.
-- repository는 볼륨 루트가 아닌 안전한 하위 폴더에 저장해야 합니다 — 실제 대상 폴더는 6장에서 매핑을 추가할 때 지정합니다.
-- 장치별 arrival delay는 더 이상 없습니다. Windows와 느린 디스크가 마운트를 끝낼 시간을 확보하는 지연은 이제 **Settings** 탭의 전역 기본값("Wait before starting, after any device connects")으로 등록된 모든 장치에 함께 적용됩니다.
+- **Add backup…**을 누르고 연결된 대상 드라이브와 전체 저장 경로를 선택합니다.
+- 감지된 드라이브 대신 로컬·네트워크 폴더를 사용하려면 **Choose folder…**를 누릅니다.
+- BackupMesh는 드라이브 문자가 바뀌어도 규칙이 유지되도록 장치 식별 정보를 내부에서 관리하며, 마지막 규칙을 삭제하면 사용하지 않는 내부 장치 정보도 정리합니다.
+- repository는 볼륨 루트가 아닌 안전한 하위 폴더에 저장해야 합니다.
 
-등록된 장치 목록과 여유 공간, 안전 제거는 **Overview** 탭의 "Registered storage"에서 확인합니다. 폴더 장치는 USB로 표시되지 않는 저장소를 사용할 때와 일반 폴더만으로 다중 대상 동작을 시험할 때 유용합니다.
+연결 후 백업 시작까지의 대기 시간은 **Settings** 탭의 전역 기본값으로 적용됩니다. 이동식 저장장치 분리는 백업 작업이 끝난 뒤 Windows에서 수행합니다.
 
 ## 3b. 이 PC 자체의 파일 백업하기 (Source Agent 불필요)
 
-**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Source Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Source Agent의 Backup Set과 똑같이 등록된 대상 장치에 매핑할 수 있는 Backup Set으로 나타납니다. 매핑된 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
+**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Source Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Source Agent의 Backup Set과 똑같이 원하는 대상으로 보낼 수 있는 Backup Set으로 나타납니다. 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
 
 이 방식으로 폴더 백업을 그만두려면 같은 탭의 **Remove folder**를 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Source Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
 
@@ -82,7 +82,7 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.2.0-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.2.1-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -133,8 +133,8 @@ sudo systemctl status backupmesh-source-watch.service
 Source가 동기화되면 트레이 앱의 **Backups** 탭을 엽니다.
 
 1. **What to back up**에서 Backup Set을 선택합니다 — Source Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
-2. **Target device**에서 등록된 저장장치를 선택합니다. 아직 등록한 장치가 없다면 옆의 **New…**로 그 자리에서 등록합니다(3장 참고).
-3. **Target folder**에 장치 안의 저장 하위 폴더를 입력하거나 **Browse…**로 선택합니다.
+2. **Where to store it**에서 연결된 드라이브를 선택하거나 **Choose folder…**를 누릅니다.
+3. **Full destination path**에서 실제 전체 저장 경로를 확인하거나 수정합니다.
 4. **Add backup…**을 눌러 백업 규칙 창을 작성한 뒤 **Add backup**을 누릅니다. 기존 행을 더블클릭하면 같은 창에서 규칙을 수정할 수 있습니다. 원본·대상 장치·대상 폴더가 모두 같은 규칙은 중복 저장되지 않습니다.
 
 매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요. 표의 **Enabled** 확인란으로 특정 백업만 삭제하지 않고 일시 중단할 수 있습니다.
@@ -143,7 +143,7 @@ Source Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용�
 
 ## 7. 백업 실행과 확인
 
-등록된 장치를 연결하고 Settings 탭에서 설정한 arrival delay가 끝날 때까지 기다립니다. BackupMesh가 매핑된 Source에 자동으로 백업을 요청합니다. 트레이 앱에서 대기·실행 상태, 처리 파일과 바이트, 진행률, 결과, 최근 성공 시각을 확인할 수 있습니다. 실행 중인 작업을 취소하면 Source가 restic을 종료하고 `CANCELLED` 결과를 보고합니다.
+대상 장치를 연결하고 Settings 탭에서 설정한 arrival delay가 끝날 때까지 기다립니다. BackupMesh가 매핑된 Source에 자동으로 백업을 요청합니다. 트레이 앱에서 대기·실행 상태, 처리 파일과 바이트, 진행률, 결과, 최근 성공 시각을 확인할 수 있습니다. 실행 중인 작업을 취소하면 Source가 restic을 종료하고 `CANCELLED` 결과를 보고합니다.
 
 백업이 시작되면 트레이 아이콘 옆에 진행률과 취소 버튼을 보여주는 작은 팝업(트레이 플라이아웃)이 뜹니다. Settings 탭의 "Show a status window when a backup starts" 토글(기본 켜짐)로 켜고 끌 수 있습니다.
 
@@ -156,7 +156,7 @@ sudo /opt/backupmesh/backupmesh-agent backup \
   -restic /opt/backupmesh/restic
 ```
 
-어느 탭을 열어 두었든 상단에는 연결된 장치의 백업이 모두 끝나 제거해도 되는지 알려주는 배너가 표시되며, 준비되면 배너의 **Remove safely** 버튼으로 바로 제거할 수 있습니다. 직접 선택해서 제거하려면 **Overview** 탭의 "Registered storage"에서 **Safely remove selected device**를 사용하세요. 해당 장치를 사용하는 모든 작업이 멈춘 뒤에만 제거하십시오 — BackupMesh는 Windows에 제거를 요청하기 전에 해당 repository listener를 닫습니다.
+이동식 저장장치를 Windows에서 분리하기 전에 해당 장치를 대상으로 한 대기·실행 작업이 없는지 확인하세요.
 
 ## 8. 복원 시험
 

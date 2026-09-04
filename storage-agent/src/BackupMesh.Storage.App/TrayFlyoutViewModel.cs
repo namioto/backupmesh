@@ -129,8 +129,7 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     // A "just arrived" card: the device is connected, has at least one enabled mapping targeting it, and
     // nothing has run for it since it connected - regardless of whether that's because it's still inside
     // its arrival delay or because Automatic backups is turned off. Mirrors the same "since ConnectedAt"
-    // freshness rule MainWindowViewModel.UpdateRemovalBanners() already applies, so this can never disagree
-    // with the header removal banner about whether a device has already been backed up this connection.
+    // freshness rule used by backup history so old jobs cannot suppress a new connection decision.
     // "Skip this time" needs no separate tracking here - MainWindowViewModel.SkipDeviceThisConnectionAsync
     // disables the mapping(s) for real, so the mapping.Enabled filter below already excludes them.
     private void RefreshPendingArrivals()

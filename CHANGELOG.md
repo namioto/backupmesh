@@ -4,22 +4,25 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-05
+
 ### Changed
 
-- Connected backup destinations are labeled Registered storage, and the backup-rule list uses the available tab height.
-- Adding or editing a backup rule uses a dedicated window; an existing rule can also be opened by double-clicking its row.
+- Storage registration is now internal: users choose only what to back up and the full destination path, while unused device records are cleaned up automatically.
+- The backup-rule window is wider, shows complete source and destination paths, and can also be opened by double-clicking an existing row.
+- Storage inventory and safe-eject controls were removed from Overview; removable storage is ejected through Windows after its jobs stop.
 
 ### Fixed
 
 - Identical backup rules are rejected instead of being saved repeatedly.
-- Start now can queue a backup while its registered storage is still inside the arrival-delay window.
+- Start now can queue a backup while its target is still inside the arrival-delay window.
 - Arrival flyouts close automatically after six seconds while pending decisions remain available from the tray icon.
 
 ## [0.2.0] - 2026-08-31
 
 ### Upgrading from 0.1.1
 
-- Backup history created before this release has no destination-mapping identifier. It remains in the job list but is ignored by mapping-specific status and safe-removal checks.
+- Backup history created before this release has no destination-mapping identifier. It remains in the job list but is ignored by mapping-specific status checks.
 - Finished job history is capped at the 20 most recent jobs per destination mapping; running jobs are always retained.
 - Per-device arrival delays are replaced by one global default. Saving configuration updates existing devices to that value.
 - Pairing, credentials, and certificate handling are unchanged.
@@ -32,7 +35,6 @@ All notable changes to BackupMesh are documented in this file.
 - Storage identity rotation for recovery from key compromise.
 - A non-administrator Windows Source Agent installer and guided Linux Source setup.
 - A tray status flyout with backup progress, cancellation, Start now, and Skip this time actions.
-- A cross-tab banner that distinguishes backing up, completed, and incomplete safe-removal states.
 
 ### Changed
 
@@ -119,4 +121,5 @@ First end-to-end MVP release.
 [0.1.0]: https://github.com/namioto/backupmesh/releases/tag/v0.1.0
 [0.1.1]: https://github.com/namioto/backupmesh/compare/v0.1.0...v0.1.1
 [0.2.0]: https://github.com/namioto/backupmesh/compare/v0.1.1...v0.2.0
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.2.0...HEAD
+[0.2.1]: https://github.com/namioto/backupmesh/compare/v0.2.0...v0.2.1
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.2.1...HEAD

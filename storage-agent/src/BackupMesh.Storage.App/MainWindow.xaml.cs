@@ -18,7 +18,6 @@ public partial class MainWindow : Window
             loadLocalState: !demoMode,
             configurationClient: effectiveServiceEndpoint is null ? null : new StorageConfigurationClient(effectiveServiceEndpoint),
             jobClient: effectiveServiceEndpoint is null ? null : new BackupJobClient(effectiveServiceEndpoint),
-            storageDeviceClient: effectiveServiceEndpoint is null ? null : new StorageDeviceClient(effectiveServiceEndpoint),
             pairingClient: effectiveServiceEndpoint is null ? null : new PairingClient(effectiveServiceEndpoint),
             connectionsClient: effectiveServiceEndpoint is null ? null : new SourceConnectionsClient(effectiveServiceEndpoint));
         InitializeComponent();

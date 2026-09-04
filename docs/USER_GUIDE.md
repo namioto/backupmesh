@@ -17,18 +17,18 @@ pwsh -NoProfile -File scripts/build-windows-source-installer.ps1
 
 The resulting self-contained packages are written to:
 
-- `artifacts\installer\BackupMesh-Storage-0.2.0-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.2.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\installer\BackupMesh-Source-0.2.0-win-x64-Setup.exe` (Source Agent for backing up this same PC)
+- `artifacts\installer\BackupMesh-Source-0.2.1-win-x64-Setup.exe` (Source Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For normal use, run `BackupMesh-Storage-0.2.0-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+For normal use, run `BackupMesh-Storage-0.2.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
-The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.2.0-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.2.1-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
 
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
@@ -39,23 +39,23 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 The installer creates the automatically restarting `BackupMeshStorageAgent` Windows service, opens the authenticated Control and repository ports on Private and Domain networks for the local subnet, and starts the tray app at the current user's next sign-in. Service data is protected under `%ProgramData%\BackupMesh`.
 
-## 3. Register storage
+## 3. Choose where backups are stored
 
-Registering a device is not a separate step or tab anymore — it happens inline, on the **Backups** tab, right where you use it:
+Storage registration is internal. You only choose what to back up and where to store it in the backup-rule window:
 
 - Open BackupMesh from the system tray and go to **Backups**.
-- Next to the **Target device** picker, choose **New…** to open the registration dialog.
-- Pick a connected drive from the list and choose **Register drive**, or choose **Register folder instead…** to use a local or network folder as a logical device.
-- The device is named automatically from its volume label (or folder name) — there is no separate naming step — and it is selected automatically as the target device for the backup you are creating (see step 6).
-- A repository must be stored in a safe subfolder, not at the root of a volume; choose that subfolder in the **Target folder** field once the device is registered.
+- Choose **Add backup…**, select a connected target drive, and enter or browse to the full destination path.
+- Choose **Choose folder…** to use a local or network folder instead of a detected drive.
+- BackupMesh remembers the target identity automatically so drive-letter changes do not break the rule. It also removes unused internal device records when their last rule is deleted.
+- A repository must be stored in a safe subfolder, not at the root of a volume.
 
 Folder devices are useful for evaluation and for storage that is not exposed as a removable USB volume. They also allow multi-target behavior to be tested with ordinary folders.
 
-Once registered, a device's connection status, free space, and safe-removal readiness are shown on the **Overview** tab's **Registered storage** group. How long BackupMesh waits after any device connects before starting a backup is now a single global default on the **Settings** tab ("Wait before starting, after any device connects"), not a per-device setting.
+How long BackupMesh waits after a target connects before starting a backup is a single global default on the **Settings** tab. Use Windows to eject removable storage after its backup job has stopped.
 
 ## 3b. Back up this PC's own files (no Source Agent needed)
 
-**This PC** always appears at the top of the **Source Agents** tab's list, with no pairing, no separate installer, and no enable step. Choose **Back up a folder on this PC…**, pick a folder, and it appears as a Backup Set you can map to any registered target device exactly like a paired Source's Backup Set. Storage runs the bundled `restic` directly against the local folder when the mapped target becomes ready - no network hop, no certificates, no repository password to manage.
+**This PC** always appears at the top of the **Source Agents** tab's list, with no pairing, no separate installer, and no enable step. Choose **Back up a folder on this PC…**, pick a folder, and it appears as a Backup Set you can send to any target exactly like a paired Source's Backup Set. Storage runs the bundled `restic` directly against the local folder when the mapped target becomes ready - no network hop, no certificates, no repository password to manage.
 
 Use **Remove folder** to stop backing up a folder this way; its mappings are removed with it. This is unrelated to the standalone Windows Source Agent described below, which is for a *different* PC with no Storage Agent of its own.
 
@@ -85,7 +85,7 @@ Running `install.sh` from an interactive terminal (rather than a script) prompts
 
 Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **This PC** in the tray instead (section 3b) — no installer needed at all.
 
-Run `BackupMesh-Source-0.2.0-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
+Run `BackupMesh-Source-0.2.1-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 
@@ -136,8 +136,8 @@ sudo systemctl status backupmesh-source-watch.service
 After the Source synchronizes, open **Backups** in the tray app.
 
 1. Under **What to back up**, select a Backup Set — synced from a paired Source Agent, or a local folder added from **This PC** on the **Source Agents** tab (section 3b).
-2. Under **Target device**, select a registered device, or choose **New…** to register one inline if it is not registered yet (see step 3).
-3. Under **Target folder**, browse to or type a destination subfolder on that device.
+2. Under **Where to store it**, select a connected drive or choose **Choose folder…**.
+3. Confirm or edit the complete path under **Full destination path**.
 4. Choose **Add backup…**, complete the backup-rule window, and select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
@@ -146,7 +146,7 @@ Source and Storage Agents may run on the same computer by using the Storage Agen
 
 ## 7. Run and monitor a backup
 
-Connect the registered device and wait for the arrival delay set on the **Settings** tab. BackupMesh requests the mapped Source backup automatically. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
+Connect the target device and wait for the arrival delay set on the **Settings** tab. BackupMesh requests the mapped Source backup automatically. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
 
 For a manual Source-side run:
 
@@ -157,7 +157,7 @@ sudo /opt/backupmesh/backupmesh-agent backup \
   -restic /opt/backupmesh/restic
 ```
 
-A banner above the tabs — visible no matter which one is open — tells you once a connected device has finished all its backups and is safe to remove, with a **Remove safely** button right there; it also warns while a backup to that device is still running, so you never have to guess. Use that banner, or **Safely remove selected device** in the **Overview** tab's **Registered storage** group, only after all jobs targeting the device have stopped. BackupMesh closes its repository listeners before asking Windows to eject the volume.
+Before ejecting removable storage through Windows, confirm that no job targeting it is queued or running.
 
 ## 8. Test restoration
 
