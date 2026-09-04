@@ -1,14 +1,32 @@
 <Application x:Class="BackupMesh.Storage.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:BackupMesh.Storage.App"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
+        <local:ZeroToVisibleConverter x:Key="ZeroToVisibleConverter" />
+        <local:StringEmptyToCollapsedConverter x:Key="StringEmptyToCollapsedConverter" />
+        <local:NullToCollapsedConverter x:Key="NullToCollapsedConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibleConverter" />
         <SolidColorBrush x:Key="AccentBrush" Color="#08AFCB" />
         <SolidColorBrush x:Key="NavyBrush" Color="#082B63" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="#F6F8FB" />
-        <Style TargetType="Button">
+        <SolidColorBrush x:Key="DangerBrush" Color="#C0392B" />
+        <Style TargetType="Button" x:Key="BaseButtonStyle">
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}" />
+        <!-- The single primary/CTA action in a group of controls: pairing, saving, creating. -->
+        <Style TargetType="Button" x:Key="PrimaryButtonStyle" BasedOn="{StaticResource BaseButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <!-- Actions that revoke access, discard configuration, or require re-pairing every Source. -->
+        <Style TargetType="Button" x:Key="DangerButtonStyle" BasedOn="{StaticResource BaseButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="8,6" />
@@ -17,6 +35,12 @@
         <Style TargetType="ComboBox">
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Margin" Value="4" />
+        </Style>
+        <!-- DataGridTextColumn does not trim by default. Keep long values readable through an ellipsis
+             and a tooltip bound to the generated TextBlock's own text. -->
+        <Style TargetType="TextBlock" x:Key="EllipsisCellStyle">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
         </Style>
     </Application.Resources>
 </Application>

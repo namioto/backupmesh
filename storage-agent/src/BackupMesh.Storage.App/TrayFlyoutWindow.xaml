@@ -1,0 +1,123 @@
+<Window x:Class="BackupMesh.Storage.App.TrayFlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BackupMesh"
+        Width="360" Height="480"
+        WindowStyle="None" ResizeMode="NoResize"
+        ShowActivated="False" ShowInTaskbar="False"
+        AllowsTransparency="True" Background="Transparent"
+        Topmost="True" WindowStartupLocation="Manual">
+    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="10" BorderBrush="{StaticResource NavyBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.35" Color="Black"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{StaticResource NavyBrush}" CornerRadius="10,10,0,0" Padding="16,12">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="✕" Width="26" Height="26" Padding="0"
+                            Background="Transparent" BorderThickness="0" Foreground="White"
+                            Click="OnCloseClick" ToolTip="Close"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="BackupMesh" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Backup status" Foreground="#BEEAF2" FontSize="11"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,10">
+                <StackPanel>
+                    <TextBlock Text="No backups running. Connect a drive to start one." Foreground="#607086" Margin="4,18"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                               Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibleConverter}}"/>
+
+                    <!-- Backing up now -->
+                    <StackPanel Visibility="{Binding HasInProgressJobs, Converter={StaticResource BoolToVisibleConverter}}">
+                        <TextBlock Text="Backing up now" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                        <ItemsControl ItemsSource="{Binding InProgressJobs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Target}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <ProgressBar Height="6" Margin="0,6" Minimum="0" Maximum="100"
+                                                         Value="{Binding PercentComplete, Mode=OneWay}"
+                                                         IsIndeterminate="{Binding IsIndeterminate}"
+                                                         Foreground="{StaticResource AccentBrush}"/>
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" Foreground="#526276" FontSize="11"/>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding EtaDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,0"/>
+                                            <Button Content="Cancel this backup" HorizontalAlignment="Right" Margin="0,4,0,0" Padding="10,4"
+                                                    Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibleConverter}}"
+                                                    Command="{Binding DataContext.CancelJobCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- The section title carries the queued state without repeating it per item. -->
+                    <StackPanel Margin="0,4,0,0" Visibility="{Binding HasQueuedJobs, Converter={StaticResource BoolToVisibleConverter}}">
+                        <TextBlock Text="Up next" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                        <ItemsControl ItemsSource="{Binding QueuedJobs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Target}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Each card states explicitly that the device connected. -->
+                    <StackPanel Margin="0,4,0,0" Visibility="{Binding HasPendingArrivals, Converter={StaticResource BoolToVisibleConverter}}">
+                        <TextBlock Text="Just arrived" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                        <ItemsControl ItemsSource="{Binding PendingArrivals}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding TitleDisplay}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding StatusDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,6"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="Skip this time" Padding="10,4"
+                                                        Command="{Binding DataContext.SkipThisTimeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Button Content="Start now" Padding="10,4" Style="{StaticResource PrimaryButtonStyle}"
+                                                        Command="{Binding DataContext.StartNowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                            <!-- State the scope directly rather than relying on the button label alone. -->
+                                            <TextBlock Text="Skipping affects this connection only." Foreground="#8493A6" FontSize="10" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Background="#E8EDF4" CornerRadius="0,0,10,10" Padding="12,10">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Content="Cancel all backups" Padding="10,6"
+                            Style="{StaticResource DangerButtonStyle}"
+                            IsEnabled="{Binding CanCancelAny}"
+                            Command="{Binding CancelAllCommand}"/>
+                    <Button DockPanel.Dock="Right" Content="Open BackupMesh" Padding="10,6"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding OpenMainWindowCommand}"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

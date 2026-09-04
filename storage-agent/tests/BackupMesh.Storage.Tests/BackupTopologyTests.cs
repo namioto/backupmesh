@@ -69,6 +69,24 @@ public sealed class BackupTopologyTests
             error => error.Contains("arrival delay", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void RejectsATriggerDeviceThatIsNotRegistered()
+    {
+        var set = Set("Camera") with { TriggerDeviceIds = [Guid.NewGuid()] };
+
+        Assert.Contains(BackupTopologyValidator.Validate(new([], [set], [])),
+            error => error.Contains("trigger device", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ABackupSetWithNoTriggerDevicesHasAnEmptyDefaultRatherThanNull()
+    {
+        var set = Set("Camera");
+
+        Assert.Empty(set.TriggerDeviceIds);
+        Assert.Equal(BackupSetTriggerPolicy.AnyAvailable, set.TriggerPolicy);
+    }
+
     private static RegisteredDevice Device(string name) => new(Guid.NewGuid(), Guid.NewGuid().ToString(), name, name, "E:\\", DateTimeOffset.UtcNow, null);
     private static SourceBackupSet Set(string name) => new(Guid.NewGuid(), Guid.NewGuid(), "Source", name, ["/data"]);
 }

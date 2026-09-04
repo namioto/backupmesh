@@ -7,9 +7,12 @@ public partial class PairingDetailsWindow : Window
 {
     private readonly string _clipboardText;
 
-    public PairingDetailsWindow(PairingSessionDto pairing)
+    public PairingDetailsWindow(PairingSessionDto pairing, string? rebindAgentName = null)
     {
         InitializeComponent();
+        IntentText.Text = rebindAgentName is null
+            ? "This code will pair a new Source Agent."
+            : $"This code will only re-pair the existing Source Agent \"{rebindAgentName}\" — no other Source Agent can use it.";
         EndpointText.Text = pairing.ControlEndpoint;
         CodeText.Text = pairing.Code;
         FingerprintText.Text = pairing.CertificateSha256;

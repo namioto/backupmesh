@@ -31,6 +31,9 @@ $arguments = @(
     "--PairingCertificate:ProtectedAuthorityPath=`"$(Join-Path $dataRoot 'pairing-authority.dpapi')`""
     "--PairingCertificate:ProtectedServerCertificatePath=`"$(Join-Path $dataRoot 'server-certificate.dpapi')`""
     "--RepositoryServer:ExecutablePath=`"$(Join-Path $serviceRoot 'rest-server.exe')`""
+    "--LocalBackup:ResticExecutablePath=`"$(Join-Path $serviceRoot 'restic.exe')`""
+    "--LocalBackup:PasswordDirectory=`"$(Join-Path $dataRoot 'local-repository-passwords')`""
+    "--LocalBackup:CacheDirectory=`"$(Join-Path $dataRoot 'restic-cache')`""
 )
 $binaryPath = "`"$serviceExe`" $($arguments -join ' ')"
 

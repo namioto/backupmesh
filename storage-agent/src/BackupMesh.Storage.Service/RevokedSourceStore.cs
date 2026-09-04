@@ -9,12 +9,30 @@ public sealed class RevokedSourceStore
     private readonly string? _path;
     private readonly HashSet<Guid> _revoked;
 
-    public RevokedSourceStore(PairingOptions? pairing = null)
+    public RevokedSourceStore(PairingOptions? pairing = null, ILogger<RevokedSourceStore>? logger = null)
     {
         _path = pairing is null ? null : ResolvePath(pairing.RevokedAgentsPath);
-        _revoked = _path is not null && File.Exists(_path)
-            ? File.ReadAllLines(_path).Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => Guid.Parse(line.Trim())).ToHashSet()
-            : [];
+        _revoked = _path is not null && File.Exists(_path) ? Parse(File.ReadAllLines(_path), _path, logger) : [];
+    }
+
+    // Skip unreadable entries rather than throwing. This store is constructed while DI builds
+    // ControlApiAuthenticationFilter, so one malformed line would otherwise fail every control-API
+    // request - including the tray's - with no recovery but deleting the file. The file sits beside the
+    // pairing credential hashes under the same ProgramData ACL, so anyone able to corrupt a line could
+    // equally delete it; the warning makes the resulting loss of revocation visible.
+    private static HashSet<Guid> Parse(IEnumerable<string> lines, string path, ILogger<RevokedSourceStore>? logger)
+    {
+        var revoked = new HashSet<Guid>();
+        var skipped = 0;
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (Guid.TryParse(line.Trim(), out var agentId)) revoked.Add(agentId);
+            else skipped++;
+        }
+        if (skipped > 0)
+            logger?.LogWarning("Ignored {SkippedCount} unreadable entries in {RevokedAgentsPath}; any Source Agent they named is no longer revoked.", skipped, path);
+        return revoked;
     }
 
     public bool IsRevoked(Guid agentId)

@@ -97,12 +97,10 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
     internal static IReadOnlyList<BackupCommandDraft> BuildArrivalDrafts(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices, RegisteredDevicePresence arrived)
     {
         var readyDeviceIds = devices.Where(device => device.Ready).Select(device => device.DeviceId).ToHashSet();
-        var sourceSets = string.IsNullOrWhiteSpace(arrived.CurrentRoot)
-            ? new HashSet<Guid>()
-            : topology.BackupSets
-                .Where(set => set.SourcePaths.Any(path => IsWithin(arrived.CurrentRoot, path)))
-                .Select(set => set.Id)
-                .ToHashSet();
+        var sourceSets = topology.BackupSets
+            .Where(set => IsSourceArrival(set, arrived, readyDeviceIds))
+            .Select(set => set.Id)
+            .ToHashSet();
         return (from mapping in topology.Mappings
                 where mapping.Enabled && readyDeviceIds.Contains(mapping.DeviceId)
                     && (mapping.DeviceId == arrived.DeviceId || sourceSets.Contains(mapping.BackupSetId))
@@ -111,6 +109,21 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
                     mapping.DeviceId == arrived.DeviceId ? "destination-arrival" : "source-arrival"))
             .DistinctBy(draft => draft.TargetMappingId)
             .ToArray();
+    }
+
+    // A Backup Set with an explicit trigger device (set by the user in the tray, not inferred) only
+    // fires for that device's own arrival - never for an unrelated device whose root happens to
+    // contain a matching path - and, under AllAvailable, only once every trigger device for that
+    // Backup Set is simultaneously ready. A Backup Set with no explicit trigger device keeps the
+    // original path-containment inference so already-configured Backup Sets are unaffected.
+    private static bool IsSourceArrival(SourceBackupSet set, RegisteredDevicePresence arrived, HashSet<Guid> readyDeviceIds)
+    {
+        if (set.TriggerDeviceIds.Count > 0)
+        {
+            if (!set.TriggerDeviceIds.Contains(arrived.DeviceId)) return false;
+            return set.TriggerPolicy == BackupSetTriggerPolicy.AnyAvailable || set.TriggerDeviceIds.All(readyDeviceIds.Contains);
+        }
+        return !string.IsNullOrWhiteSpace(arrived.CurrentRoot) && set.SourcePaths.Any(path => IsWithin(arrived.CurrentRoot, path));
     }
 
     private static bool IsWithin(string root, string candidate)

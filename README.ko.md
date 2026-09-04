@@ -4,7 +4,7 @@
 
 **필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
 
-현재 릴리스: **0.1.1** — Windows 설치 마법사를 포함한 첫 번째 end-to-end MVP이며, 실제 관리자 권한 설치·업그레이드·제거 테스트까지 완료했습니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
+현재 릴리스: **0.2.0** — 트레이 UI를 재설계했습니다: 4개 탭(Overview, Backups, Source Agents, Settings) 구성, 인라인 장치 등록, 탭 전체에 걸친 안전 제거 배너, 백업 진행 상황을 보여주는 트레이 팝업이 추가되었습니다. 0.1.1의 Windows 설치 마법사(실제 관리자 권한 설치·업그레이드·제거 테스트 완료) 위에 이어집니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
 
 BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 있어도, 저장장치가 사용 가능한 순간을 감지해 백업을 자동으로 시작하는 오케스트레이터입니다.
 
@@ -60,7 +60,7 @@ Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/res
 
 ### 현재 Windows 빌드 사용해 보기
 
-일반 Windows 사용자는 `pwsh -NoProfile -File scripts/build-windows-installer.ps1`로 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 만든 뒤 설치 프로그램을 실행하면 됩니다. 서비스, 트레이 앱, 방화벽 규칙, 번들 도구, 자동 시작, 제거 프로그램을 한 번에 설치하고 완료 후 BackupMesh를 실행합니다. 설치 프로그램 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다.
+일반 Windows 사용자는 `pwsh -NoProfile -File scripts/build-windows-installer.ps1`로 `BackupMesh-Storage-0.2.0-win-x64-Setup.exe`를 만든 뒤 설치 프로그램을 실행하면 됩니다. 서비스, 트레이 앱, 방화벽 규칙, 번들 도구, 자동 시작, 제거 프로그램을 한 번에 설치하고 완료 후 BackupMesh를 실행합니다. 설치 프로그램 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다.
 
 현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 서명되지 않은 빌드에서 나타나는 정상적인 현상이며 변조의 증거가 아닙니다. 빌드 스크립트는 설치 프로그램 옆에 `BackupMesh-Storage-<버전>-win-x64-Setup.exe.sha256` 파일을 함께 생성합니다. 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-<버전>-win-x64-Setup.exe -Algorithm SHA256`(또는 릴리스 아카이브의 `sha256sum`) 결과를 이 파일과 정확히 일치하는지 비교하세요.
 

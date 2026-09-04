@@ -12,6 +12,9 @@ $env:Pairing__CredentialHashPath = Join-Path $dataRoot 'pairing-credential.sha25
 $env:PairingCertificate__ProtectedAuthorityPath = Join-Path $dataRoot 'pairing-authority.dpapi'
 $env:PairingCertificate__ProtectedServerCertificatePath = Join-Path $dataRoot 'server-certificate.dpapi'
 $env:RepositoryServer__ExecutablePath = Join-Path $packageRoot 'Service\rest-server.exe'
+$env:LocalBackup__ResticExecutablePath = Join-Path $packageRoot 'Service\restic.exe'
+$env:LocalBackup__PasswordDirectory = Join-Path $dataRoot 'local-repository-passwords'
+$env:LocalBackup__CacheDirectory = Join-Path $dataRoot 'restic-cache'
 
 $serviceRoot = Join-Path $packageRoot 'Service'
 $service = Start-Process -FilePath (Join-Path $serviceRoot 'BackupMesh.Storage.Service.exe') -WorkingDirectory $serviceRoot -WindowStyle Hidden -PassThru

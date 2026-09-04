@@ -1,17 +1,18 @@
+using System.Linq;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Tools;
 using Xunit;
 
 namespace BackupMesh.Storage.UiTests;
 
-public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
+public sealed class SourceAgentsTabTests : IClassFixture<StorageAppFixture>
 {
     private readonly StorageAppFixture _fixture;
 
-    public SourcesTabTests(StorageAppFixture fixture)
+    public SourceAgentsTabTests(StorageAppFixture fixture)
     {
         _fixture = fixture;
-        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SourcesMappingsTab")).AsTabItem().Select();
+        _fixture.MainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SourceAgentsTab")).AsTabItem().Select();
     }
 
     private AutomationElement Find(string automationId)
@@ -21,12 +22,6 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
             TimeSpan.FromSeconds(10)).Result;
         Assert.True(element is not null, $"No element with AutomationId '{automationId}' was found.");
         return element!;
-    }
-
-    [Fact]
-    public void PairedSourcesTree_IsReachableByAutomationId()
-    {
-        Assert.NotNull(Find("PairedSourcesTree").AsTree());
     }
 
     [Fact]
@@ -55,12 +50,6 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     }
 
     [Fact]
-    public void MappingsGrid_IsReachableByAutomationId()
-    {
-        Assert.NotNull(Find("MappingsGrid").AsDataGridView());
-    }
-
-    [Fact]
     public void SourceConnectionsGrid_IsReachableByAutomationId()
     {
         Assert.NotNull(Find("SourceConnectionsGrid").AsDataGridView());
@@ -71,5 +60,45 @@ public sealed class SourcesTabTests : IClassFixture<StorageAppFixture>
     {
         Assert.NotNull(Find("RevokeSourceButton").AsButton());
         Assert.NotNull(Find("UnrevokeSourceButton").AsButton());
+    }
+
+    [Fact]
+    public void RePairSourceButton_IsPresent()
+    {
+        Assert.NotNull(Find("RePairSourceButton").AsButton());
+    }
+
+    [Fact]
+    public void RenameAndForgetSourceButtons_ArePresent()
+    {
+        Assert.NotNull(Find("RenameSourceButton").AsButton());
+        Assert.NotNull(Find("ForgetSourceButton").AsButton());
+    }
+
+    [Fact]
+    public void AddAndRemoveLocalBackupSetButtons_ArePresent()
+    {
+        Assert.NotNull(Find("AddLocalBackupSetButton").AsButton());
+        Assert.NotNull(Find("RemoveLocalBackupSetButton").AsButton());
+    }
+
+    /// <summary>
+    /// "This PC" is always shown, even with no local Backup Sets configured. The label explains that a
+    /// Source Agent is not required for local backups.
+    /// </summary>
+    [Fact]
+    public void ThisPCIsAlwaysListedInTheGridWithAnExplanation()
+    {
+        var grid = Find("SourceConnectionsGrid");
+        Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC (no agent needed)");
+    }
+
+    [Fact]
+    public void AddressAndOffersColumnsArePresent()
+    {
+        var grid = Find("SourceConnectionsGrid");
+        var headers = grid.FindAllDescendants(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.HeaderItem)).Select(header => header.Name).ToArray();
+        Assert.Contains("Address", headers);
+        Assert.Contains("Offers", headers);
     }
 }

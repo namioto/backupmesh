@@ -137,6 +137,13 @@ type SourceCatalog struct {
 	BackupSets      []SourceCatalogBackupSet `json:"backup_sets"`
 }
 
+type RenewCertificateResponse struct {
+	CertificatePEM string    `json:"certificate_pem"`
+	PrivateKeyPEM  string    `json:"private_key_pem"`
+	AuthorityPEM   string    `json:"authority_pem"`
+	ExpiresAt      time.Time `json:"expires_at"`
+}
+
 type problem struct {
 	Code   string `json:"code"`
 	Detail string `json:"detail"`
@@ -187,6 +194,12 @@ func (c Client) ReportResult(ctx context.Context, key string, in BackupResult) e
 
 func (c Client) PublishSourceCatalog(ctx context.Context, key string, in SourceCatalog) error {
 	return c.do(ctx, http.MethodPost, "/source/catalog", key, in, http.StatusNoContent, nil)
+}
+
+func (c Client) RenewCertificate(ctx context.Context) (RenewCertificateResponse, error) {
+	var out RenewCertificateResponse
+	err := c.do(ctx, http.MethodPost, "/certificate/renew", "", nil, http.StatusOK, &out)
+	return out, err
 }
 
 func (c Client) do(ctx context.Context, method, path, key string, body any, expected int, out any) error {

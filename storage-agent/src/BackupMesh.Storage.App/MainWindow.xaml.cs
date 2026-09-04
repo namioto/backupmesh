@@ -18,8 +18,11 @@ public partial class MainWindow : Window
         DataContext = ViewModel;
     }
 
-    private void OnSourceSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    // TabControl.SelectionChanged is the same routed event every descendant Selector (ListBox, ComboBox,
+    // DataGrid) raises, and it bubbles - so this also fires for their selection changes. Only react when
+    // the TabControl itself is the actual source, not just the routing ancestor.
+    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.NewValue is BackupSetViewModel backupSet) ViewModel.SelectedBackupSet = backupSet;
+        if (e.OriginalSource is System.Windows.Controls.TabControl) ViewModel.ClearFooterStatusOnTabChange();
     }
 }

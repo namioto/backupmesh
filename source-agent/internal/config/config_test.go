@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadYAMLWithMultipleSourcePaths(t *testing.T) {
@@ -219,5 +220,94 @@ func TestValidateRequiresCompleteAbsoluteMTLSConfiguration(t *testing.T) {
 	c.Storage.TLSKeyFile = "relative.key"
 	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Fatalf("Validate() relative mTLS error = %v", err)
+	}
+}
+
+const unchangedIdentityConfig = `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha","paths":["/data/alpha"]}]}`
+
+// The Linux units run with ProtectSystem=strict and ReadWritePaths=/var/cache/backupmesh, so the
+// directory holding the config is read-only. Rewriting the state file on every load made watch and
+// backup fail to start with EROFS even though nothing about the identity had changed.
+func TestResolveIdentityStateLeavesAnUnchangedStateFileAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "backupmesh.json")
+	if err := os.WriteFile(path, []byte(unchangedIdentityConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatalf("first Load() = %v", err)
+	}
+	statePath := path + ".state.json"
+	before, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatalf("state file was not created: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if _, err := Load(path); err != nil {
+		t.Fatalf("second Load() = %v", err)
+	}
+	after, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !before.ModTime().Equal(after.ModTime()) {
+		t.Fatalf("state file was rewritten even though the identity did not change (%v -> %v)", before.ModTime(), after.ModTime())
+	}
+}
+
+func TestResolveIdentityStateStillWritesWhenTheIdentityChanges(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "backupmesh.json")
+	if err := os.WriteFile(path, []byte(unchangedIdentityConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatal(err)
+	}
+	statePath := path + ".state.json"
+	before, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	added := `{"agent":{"name":"Home server"},"storage":{"controlEndpoint":"https://storage.local:7443","repositoryPasswordFile":"/run/secrets/restic-password"},"backupSets":[{"name":"alpha","paths":["/data/alpha"]},{"name":"beta","paths":["/data/beta"]}]}`
+	if err := os.WriteFile(path, []byte(added), 0600); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if _, err := Load(path); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.ModTime().Equal(after.ModTime()) {
+		t.Fatal("a new backup set did not update the identity state file")
+	}
+	contents, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contents), `"beta"`) {
+		t.Fatalf("identity state does not contain the new backup set: %s", contents)
+	}
+}
+
+func TestLoadSucceedsWhenTheConfigDirectoryIsReadOnlyAndNothingChanged(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory write permissions are not enforced the same way on Windows")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "backupmesh.json")
+	if err := os.WriteFile(path, []byte(unchangedIdentityConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatalf("warmup Load() = %v", err)
+	}
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Skip("cannot make the directory read-only")
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
+	if _, err := Load(path); err != nil {
+		t.Fatalf("Load() with a read-only config directory = %v; watch and backup cannot start", err)
 	}
 }
