@@ -23,7 +23,12 @@ Thumbs.db
 .env.*
 !.env.example
 *.local.json
+*.state.json
 secrets/
+
+# Internal working notes and local UI review helpers
+docs/DEVELOPMENT_HANDOFF.md
+scripts/dev/capture-storage-agent-ui.ps1
 
 # Build and test output
 artifacts/

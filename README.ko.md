@@ -4,7 +4,7 @@
 
 **필요할 때만 연결하는 저장장치에도, 백업은 알아서.**
 
-다음 릴리스: **0.1.1** — Windows 설치 마법사를 포함한 첫 번째 end-to-end MVP입니다. 현재 소스에서 설치 프로그램을 만들 수 있으며, 관리자 권한 설치·제거 승인 테스트 후 정식 릴리스할 예정입니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
+현재 릴리스: **0.1.1** — Windows 설치 마법사를 포함한 첫 번째 end-to-end MVP이며, 실제 관리자 권한 설치·업그레이드·제거 테스트까지 완료했습니다. 자세한 내용은 [변경 기록](CHANGELOG.md)을 확인하세요.
 
 BackupMesh는 백업할 데이터와 저장장치가 서로 다른 컴퓨터에 있어도, 저장장치가 사용 가능한 순간을 감지해 백업을 자동으로 시작하는 오케스트레이터입니다.
 
@@ -52,7 +52,7 @@ Source Agent의 평상시 권한을 백업 생성에 필요한 범위로 제한�
 
 Windows 트레이 앱에서 물리 저장장치 또는 일반 로컬·네트워크 폴더를 논리 저장장치로 등록하고, 연동된 Source Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
 
-Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 생성된 `backupmesh-pairing.json` 번들을 저장합니다. 안전하게 Source 장치로 옮긴 뒤 `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`을 실행합니다. 이 명령은 Source ID와 TLS 경로를 갱신하고, 해당 Source에 결속된 토큰·클라이언트 인증서·개인 키·Storage Agent CA와 원격 Control API 주소를 설치하며 Linux에서는 소유자 전용 권한으로 보호합니다. 적용 후 전송용 번들은 삭제하세요. Source마다 독립된 신원과 credential이 발급됩니다.
+Source를 연결하려면 트레이 앱에서 **Pair Source Agent**를 선택하고 표시된 Storage 주소, 10분짜리 1회용 코드, 인증서 SHA-256 지문을 `backupmesh-agent pair`에 입력합니다. Source는 코드를 보내기 전에 Storage 인증서를 고정 검증하고 Source 전용 토큰·클라이언트 인증서·개인 키·Storage 신뢰 자료를 소유자 전용 권한으로 설치합니다. 새 연결은 개인 키를 전송 번들에 기록하지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
 Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/restic-password`를 생성합니다. 이 암호를 잃으면 snapshot을 복원할 수 없으므로 별도의 안전한 위치에 복구 사본을 보관하세요.
 
@@ -62,7 +62,7 @@ Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/res
 
 일반 Windows 사용자는 `pwsh -NoProfile -File scripts/build-windows-installer.ps1`로 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 만든 뒤 설치 프로그램을 실행하면 됩니다. 서비스, 트레이 앱, 방화벽 규칙, 번들 도구, 자동 시작, 제거 프로그램을 한 번에 설치하고 완료 후 BackupMesh를 실행합니다. 설치 프로그램 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다.
 
-현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시될 수 있습니다. 설치를 승인하기 전에 GitHub 릴리스의 SHA-256 체크섬과 비교하세요.
+현재 커뮤니티 프리뷰 설치 프로그램은 아직 Authenticode 코드 서명이 없어 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 서명되지 않은 빌드에서 나타나는 정상적인 현상이며 변조의 증거가 아닙니다. 빌드 스크립트는 설치 프로그램 옆에 `BackupMesh-Storage-<버전>-win-x64-Setup.exe.sha256` 파일을 함께 생성합니다. 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-<버전>-win-x64-Setup.exe -Algorithm SHA256`(또는 릴리스 아카이브의 `sha256sum`) 결과를 이 파일과 정확히 일치하는지 비교하세요.
 
 저장소의 PowerShell에서 self-contained 테스트 패키지를 만듭니다.
 

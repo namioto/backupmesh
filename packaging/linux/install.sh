@@ -23,9 +23,9 @@ if [ ! -f /etc/backupmesh/restic-password ]; then
   chmod 0600 /etc/backupmesh/restic-password
 fi
 systemctl daemon-reload
-echo "Edit /etc/backupmesh/backupmesh.json, apply the pairing bundle, validate it, then enable the command watcher:"
+echo "Edit /etc/backupmesh/backupmesh.json (agent name and backup sets), then pair with the Storage tray app's one-time code and enable the command watcher:"
+echo "  /opt/backupmesh/backupmesh-agent pair -config /etc/backupmesh/backupmesh.json -storage https://STORAGE-PC:7443 -code CODE-FROM-TRAY -fingerprint FINGERPRINT-FROM-TRAY -output /etc/backupmesh/pairing"
 echo "  /opt/backupmesh/backupmesh-agent validate -config /etc/backupmesh/backupmesh.json"
-echo "  /opt/backupmesh/backupmesh-agent apply-pairing -config /etc/backupmesh/backupmesh.json -bundle /path/to/backupmesh-pairing.json"
 echo "  systemctl enable --now backupmesh-source-watch.service"
 echo "Back up /etc/backupmesh/restic-password securely. Losing it makes the encrypted backups unrecoverable."
 echo "Optional scheduled fallback:"

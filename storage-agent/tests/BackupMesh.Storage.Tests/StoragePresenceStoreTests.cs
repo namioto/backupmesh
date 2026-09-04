@@ -58,4 +58,71 @@ public sealed class StoragePresenceStoreTests
         Assert.Equal(first.AddMinutes(13), reconnected.EligibleAt);
         Assert.False(reconnected.Ready);
     }
+
+    [Fact]
+    public void SourceDeviceArrivalQueuesEveryReadyDestinationForThatBackupSet()
+    {
+        var sourceDeviceId = Guid.NewGuid();
+        var firstTargetId = Guid.NewGuid();
+        var secondTargetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        var sourceRoot = Path.Combine(Path.GetTempPath(), "camera-card");
+        var topology = new StorageAgentConfiguration(
+            [Device(sourceDeviceId, sourceRoot), Device(firstTargetId, Path.Combine(Path.GetTempPath(), "target-a")), Device(secondTargetId, Path.Combine(Path.GetTempPath(), "target-b"))],
+            [new(setId, sourceId, "This PC", "Camera", [Path.Combine(sourceRoot, "DCIM")])],
+            [new(Guid.NewGuid(), setId, firstTargetId, "camera", true), new(Guid.NewGuid(), setId, secondTargetId, "camera", true)]);
+        var presence = new[]
+        {
+            Presence(sourceDeviceId, sourceRoot, true), Presence(firstTargetId, Path.Combine(Path.GetTempPath(), "target-a"), true), Presence(secondTargetId, Path.Combine(Path.GetTempPath(), "target-b"), true)
+        };
+
+        var drafts = StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]);
+
+        Assert.Equal(2, drafts.Count);
+        Assert.All(drafts, draft => Assert.Equal("source-arrival", draft.Reason));
+        Assert.Equal([firstTargetId, secondTargetId], drafts.Select(draft => topology.Mappings.Single(mapping => mapping.Id == draft.TargetMappingId).DeviceId));
+    }
+
+    [Fact]
+    public void SourceArrivalDoesNotQueueUnavailableDestination()
+    {
+        var sourceDeviceId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var sourceRoot = Path.Combine(Path.GetTempPath(), "source-drive");
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(sourceDeviceId, sourceRoot), Device(targetId, Path.Combine(Path.GetTempPath(), "offline-target"))],
+            [new(setId, Guid.NewGuid(), "This PC", "Import", [sourceRoot])], [mapping]);
+        var presence = new[] { Presence(sourceDeviceId, sourceRoot, true), Presence(targetId, null, false) };
+
+        Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]));
+    }
+
+    [Fact]
+    public void ArrivalDoesNotTreatARemotePosixSourcePathAsLocal()
+    {
+        // A Linux Source Agent's backup-set paths are POSIX absolute paths. Path.GetFullPath resolves
+        // a leading '/' against the current drive's root on Windows (e.g. "/home/user/Documents" ->
+        // "C:\home\user\Documents"), which used to coincidentally fall under any connected device's
+        // root and make Storage believe a remote Source's data "arrived" locally.
+        var driveRoot = Path.GetPathRoot(Directory.GetCurrentDirectory())!;
+        var sourceDeviceId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, targetId, "repository");
+        var topology = new StorageAgentConfiguration(
+            [Device(sourceDeviceId, driveRoot), Device(targetId, Path.Combine(Path.GetTempPath(), "target"))],
+            [new(setId, Guid.NewGuid(), "Remote Linux Source", "Documents", ["/home/user/Documents"])], [mapping]);
+        var presence = new[] { Presence(sourceDeviceId, driveRoot, true), Presence(targetId, Path.Combine(Path.GetTempPath(), "target"), true) };
+
+        Assert.Empty(StorageMonitorService.BuildArrivalDrafts(topology, presence, presence[0]));
+    }
+
+    private static RegisteredDevice Device(Guid id, string root) =>
+        new(id, FolderStorageIdentity.Create(root), root, "Folder", root, DateTimeOffset.UtcNow, null, 0);
+
+    private static RegisteredDevicePresence Presence(Guid id, string? root, bool ready) =>
+        new(id, $"folder:{root}", root ?? "Offline", root is not null, ready, root, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
 }

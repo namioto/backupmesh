@@ -6,6 +6,19 @@ $ErrorActionPreference = 'Stop'
 $serviceName = 'BackupMeshStorageAgent'
 $firewallRuleName = 'BackupMesh Storage Agent (mTLS)'
 $repositoryFirewallRuleName = 'BackupMesh Storage Agent (repositories)'
+
+# The tray app hides to the tray instead of exiting on a close request (see App.xaml.cs), so Inno
+# Setup's CloseApplications cannot make it release its own exe/dll files during uninstall. Without
+# this, Setup reports "some elements could not be removed" and leaves files behind. Waiting for the
+# process to actually exit (not just a fixed sleep) avoids a race where Windows has not yet released
+# its open directory handles when Setup tries to remove the now-empty App folder right afterward.
+$trayProcesses = Get-Process -Name 'BackupMesh.Storage.App' -ErrorAction SilentlyContinue
+if ($trayProcesses) {
+    $trayProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+    $trayProcesses | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+}
+
 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($service) {
     if ($service.Status -ne 'Stopped') { Stop-Service -Name $serviceName -Force }

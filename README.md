@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Upcoming release: **0.1.1** — the first end-to-end MVP with a guided Windows installer. The installer is available from source builds while elevated install/uninstall acceptance testing remains pending. See the [changelog](CHANGELOG.md).
+Current release: **0.1.1** — the first end-to-end MVP with a guided Windows installer, verified with an admin-approved install, upgrade, and uninstall on a real machine. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
@@ -52,7 +52,7 @@ The first version builds on the proven Restic ecosystem. BackupMesh itself is an
 
 The Windows tray app keeps backup storage understandable without turning it into an always-on server. Register a physical device or an ordinary local/network folder as a logical storage device, review synchronized Source Agents and their Backup Sets, then map each Backup Set to a device and a relative repository path. The mapping model supports multiple Sources per device and multiple devices per Source.
 
-To pair a Source, choose **Pair Source Agent** in the tray app and save the generated `backupmesh-pairing.json` bundle. Transfer it securely, then run `backupmesh-agent apply-pairing --config /etc/backupmesh/backupmesh.json --bundle backupmesh-pairing.json --output /etc/backupmesh/pairing`. This installs the identity-bound token, client certificate, private key, Storage Agent authority and remote Control API address, updates the Source ID and TLS paths, and protects the files with owner-only permissions on Linux. Delete the transfer bundle after applying it. Each Source receives an independent identity and credential.
+To pair a Source, choose **Pair Source Agent** in the tray app. Enter the displayed Storage address, ten-minute one-time code, and certificate SHA-256 fingerprint with `backupmesh-agent pair`. The Source pins the Storage certificate before transmitting the code and installs its identity-bound token, client certificate, private key, and Storage trust material with owner-only permissions. New pairing never places a private key in a transfer bundle or modifies the operating-system trust store.
 
 The Linux installer creates `/etc/backupmesh/restic-password` for repository encryption. Store a protected recovery copy: BackupMesh cannot restore snapshots if this password is lost.
 
@@ -62,7 +62,7 @@ The Linux installer creates `/etc/backupmesh/restic-password` for repository enc
 
 For the normal Windows experience, build `BackupMesh-Storage-0.1.1-win-x64-Setup.exe` with `pwsh -NoProfile -File scripts/build-windows-installer.ps1`, then run the installer. It installs the service, tray app, firewall rules, bundled tools, automatic startup, and uninstaller, and launches BackupMesh when setup finishes. Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 
-The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher**. Verify the SHA-256 checksum from the GitHub release before approving installation.
+The community preview installer is not yet Authenticode-signed, so Windows may display **Unknown publisher** (and Windows SmartScreen may warn before you can run it) — this is expected for an unsigned build, not a sign of tampering. The build script writes a `BackupMesh-Storage-<version>-win-x64-Setup.exe.sha256` file next to the installer; before approving installation, compare it with `Get-FileHash BackupMesh-Storage-<version>-win-x64-Setup.exe -Algorithm SHA256` (or `sha256sum` on the release archive) and only proceed if they match exactly.
 
 From PowerShell in the repository, build a self-contained test package:
 

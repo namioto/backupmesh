@@ -85,16 +85,55 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
         {
             foreach (var deviceId in readyNow.Except(_readyDevices))
             {
-                var drafts = from mapping in topology.Mappings
-                    where mapping.Enabled && mapping.DeviceId == deviceId
-                    join backupSet in topology.BackupSets on mapping.BackupSetId equals backupSet.Id
-                    select new BackupCommandDraft(backupSet.SourceAgentId, backupSet.Id, mapping.Id, "device-arrival");
+                var arrived = devices.First(item => item.DeviceId == deviceId);
+                var drafts = BuildArrivalDrafts(topology, devices, arrived);
                 commands.Enqueue($"arrival:{deviceId:N}:{devices.First(item => item.DeviceId == deviceId).ConnectedAt:O}", drafts.ToArray(), DateTimeOffset.UtcNow);
             }
         }
         _readyDevices.Clear();
         _readyDevices.UnionWith(readyNow);
     }
+
+    internal static IReadOnlyList<BackupCommandDraft> BuildArrivalDrafts(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices, RegisteredDevicePresence arrived)
+    {
+        var readyDeviceIds = devices.Where(device => device.Ready).Select(device => device.DeviceId).ToHashSet();
+        var sourceSets = string.IsNullOrWhiteSpace(arrived.CurrentRoot)
+            ? new HashSet<Guid>()
+            : topology.BackupSets
+                .Where(set => set.SourcePaths.Any(path => IsWithin(arrived.CurrentRoot, path)))
+                .Select(set => set.Id)
+                .ToHashSet();
+        return (from mapping in topology.Mappings
+                where mapping.Enabled && readyDeviceIds.Contains(mapping.DeviceId)
+                    && (mapping.DeviceId == arrived.DeviceId || sourceSets.Contains(mapping.BackupSetId))
+                join backupSet in topology.BackupSets on mapping.BackupSetId equals backupSet.Id
+                select new BackupCommandDraft(backupSet.SourceAgentId, backupSet.Id, mapping.Id,
+                    mapping.DeviceId == arrived.DeviceId ? "destination-arrival" : "source-arrival"))
+            .DistinctBy(draft => draft.TargetMappingId)
+            .ToArray();
+    }
+
+    private static bool IsWithin(string root, string candidate)
+    {
+        // A Backup Set's source paths can belong to a remote (e.g. Linux) Source Agent and be POSIX
+        // paths like "/home/user/Documents". Path.IsPathRooted treats a leading '/' as rooted on
+        // Windows too, and Path.GetFullPath resolves it against the current drive's root (e.g. to
+        // "C:\home\user\Documents"), which can coincidentally fall under a connected device's root.
+        // Only a path that already looks like a real Windows path can be a same-host source arrival.
+        if (!LooksLikeWindowsPath(candidate)) return false;
+        try
+        {
+            var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var fullCandidate = Path.GetFullPath(candidate);
+            return fullCandidate.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+                || fullCandidate.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
+    private static bool LooksLikeWindowsPath(string candidate) =>
+        (candidate.Length >= 3 && candidate[1] == ':' && (candidate[2] == '\\' || candidate[2] == '/') && char.IsAsciiLetter(candidate[0]))
+        || (candidate.Length >= 2 && candidate[0] == '\\' && candidate[1] == '\\');
 
     private static void UpdateAggregateState(StorageStateMachine state, IReadOnlyList<RegisteredDevicePresence> devices)
     {

@@ -1,7 +1,8 @@
 [CmdletBinding()]
-param([switch]$RequireSecondDevice, [switch]$FolderTargets, [switch]$AutomaticOnly)
+param([switch]$RequireSecondDevice, [switch]$FolderTargets, [switch]$AutomaticOnly, [switch]$SourceArrival)
 
 $ErrorActionPreference = 'Stop'
+if ($SourceArrival -and -not $AutomaticOnly) { throw '-SourceArrival requires -AutomaticOnly so the test exercises the Source-side arrival trigger without a manual command.' }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $artifactsRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts'))
 $runId = [Guid]::NewGuid().ToString('N')
@@ -26,18 +27,21 @@ try {
     $restoreRoot = Join-Path $workRoot 'restore'
     $passwordFile = Join-Path $workRoot 'repository.password'
     $configPath = Join-Path $workRoot 'backupmesh.json'
-    $bundlePath = Join-Path $workRoot 'backupmesh-pairing.json'
     $secretsRoot = Join-Path $workRoot 'pairing'
-    New-Item -ItemType Directory -Path $sourceData -Force | Out-Null
-    [IO.File]::WriteAllText((Join-Path $sourceData 'proof.txt'), "BackupMesh E2E proof`nline two`n")
-    [IO.File]::WriteAllBytes((Join-Path $sourceData 'payload.bin'), [Security.Cryptography.RandomNumberGenerator]::GetBytes(65536))
+    if (-not $SourceArrival) {
+        New-Item -ItemType Directory -Path $sourceData -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $sourceData 'proof.txt'), "BackupMesh E2E proof`nline two`n")
+        [IO.File]::WriteAllBytes((Join-Path $sourceData 'payload.bin'), [Security.Cryptography.RandomNumberGenerator]::GetBytes(65536))
+    }
     [IO.File]::WriteAllText($passwordFile, "local-e2e-password`n")
 
     $sourceId = [Guid]::NewGuid()
     $backupSetId = [Guid]::NewGuid()
     $configuration = @{
         agent = @{ id = $sourceId; name = 'Local E2E Source' }
-        storage = @{ controlEndpoint = 'https://localhost:7443'; repositoryPasswordFile = $passwordFile; resticCacheDirectory = (Join-Path $workRoot 'cache') }
+        # No controlEndpoint yet: this mirrors a freshly authored user config, and `pair` below must be
+        # able to load and pair it before the Storage endpoint is known.
+        storage = @{ repositoryPasswordFile = $passwordFile; resticCacheDirectory = (Join-Path $workRoot 'cache') }
         backupSets = @(@{ id = $backupSetId; name = 'e2e'; paths = @($sourceData) })
     }
     [IO.File]::WriteAllText($configPath, ($configuration | ConvertTo-Json -Depth 10))
@@ -48,10 +52,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not build the Windows Source Agent.' }
 
     $env:Pairing__CredentialHashPath = Join-Path $workRoot 'credentials.sha256'
+    $env:Pairing__RevokedAgentsPath = Join-Path $workRoot 'revoked-agents.txt'
     $env:PairingCertificate__ProtectedAuthorityPath = Join-Path $workRoot 'authority.dpapi'
     $env:StorageConfiguration__PersistencePath = Join-Path $workRoot 'storage.json'
     $env:SourceCatalog__PersistencePath = Join-Path $workRoot 'catalog.json'
     $env:BackupJob__PersistencePath = Join-Path $workRoot 'jobs.json'
+    # Every persistence path must be isolated to $workRoot: a real BackupMesh install locks
+    # %ProgramData%\BackupMesh (the default path these fall back to) down to Administrators/SYSTEM,
+    # so a stray default here fails with UnauthorizedAccessException instead of just using stale data.
+    $env:AutomationSettings__PersistencePath = Join-Path $workRoot 'automation-settings.json'
+    $env:BackupCommand__PersistencePath = Join-Path $workRoot 'backup-commands.json'
     $env:RepositoryServer__ExecutablePath = $restServerExe
     $env:RepositoryServer__CredentialDirectory = Join-Path $workRoot 'repository-credentials'
     $serviceOutput = Join-Path $workRoot 'service.stdout.log'
@@ -65,9 +75,12 @@ try {
     }
     if (-not $ready) { throw 'Storage Agent did not become ready.' }
 
-    $pairing = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:7444/api/v1/pairing/credential'
-    [IO.File]::WriteAllText($bundlePath, ($pairing | ConvertTo-Json -Depth 10))
-    & $sourceExe apply-pairing -config $configPath -bundle $bundlePath -output $secretsRoot
+    if ($SourceArrival) {
+        Invoke-RestMethod -Method Put -Uri 'http://127.0.0.1:7444/api/v1/automation/settings' -ContentType 'application/json' -Body '{"enabled":false}' | Out-Null
+    }
+
+    $pairing = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:7444/api/v1/pairing/sessions'
+    & $sourceExe pair -config $configPath -storage $pairing.control_endpoint -code $pairing.code -fingerprint $pairing.certificate_sha256 -output $secretsRoot
     if ($LASTEXITCODE -ne 0) { throw 'Source pairing failed.' }
 
     $driveRoot = [IO.Path]::GetPathRoot($workRoot)
@@ -113,11 +126,16 @@ try {
         $mappings += @{ id = $mappingId; backupSetId = $backupSetId; deviceId = $deviceId; repositoryPath = $relativeRepository; enabled = $true }
         $repositories += $repository
     }
+    if ($SourceArrival) {
+        $sourceDeviceId = [Guid]::NewGuid()
+        $sourceStableId = 'folder:' + [IO.Path]::GetFullPath($sourceData).TrimEnd([IO.Path]::DirectorySeparatorChar).ToUpperInvariant()
+        $devices += @{ id = $sourceDeviceId; stableId = $sourceStableId; displayName = 'E2E arriving source'; volumeLabel = 'Source folder'; lastKnownRoot = $sourceData; registeredAt = [DateTimeOffset]::UtcNow; lastSeenAt = $null; arrivalDelayMinutes = 0 }
+    }
     $topology = @{
         expectedRevision = 0
         configuration = @{
             devices = $devices
-            backupSets = @(@{ id = $backupSetId; sourceAgentId = $pairing.agent_id; sourceAgentName = 'Local E2E Source'; name = 'e2e'; sourcePaths = @($sourceData) })
+            backupSets = @(@{ id = $backupSetId; sourceAgentId = $sourceId; sourceAgentName = 'Local E2E Source'; name = 'e2e'; sourcePaths = @($sourceData) })
             mappings = $mappings
         }
     }
@@ -139,6 +157,14 @@ try {
     $sourceError = Join-Path $workRoot 'source.stderr.log'
     $sourceArguments = "watch -config `"$configPath`" -restic `"$resticExe`" -poll-interval 500ms"
     $sourceProcess = Start-Process -FilePath $sourceExe -ArgumentList $sourceArguments -NoNewWindow -PassThru -RedirectStandardOutput $sourceOutput -RedirectStandardError $sourceError
+
+    if ($SourceArrival) {
+        Start-Sleep -Seconds 1
+        Invoke-RestMethod -Method Put -Uri 'http://127.0.0.1:7444/api/v1/automation/settings' -ContentType 'application/json' -Body '{"enabled":true}' | Out-Null
+        New-Item -ItemType Directory -Path $sourceData -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $sourceData 'proof.txt'), "BackupMesh E2E source-arrival proof`nline two`n")
+        [IO.File]::WriteAllBytes((Join-Path $sourceData 'payload.bin'), [Security.Cryptography.RandomNumberGenerator]::GetBytes(65536))
+    }
 
     if (-not $AutomaticOnly) {
         $headers = @{

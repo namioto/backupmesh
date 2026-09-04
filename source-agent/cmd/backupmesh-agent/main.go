@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -34,7 +39,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <apply-pairing|validate|sync|backup|watch|version>")
+		return fmt.Errorf("usage: backupmesh-agent <pair|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -46,20 +51,45 @@ func run(args []string) error {
 	resticBinary := fs.String("restic", "restic", "path to bundled restic binary")
 	pairingBundle := fs.String("bundle", "backupmesh-pairing.json", "path to pairing bundle")
 	pairingOutput := fs.String("output", "", "directory for protected pairing files")
+	pairingCode := fs.String("code", "", "one-time pairing code")
+	storageEndpoint := fs.String("storage", "", "Storage HTTPS endpoint shown by the tray app")
+	storageFingerprint := fs.String("fingerprint", "", "Storage certificate SHA-256 shown by the tray app")
 	pollInterval := fs.Duration("poll-interval", 5*time.Second, "Storage command polling interval")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
 	if args[0] == "apply-pairing" {
+		fmt.Fprintln(os.Stderr, "warning: apply-pairing is deprecated and kept only for migrating pairings created before one-time-code pairing; use 'backupmesh-agent pair' instead.")
 		return applyPairing(*configPath, *pairingBundle, *pairingOutput)
+	}
+	if args[0] == "pair" {
+		return pairWithCode(*configPath, *storageEndpoint, *pairingCode, *storageFingerprint, *pairingOutput)
+	}
+	if args[0] == "validate" {
+		// Uses the lenient check so a freshly authored config can be validated before pairing, not just after.
+		cfg, err := config.LoadUserConfig(*configPath)
+		if err != nil {
+			return err
+		}
+		if err := cfg.Validate(); err != nil {
+			fmt.Println("configuration is valid but not yet paired with a Storage Agent:")
+			fmt.Printf("  %v\n", err)
+			return nil
+		}
+		fmt.Println("configuration is valid and paired")
+		return nil
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
 	}
-	if args[0] == "validate" {
-		fmt.Println("configuration is valid")
-		return nil
+	if args[0] == "backup" || args[0] == "watch" {
+		resolvedPasswordFile, cleanupPasswordFile, err := resolveRepositoryPasswordFile(cfg.Storage.RepositoryPasswordFile)
+		if err != nil {
+			return fmt.Errorf("resolve repository password: %w", err)
+		}
+		defer cleanupPasswordFile()
+		cfg.Storage.RepositoryPasswordFile = resolvedPasswordFile
 	}
 	authToken, err := loadAuthenticationToken(cfg.Storage.AuthenticationTokenFile)
 	if err != nil {
@@ -144,7 +174,7 @@ type pairingBundleFile struct {
 }
 
 func applyPairing(configPath, bundlePath, outputDirectory string) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.LoadUserConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -158,6 +188,52 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 	if err := decoder.Decode(&bundle); err != nil {
 		return fmt.Errorf("decode pairing bundle: %w", err)
 	}
+	return applyPairingBundle(configPath, outputDirectory, cfg, bundle)
+}
+
+func pairWithCode(configPath, endpoint, code, fingerprint, outputDirectory string) error {
+	cfg, err := config.LoadUserConfig(configPath)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(code) == "" || strings.TrimSpace(endpoint) == "" || len(strings.TrimSpace(fingerprint)) != 64 {
+		return errors.New("storage endpoint, one-time code, and 64-character certificate fingerprint are required")
+	}
+	requestBody, err := json.Marshal(map[string]string{"code": strings.TrimSpace(code), "agent_id": cfg.Agent.ID, "agent_name": cfg.Agent.Name})
+	if err != nil {
+		return fmt.Errorf("encode pairing request: %w", err)
+	}
+	pinned := strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", "")
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true, VerifyConnection: func(state tls.ConnectionState) error {
+		if len(state.PeerCertificates) == 0 {
+			return errors.New("storage did not present a certificate")
+		}
+		actual := fmt.Sprintf("%X", sha256.Sum256(state.PeerCertificates[0].Raw))
+		if !strings.EqualFold(actual, pinned) {
+			return errors.New("storage certificate fingerprint does not match the tray app")
+		}
+		return nil
+	}}
+	client := &http.Client{Transport: transport, Timeout: 15 * time.Second}
+	response, err := client.Post(strings.TrimRight(endpoint, "/")+"/api/v1/pairing/exchange", "application/json", bytes.NewReader(requestBody))
+	if err != nil {
+		return fmt.Errorf("exchange pairing code: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("pairing exchange returned HTTP %d", response.StatusCode)
+	}
+	var bundle pairingBundleFile
+	decoder := json.NewDecoder(response.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&bundle); err != nil {
+		return fmt.Errorf("decode pairing response: %w", err)
+	}
+	return applyPairingBundle(configPath, outputDirectory, cfg, bundle)
+}
+
+func applyPairingBundle(configPath, outputDirectory string, cfg config.Config, bundle pairingBundleFile) error {
 	certBlock, _ := pem.Decode([]byte(bundle.CertificatePEM))
 	caBlock, _ := pem.Decode([]byte(bundle.AuthorityPEM))
 	keyBlock, _ := pem.Decode([]byte(bundle.PrivateKeyPEM))
@@ -196,10 +272,20 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 	cfg.Storage.TLSCertificateFile = filepath.Join(outputDirectory, "source.crt")
 	cfg.Storage.TLSKeyFile = filepath.Join(outputDirectory, "source.key")
 	cfg.Storage.TLSCAFile = filepath.Join(outputDirectory, "storage-ca.pem")
+	if strings.TrimSpace(cfg.Storage.RepositoryPasswordFile) == "" {
+		passwordPath, err := generateRepositoryPassword(outputDirectory)
+		if err != nil {
+			return fmt.Errorf("generate repository password: %w", err)
+		}
+		cfg.Storage.RepositoryPasswordFile = passwordPath
+	}
+	if err := config.SaveIdentityState(configPath, cfg); err != nil {
+		return err
+	}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("paired configuration: %w", err)
 	}
-	encoded, err := json.MarshalIndent(cfg, "", "  ")
+	encoded, err := config.Marshal(cfg, configPath)
 	if err != nil {
 		return fmt.Errorf("encode paired configuration: %w", err)
 	}
@@ -208,6 +294,62 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 	}
 	fmt.Printf("pairing applied for Source Agent %s\n", bundle.AgentID)
 	return nil
+}
+
+// generateRepositoryPassword creates a random restic repository password so users never type or
+// choose one, and stores it protected (Windows DPAPI, current-user scope; on other platforms the
+// 0600 file mode from writePrivateFile is the only protection, matching a Linux root-only file).
+func generateRepositoryPassword(outputDirectory string) (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generate repository password: %w", err)
+	}
+	plaintext := []byte(base64.RawURLEncoding.EncodeToString(raw))
+	protected, err := config.Protect(plaintext)
+	if err != nil {
+		return "", fmt.Errorf("protect repository password: %w", err)
+	}
+	path := filepath.Join(outputDirectory, "repository-password.protected")
+	if err := writePrivateFile(path, protected); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// resolveRepositoryPasswordFile returns a path restic can read RESTIC_PASSWORD_FILE from. A
+// DPAPI-protected password (from generateRepositoryPassword) is decrypted into a private temporary
+// file that the returned cleanup func removes; a user-authored plaintext password file (the only
+// kind on non-Windows platforms) is used unchanged, so existing manual configurations keep working.
+func resolveRepositoryPasswordFile(path string) (resolvedPath string, cleanup func(), err error) {
+	noop := func() {}
+	raw, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", noop, fmt.Errorf("read repository password file: %w", err)
+	}
+	plaintext, wasProtected := config.TryUnprotect(raw)
+	if !wasProtected {
+		return path, noop, nil
+	}
+	temporary, err := os.CreateTemp("", "backupmesh-repo-password-*")
+	if err != nil {
+		return "", noop, fmt.Errorf("create temporary repository password file: %w", err)
+	}
+	cleanup = func() { _ = os.Remove(temporary.Name()) }
+	if err := temporary.Chmod(0o600); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", noop, fmt.Errorf("protect temporary repository password file: %w", err)
+	}
+	if _, err := temporary.Write(plaintext); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", noop, fmt.Errorf("write temporary repository password file: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		cleanup()
+		return "", noop, fmt.Errorf("close temporary repository password file: %w", err)
+	}
+	return temporary.Name(), cleanup, nil
 }
 
 func writePrivateFile(path string, contents []byte) error {
@@ -296,7 +438,7 @@ func loadAuthenticationToken(path string) (string, error) {
 	}
 	token := strings.TrimSpace(string(b))
 	if len(token) < 32 {
-		return "", fmt.Errorf("Control API authentication token must contain at least 32 characters")
+		return "", fmt.Errorf("control API authentication token must contain at least 32 characters")
 	}
 	return token, nil
 }
@@ -429,7 +571,7 @@ func sleepContext(ctx context.Context, delay time.Duration) bool {
 
 func executeSourceCommand(ctx context.Context, api controlapi.Client, cfg config.Config, command controlapi.BackupCommand, resticBinary string) error {
 	if strings.TrimSpace(command.CommandID) == "" {
-		return errors.New("Storage command is missing command_id")
+		return errors.New("storage command is missing command_id")
 	}
 	outcome := "SUCCEEDED"
 	message := ""

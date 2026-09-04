@@ -26,6 +26,8 @@ The packages include pinned versions of `restic` and `rest-server`; a separate .
 
 For normal use, run `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.1.1-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
 ```powershell
@@ -55,7 +57,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-Define each Backup Set with a stable UUID, a user-facing name, source paths, and optional include/exclude patterns. Validate the file:
+Define each Backup Set with a user-facing name, source paths, and optional include/exclude patterns. The Source Agent generates stable Agent and Backup Set UUIDs automatically and preserves them in an owner-only `*.state.json` file next to the configuration. Do not edit or copy IDs between Sources. Validate the file:
+
+The Source Agent accepts strict JSON (`.json`) and YAML (`.yaml` or `.yml`). A Backup Set's `paths` list may contain any number of files or directories; see `source-agent/example.config.yaml` for a multi-path example. Unknown YAML and JSON fields are rejected so spelling mistakes cannot silently disable a setting.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -66,17 +70,18 @@ The installer creates `/etc/backupmesh/restic-password` with owner-only permissi
 
 ## 5. Pair the Source
 
-In the Windows tray app choose **Pair Source Agent**, save `backupmesh-pairing.json`, and transfer it securely to the Linux machine. Then run:
+In the Windows tray app choose **Pair Source Agent**. It displays a Storage address, one-time code, and certificate SHA-256 fingerprint; the code expires after ten minutes and can be used once. On the Source run:
 
 ```sh
-sudo /opt/backupmesh/backupmesh-agent apply-pairing \
+sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -bundle /path/to/backupmesh-pairing.json \
+  -storage https://STORAGE-PC:7443 \
+  -code CODE-FROM-TRAY \
+  -fingerprint 64_HEX_CHARACTERS_FROM_TRAY \
   -output /etc/backupmesh/pairing
-rm -f /path/to/backupmesh-pairing.json
 ```
 
-The bundle installs an identity-bound token, client certificate, private key, pinned Storage certificate, Source ID, and Control API address. It avoids the Windows certificate-installation prompt and must not be reused for another Source.
+The Source verifies the pinned fingerprint before sending the code, then installs an identity-bound token, client certificate, private key, and pinned Storage certificate with owner-only permissions. No private key is placed in a transfer file and no certificate is added to the operating-system trust store.
 
 Start the Source command watcher:
 
@@ -95,6 +100,8 @@ After the Source synchronizes, open **Sources & mappings** in the tray app.
 4. Add the mapping and save the configuration.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
+
+Source and Storage Agents may run on the same computer by using the Storage Agent's local HTTPS endpoint. Local fixed drives and registered folders are valid destination devices, not only USB media. This supports both local-data-to-external-storage and external-source-to-local-storage layouts. For the latter, register the external source volume with Storage as a device. Storage detects its arrival, finds Backup Sets whose source paths are inside that volume, and sends commands for every ready mapped destination. The Source Agent only executes Storage-authorized commands; it does not own device detection or policy.
 
 ## 7. Run and monitor a backup
 
@@ -129,7 +136,7 @@ Restore into an empty test directory and compare file hashes or open representat
 ## Troubleshooting
 
 - **Source does not appear:** check `systemctl status backupmesh-source-watch.service`, confirm TCP 7443 is reachable, and verify the Storage hostname/IP is included in its certificate names before issuing a new pairing bundle.
-- **No target is ready:** confirm the device is connected, the mapping is saved, the Backup Set UUID matches the Source configuration, and the arrival delay has elapsed.
+- **No target is ready:** confirm the device is connected, the mapping is saved, the Source has synchronized its catalog, and the arrival delay has elapsed.
 - **Certificate error:** re-pair after correcting the Storage Agent's advertised hostname. Do not install the private BackupMesh CA into the Windows system trust store.
 - **Insufficient space:** free space or choose another mapped device. A failed target does not prevent another ready target from being attempted.
 - **Interrupted run:** reconnect the device and retry. BackupMesh releases stale jobs after service recovery; restic safely reuses already stored content.

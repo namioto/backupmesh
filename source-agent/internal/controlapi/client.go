@@ -231,30 +231,30 @@ func (c Client) do(ctx context.Context, method, path, key string, body any, expe
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Control API request: %w", err)
+		return fmt.Errorf("control API request: %w", err)
 	}
 	defer resp.Body.Close()
 	limited := io.LimitReader(resp.Body, maxResponseBytes+1)
 	b, err := io.ReadAll(limited)
 	if err != nil {
-		return fmt.Errorf("read Control API response: %w", err)
+		return fmt.Errorf("read control API response: %w", err)
 	}
 	if len(b) > maxResponseBytes {
-		return errors.New("Control API response exceeds size limit")
+		return errors.New("control API response exceeds size limit")
 	}
 	if resp.StatusCode != expected {
 		var p problem
 		if json.Unmarshal(b, &p) == nil && p.Detail != "" {
-			return fmt.Errorf("Control API returned %d %s: %s", resp.StatusCode, p.Code, p.Detail)
+			return fmt.Errorf("control API returned %d %s: %s", resp.StatusCode, p.Code, p.Detail)
 		}
-		return fmt.Errorf("Control API returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("control API returned HTTP %d", resp.StatusCode)
 	}
 	if out != nil {
 		if len(b) == 0 {
-			return errors.New("Control API returned an empty response")
+			return errors.New("control API returned an empty response")
 		}
 		if err := json.Unmarshal(b, out); err != nil {
-			return fmt.Errorf("decode Control API response: %w", err)
+			return fmt.Errorf("decode control API response: %w", err)
 		}
 	}
 	return nil

@@ -26,6 +26,8 @@ pwsh -NoProfile -File scripts/build-linux-source-package.ps1
 
 일반 사용자는 `BackupMesh-Storage-0.1.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.1.1-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
 ```powershell
@@ -55,7 +57,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-각 Backup Set에 고정 UUID, 표시 이름, 원본 경로, 필요한 include/exclude 패턴을 설정합니다. 설정 파일을 검증합니다.
+각 Backup Set에는 표시 이름, 원본 경로, 필요한 include/exclude 패턴만 설정합니다. Source Agent가 Agent와 Backup Set의 고정 UUID를 자동 생성하고 설정 파일 옆의 소유자 전용 `*.state.json` 파일에 보존합니다. 사용자가 ID를 편집하거나 Source 사이에 복사하면 안 됩니다. 설정 파일을 검증합니다.
+
+Source Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths` 목록에는 파일과 디렉터리를 원하는 만큼 지정할 수 있습니다. 다중 경로 예시는 `source-agent/example.config.yaml`을 참고하세요. YAML과 JSON 모두 알 수 없는 필드를 거부하므로 오타가 조용히 무시되지 않습니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -66,17 +70,18 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 ## 5. Source 페어링
 
-Windows 트레이 앱에서 **Pair Source Agent**를 선택해 `backupmesh-pairing.json`을 저장하고 Linux 장비로 안전하게 옮깁니다.
+Windows 트레이 앱에서 **Pair Source Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
 
 ```sh
-sudo /opt/backupmesh/backupmesh-agent apply-pairing \
+sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -bundle /path/to/backupmesh-pairing.json \
+  -storage https://STORAGE-PC:7443 \
+  -code TRAY에_표시된_코드 \
+  -fingerprint TRAY에_표시된_64자리_16진수_지문 \
   -output /etc/backupmesh/pairing
-rm -f /path/to/backupmesh-pairing.json
 ```
 
-번들에는 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서, Source ID, Control API 주소가 들어 있습니다. Windows 인증서 설치 창은 필요하지 않으며 다른 Source에서 번들을 재사용하면 안 됩니다.
+Source는 코드를 보내기 전에 표시된 인증서 지문을 고정 검증하고, 이후 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서를 소유자 전용 권한으로 설치합니다. 개인 키가 전송 파일에 기록되지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
 명령 감시 서비스를 시작합니다.
 
@@ -95,6 +100,8 @@ Source가 동기화되면 트레이 앱의 **Sources & mappings**를 엽니다.
 4. 매핑을 추가하고 설정을 저장합니다.
 
 매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요.
+
+Source Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용해 같은 PC에서 실행할 수 있습니다. USB뿐 아니라 로컬 고정 드라이브와 등록 폴더도 대상 장치로 사용할 수 있으므로 로컬 데이터→외장 저장장치와 외장 원본→로컬 저장장치 구성을 모두 만들 수 있습니다. 후자의 경우 외장 원본 볼륨을 Storage 장치로 등록합니다. Storage가 도착을 감지하고 그 볼륨 안에 원본 경로가 있는 Backup Set을 찾아 준비된 모든 대상 매핑의 명령을 보냅니다. Source Agent는 Storage가 승인한 명령만 실행하며 장치 감지나 정책을 소유하지 않습니다.
 
 ## 7. 백업 실행과 확인
 
@@ -129,7 +136,7 @@ artifacts\BackupMesh-Storage-win-x64\Service\restic.exe `
 ## 문제 해결
 
 - **Source가 보이지 않음:** `systemctl status backupmesh-source-watch.service`를 확인하고 TCP 7443 연결과 Storage 인증서의 호스트명/IP를 점검한 뒤 필요하면 다시 페어링합니다.
-- **준비된 대상이 없음:** 장치 연결, 저장된 매핑, Source 설정의 Backup Set UUID, arrival delay 경과 여부를 확인합니다.
+- **준비된 대상이 없음:** 장치 연결, 저장된 매핑, Source catalog 동기화, arrival delay 경과 여부를 확인합니다.
 - **인증서 오류:** Storage Agent가 광고하는 호스트명을 수정한 뒤 다시 페어링합니다. BackupMesh 사설 CA를 Windows 시스템 신뢰 저장소에 설치하지 마세요.
 - **공간 부족:** 공간을 확보하거나 다른 매핑 장치를 선택합니다. 한 대상의 실패가 준비된 다른 대상의 시도까지 막지는 않습니다.
 - **중단된 실행:** 장치를 다시 연결하고 재시도합니다. 서비스 복구 후 오래된 작업 상태가 해제되며 restic은 이미 저장한 데이터를 안전하게 재사용합니다.

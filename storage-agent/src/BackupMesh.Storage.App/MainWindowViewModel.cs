@@ -27,9 +27,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IBackupJobClient _jobClient;
     private readonly IStorageDeviceClient _storageDeviceClient;
     private readonly IPairingClient _pairingClient;
+    private readonly ISourceConnectionsClient _connectionsClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     private BackupSetViewModel? _selectedBackupSet;
+    private SourceConnectionViewModel? _selectedSourceConnection;
     private DeviceViewModel? _selectedDevice;
     private AvailableDriveViewModel? _selectedAvailableDrive;
     private MappingViewModel? _selectedMapping;
@@ -42,6 +44,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly bool _persistLocalState;
 
     public ObservableCollection<SourceAgentViewModel> Sources { get; } = [];
+    public ObservableCollection<SourceConnectionViewModel> SourceConnections { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public ObservableCollection<MappingViewModel> Mappings { get; } = [];
@@ -63,8 +66,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand CancelJobCommand { get; }
     public ICommand EjectDeviceCommand { get; }
     public ICommand PairSourceCommand { get; }
+    public ICommand RevokeSourceCommand { get; }
+    public ICommand UnrevokeSourceCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null, IPairingClient? pairingClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IStorageDeviceClient? storageDeviceClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
@@ -74,6 +79,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _jobClient = jobClient ?? new BackupJobClient();
         _storageDeviceClient = storageDeviceClient ?? new StorageDeviceClient();
         _pairingClient = pairingClient ?? new PairingClient();
+        _connectionsClient = connectionsClient ?? new SourceConnectionsClient();
         AddMappingCommand = new RelayCommand(AddMapping);
         BrowseDestinationCommand = new RelayCommand(BrowseDestination);
         RemoveMappingCommand = new RelayCommand(RemoveMapping);
@@ -85,8 +91,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
         EjectDeviceCommand = new RelayCommand(() => _ = EjectSelectedDeviceAsync());
         PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync());
+        RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
+        UnrevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: false));
         _deviceTimer.Tick += (_, _) => RefreshDrives();
-        _catalogTimer.Tick += async (_, _) => await RefreshCatalogsAsync();
+        _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
         if (loadLocalState) Load();
         else Activity.Add("Storage Agent UI test state initialized.");
@@ -100,6 +108,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public int SourceCount => Sources.Count;
     public int MappingCount => Mappings.Count(mapping => mapping.Enabled);
     public BackupSetViewModel? SelectedBackupSet { get => _selectedBackupSet; set => Set(ref _selectedBackupSet, value); }
+    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set => Set(ref _selectedSourceConnection, value); }
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public AvailableDriveViewModel? SelectedAvailableDrive { get => _selectedAvailableDrive; set => Set(ref _selectedAvailableDrive, value); }
     public MappingViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
@@ -124,6 +133,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         await RefreshConfigurationAsync();
         await RefreshCatalogsAsync();
+        await RefreshConnectionsAsync();
         await RefreshJobsAsync();
     }
 
@@ -170,17 +180,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task PairSourceAsync()
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Save Source Agent pairing bundle", FileName = "backupmesh-pairing.json", Filter = "BackupMesh pairing bundle (*.json)|*.json", AddExtension = true, OverwritePrompt = true };
-        if (dialog.ShowDialog() != true) return;
         try
         {
-            var pairing = await _pairingClient.IssueAsync(_shutdown.Token);
-            var json = System.Text.Json.JsonSerializer.Serialize(pairing, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(dialog.FileName, json + Environment.NewLine, _shutdown.Token);
-            FooterStatus = "Pairing bundle saved. Apply it on the Source Agent, then delete the transfer copy.";
+            var pairing = await _pairingClient.CreateSessionAsync(_shutdown.Token);
+            new PairingDetailsWindow(pairing).ShowDialog();
+            FooterStatus = "One-time pairing details generated. The code expires in 10 minutes and works once.";
             NotificationRequested?.Invoke(this, new("Source Agent pairing", FooterStatus));
         }
-        catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException) { FooterStatus = $"Pairing credential could not be saved: {exception.Message}"; }
+        catch (HttpRequestException exception) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -204,6 +211,38 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public Task RefreshCatalogsOnceAsync() => RefreshCatalogsAsync();
+
+    private async Task RefreshConnectionsAsync()
+    {
+        if (_demoMode) return;
+        try
+        {
+            var connections = await _connectionsClient.ListAsync(_shutdown.Token);
+            var selectedId = SelectedSourceConnection?.AgentId;
+            SourceConnections.Clear();
+            foreach (var connection in connections.OrderBy(c => c.AgentName, StringComparer.OrdinalIgnoreCase)) SourceConnections.Add(new(connection));
+            SelectedSourceConnection = SourceConnections.FirstOrDefault(c => c.AgentId == selectedId) ?? SourceConnections.FirstOrDefault();
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException) { }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task SetSourceRevocationAsync(bool revoked)
+    {
+        var connection = SelectedSourceConnection;
+        if (connection is null) return;
+        try
+        {
+            if (revoked) await _connectionsClient.RevokeAsync(connection.AgentId, _shutdown.Token);
+            else await _connectionsClient.UnrevokeAsync(connection.AgentId, _shutdown.Token);
+            FooterStatus = revoked ? $"Revoked access for {connection.AgentName}." : $"Restored access for {connection.AgentName}.";
+            NotificationRequested?.Invoke(this, new("Source Agent connection", FooterStatus));
+            await RefreshConnectionsAsync();
+        }
+        catch (HttpRequestException exception) { FooterStatus = $"Could not update {connection.AgentName}'s access: {exception.Message}"; }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+    }
 
     public async Task RefreshConfigurationAsync()
     {
@@ -631,6 +670,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
         if (_storageDeviceClient is IDisposable storageDeviceDisposable) storageDeviceDisposable.Dispose();
         if (_pairingClient is IDisposable pairingDisposable) pairingDisposable.Dispose();
+        if (_connectionsClient is IDisposable connectionsDisposable) connectionsDisposable.Dispose();
         _shutdown.Dispose();
     }
 }
@@ -640,6 +680,22 @@ public sealed class SourceAgentViewModel(Guid id, string displayName)
     public Guid Id { get; } = id;
     public string DisplayName { get; } = displayName;
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
+}
+
+public sealed class SourceConnectionViewModel(SourceConnectionDto model)
+{
+    public Guid AgentId { get; } = model.AgentId;
+    public string AgentName { get; } = model.AgentName;
+    public DateTimeOffset LastSeenAt { get; } = model.LastSeenAt;
+    public string LastSeenDisplay { get; } = model.LastSeenAt.LocalDateTime.ToString("g");
+    public int BackupSetCount { get; } = model.BackupSetCount;
+    public bool IsRevoked { get; } = model.Revoked;
+    public string StatusDisplay => IsRevoked ? "Revoked" : "Allowed";
+    public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class BackupSetViewModel : ObservableObject
@@ -658,6 +714,9 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
     }
+
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class DeviceViewModel : ObservableObject
@@ -681,6 +740,9 @@ public sealed class DeviceViewModel : ObservableObject
     public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
     public int ArrivalDelayMinutes { get; set; }
     public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt, ArrivalDelayMinutes);
+
+    // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
+    public override string ToString() => DisplayName;
 }
 
 public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device)
@@ -699,6 +761,11 @@ public sealed class MappingViewModel(BackupTargetMapping model, BackupSetViewMod
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
 {
     public string DisplayName => $"{HardwareName} — {VolumeLabel} ({Root}), {AvailableBytes / 1_073_741_824d:0.0} GB free";
+
+    // Without this the compiler-generated record ToString() becomes the UI Automation Name, leaking
+    // StableId and volume serials to screen readers. DisplayMemberPath does not affect the UIA Name.
+    public override string ToString() => DisplayName;
+
     public static AvailableDriveViewModel FromDrive(DriveInfo drive)
     {
         var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? "Local disk" : drive.VolumeLabel;

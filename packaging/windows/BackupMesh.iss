@@ -73,6 +73,29 @@ Filename: "{app}\App\BackupMesh.Storage.App.exe"; Description: "Launch BackupMes
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\Uninstall-BackupMesh.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "BackupMeshServiceCleanup"
 
+; Belt-and-suspenders for the tray app's forced-kill race (see Uninstall-BackupMesh.ps1): if Windows
+; had not fully released a directory handle by the time Setup's own file removal ran, these folders
+; are left behind empty. dirifempty only removes them if nothing meaningful remains.
+[UninstallDelete]
+Type: dirifempty; Name: "{app}\App\cs"
+Type: dirifempty; Name: "{app}\App\de"
+Type: dirifempty; Name: "{app}\App\es"
+Type: dirifempty; Name: "{app}\App\fr"
+Type: dirifempty; Name: "{app}\App\it"
+Type: dirifempty; Name: "{app}\App\ja"
+Type: dirifempty; Name: "{app}\App\ko"
+Type: dirifempty; Name: "{app}\App\pl"
+Type: dirifempty; Name: "{app}\App\pt-BR"
+Type: dirifempty; Name: "{app}\App\ru"
+Type: dirifempty; Name: "{app}\App\tr"
+Type: dirifempty; Name: "{app}\App\zh-Hans"
+Type: dirifempty; Name: "{app}\App\zh-Hant"
+Type: dirifempty; Name: "{app}\App\Assets"
+Type: dirifempty; Name: "{app}\App"
+Type: dirifempty; Name: "{app}\Service"
+Type: dirifempty; Name: "{app}\licenses"
+Type: dirifempty; Name: "{app}"
+
 [Code]
 function IsServiceRunning(const Name: string): Boolean;
 var
@@ -93,4 +116,9 @@ begin
       ewWaitUntilTerminated, ResultCode);
     Sleep(1500);
   end;
+  { CloseApplicationsFilter cannot close the tray app: its Closing handler hides it to the tray
+    instead of exiting (see App.xaml.cs), so a graceful Restart Manager close request never actually
+    frees its own exe/dll files. Without this, an upgrade over a running install leaves stale files. }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM BackupMesh.Storage.App.exe /F', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
 end;

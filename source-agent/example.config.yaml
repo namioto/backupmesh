@@ -1,0 +1,17 @@
+agent:
+  name: Example source
+# storage.controlEndpoint, authenticationTokenFile, tlsCaFile, tlsCertificateFile, and tlsKeyFile are
+# not set here: `backupmesh-agent pair` writes them automatically once you pair with the Storage tray app.
+storage:
+  repositoryPasswordFile: /etc/backupmesh/restic-password
+uploadLimitBps: 10485760
+backupSets:
+  - name: documents-and-pictures
+    paths:
+      - /home/example/Documents
+      - /home/example/Pictures
+    exclude:
+      - "**/.cache/**"
+    hooks:
+      before:
+        - [/usr/local/bin/prepare-backup, documents-and-pictures]

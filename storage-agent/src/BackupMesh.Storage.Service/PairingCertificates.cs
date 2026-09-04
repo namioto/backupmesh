@@ -7,6 +7,10 @@ namespace BackupMesh.Storage.Service;
 public sealed class PairingCertificateOptions { public string? ProtectedAuthorityPath { get; set; } public string? ProtectedServerCertificatePath { get; set; } }
 public sealed record SourceCertificateBundle(string CertificatePem, string PrivateKeyPem, string AuthorityPem, DateTimeOffset ExpiresAt);
 
+// Uses DataProtectionScope.LocalMachine, not CurrentUser: this runs inside the Windows service, which
+// runs as LocalSystem. CurrentUser DPAPI scope depends on a per-user roaming profile keystore that a
+// service account does not reliably have, and fails there with
+// "CryptographicException: The specified path was not found" on both Protect and Unprotect.
 public sealed class PairingCertificateAuthority(PairingCertificateOptions options)
 {
     private readonly object _gate = new();
@@ -48,7 +52,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
             if (File.Exists(serverPath))
             {
                 var protectedPfx = File.ReadAllBytes(serverPath);
-                var storedPfx = ProtectedData.Unprotect(protectedPfx, null, DataProtectionScope.CurrentUser);
+                var storedPfx = ProtectedData.Unprotect(protectedPfx, null, DataProtectionScope.LocalMachine);
                 return X509CertificateLoader.LoadPkcs12(storedPfx, null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
             }
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "localhost", Environment.MachineName };
@@ -68,7 +72,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
             request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
             using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(3));
             var pfx = certificate.Export(X509ContentType.Pfx);
-            var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.CurrentUser);
+            var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.LocalMachine);
             Directory.CreateDirectory(Path.GetDirectoryName(serverPath) ?? throw new InvalidOperationException("Server certificate path must include a directory."));
             var temporary = $"{serverPath}.{Guid.NewGuid():N}.tmp";
             try { File.WriteAllBytes(temporary, protectedBytes); File.Move(temporary, serverPath, true); }
@@ -83,7 +87,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         if (File.Exists(_path))
         {
             var storedBytes = File.ReadAllBytes(_path);
-            var loadedPfx = ProtectedData.Unprotect(storedBytes, null, DataProtectionScope.CurrentUser);
+            var loadedPfx = ProtectedData.Unprotect(storedBytes, null, DataProtectionScope.LocalMachine);
             return X509CertificateLoader.LoadPkcs12(loadedPfx, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
         }
         using var key = RSA.Create(4096);
@@ -93,7 +97,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
         request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
         using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddYears(10));
         var pfx = created.Export(X509ContentType.Pfx);
-        var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.CurrentUser);
+        var protectedBytes = ProtectedData.Protect(pfx, null, DataProtectionScope.LocalMachine);
         Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? throw new InvalidOperationException("Pairing authority path must include a directory."));
         var temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
         try { File.WriteAllBytes(temporary, protectedBytes); File.Move(temporary, _path, true); }

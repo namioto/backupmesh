@@ -84,6 +84,89 @@ public sealed class MutualTlsCertificateValidatorTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    // Program.cs switched Kestrel from ClientCertificateMode.RequireCertificate to AllowCertificate so
+    // /pairing/exchange can complete without a client certificate, using
+    // `certificate is null || MutualTlsCertificateValidator.Validate(certificate, clientAuthority)` as the
+    // validation callback. These three tests pin that exact behavior at the real TLS handshake level (not
+    // just the application-level ControlApiAuthenticationFilter) so a future change cannot silently widen
+    // it into accepting untrusted certificates.
+    [Fact]
+    public async Task AllowCertificateModeAcceptsAConnectionWithNoClientCertificate()
+    {
+        using var authority = CreateAuthority("CN=BackupMesh Test CA");
+        Assert.True(await RunOptionalClientCertificateHandshakeAsync(authority, clientCertificate: null));
+    }
+
+    [Fact]
+    public async Task AllowCertificateModeStillRejectsAnUntrustedClientCertificate()
+    {
+        using var authority = CreateAuthority("CN=BackupMesh Test CA");
+        using var otherAuthority = CreateAuthority("CN=Other Test CA");
+        using var untrustedClient = IssueWithPrivateKey(otherAuthority, "CN=source-untrusted", "1.3.6.1.5.5.7.3.2");
+        await Assert.ThrowsAsync<System.Security.Authentication.AuthenticationException>(() => RunOptionalClientCertificateHandshakeAsync(authority, untrustedClient));
+    }
+
+    [Fact]
+    public async Task AllowCertificateModeAcceptsAValidClientCertificate()
+    {
+        using var authority = CreateAuthority("CN=BackupMesh Test CA");
+        using var trustedClient = IssueWithPrivateKey(authority, "CN=source-1", "1.3.6.1.5.5.7.3.2");
+        Assert.True(await RunOptionalClientCertificateHandshakeAsync(authority, trustedClient));
+    }
+
+    // Unlike Issue() below, this attaches and reloads the private key so the certificate can actually
+    // authenticate a TLS client (Issue() only needs to be chain-buildable for MutualTlsCertificateValidator.Validate).
+    private static X509Certificate2 IssueWithPrivateKey(X509Certificate2 authority, string subject, string eku)
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest(subject, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new(eku) }, true));
+        using var withoutKey = request.Create(authority, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(30), RandomNumberGenerator.GetBytes(16));
+        using var withKey = withoutKey.CopyWithPrivateKey(key);
+        return X509CertificateLoader.LoadPkcs12(withKey.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+    }
+
+    private static async Task<bool> RunOptionalClientCertificateHandshakeAsync(X509Certificate2 authority, X509Certificate2? clientCertificate)
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=storage.example", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var ephemeralServerCertificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
+        // SChannel needs the private key reloaded from a PFX rather than the ephemeral in-memory key CreateSelfSigned returns.
+        using var serverCertificate = X509CertificateLoader.LoadPkcs12(ephemeralServerCertificate.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var server = Task.Run(async () =>
+        {
+            using var connection = await listener.AcceptTcpClientAsync();
+            using var stream = new SslStream(connection.GetStream(), false, (_, certificate, _, _) => certificate is null || ValidateClient(certificate, authority));
+            // Mirrors Kestrel's mapping of ClientCertificateMode.AllowCertificate: ClientCertificateRequired stays
+            // true so the certificate is actually requested (needed for it to reach the callback at all under
+            // TLS 1.3), while the callback itself tolerates a missing certificate for pairing bootstrap.
+            await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = serverCertificate, ClientCertificateRequired = true, EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 }, timeout.Token);
+        });
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port);
+        using var clientStream = new SslStream(client.GetStream(), false, (_, certificate, _, _) => certificate?.GetCertHashString() == serverCertificate.GetCertHashString());
+        var clientOptions = new SslClientAuthenticationOptions { TargetHost = "storage.example", EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13 };
+        if (clientCertificate is not null) clientOptions.ClientCertificates = [clientCertificate];
+        try
+        {
+            await clientStream.AuthenticateAsClientAsync(clientOptions, timeout.Token);
+        }
+        catch
+        {
+            try { await server; } catch { /* surface the client-side exception instead */ }
+            throw;
+        }
+        await server;
+        return clientStream.IsAuthenticated;
+    }
+
     [Fact]
     public void AcceptsOnlyClientAuthCertificateFromConfiguredAuthority()
     {

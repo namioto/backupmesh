@@ -27,7 +27,7 @@ if (mutualTls.Enabled)
     builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(mutualTls.Port, listen => listen.UseHttps(https =>
     {
         https.ServerCertificate = serverCertificate;
-        https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+        https.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
         https.OnAuthenticate = (_, authentication) =>
         {
             var policy = new X509ChainPolicy
@@ -40,7 +40,7 @@ if (mutualTls.Enabled)
             policy.ApplicationPolicy.Add(new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.2"));
             authentication.CertificateChainPolicy = policy;
         };
-        https.ClientCertificateValidation = (certificate, _, _) =>
+        https.ClientCertificateValidation = (certificate, _, _) => certificate is null ||
             MutualTlsCertificateValidator.Validate(certificate, clientAuthority);
         https.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
     })));
@@ -73,6 +73,9 @@ builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<BackupCommandQueue>();
 builder.Services.AddSingleton<AutomationSettingsStore>();
 builder.Services.AddSingleton<PairingCredentialStore>();
+builder.Services.AddSingleton<RevokedSourceStore>();
+builder.Services.AddSingleton<PairingSessionStore>();
+builder.Services.AddSingleton<PairingAttemptThrottle>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<SourceCatalogStore>();
 builder.Services.AddSingleton<StorageConfigurationStore>();

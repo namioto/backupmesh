@@ -10,7 +10,7 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed class ControlApiOptions { public Guid AgentId { get; set; } = Guid.NewGuid(); public Uri RepositoryEndpoint { get; set; } = new("https://localhost:8000/repo"); public string? AuthenticationToken { get; set; } }
-public sealed class PairingOptions { public string? CredentialHashPath { get; set; } }
+public sealed class PairingOptions { public string? CredentialHashPath { get; set; } public string? RevokedAgentsPath { get; set; } }
 public sealed class MutualTlsOptions { public bool Enabled { get; set; } = true; public int Port { get; set; } = 7443; public string[] ServerNames { get; set; } = []; public string ServerCertificatePath { get; set; } = string.Empty; public string? ServerCertificatePassword { get; set; } public string ClientCertificateAuthorityPath { get; set; } = string.Empty; public string ServerTrustPem { get; set; } = string.Empty; }
 public static class MutualTlsCertificateValidator
 {
@@ -38,6 +38,7 @@ public sealed record BackupCommandResultRequest([property: JsonPropertyName("com
 public sealed record BackupCommandCompletionRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string State, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record SourceCatalogBackupSet([property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("name"), Required, StringLength(128, MinimumLength = 1)] string Name, [property: JsonPropertyName("source_paths"), MinLength(1), MaxLength(4096)] string[] SourcePaths);
 public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("source_agent_name"), Required, StringLength(128, MinimumLength = 1)] string SourceAgentName, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("backup_sets"), MaxLength(1024)] SourceCatalogBackupSet[] BackupSets);
+public sealed record PairingExchangeRequest([property: JsonPropertyName("code"), Required, StringLength(64, MinimumLength = 20)] string Code, [property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("agent_name"), Required, StringLength(128, MinimumLength = 1)] string AgentName);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
 public sealed class BackupJobOptions
 {
@@ -223,7 +224,7 @@ public sealed class PairingCredentialStore
     private sealed class CredentialEntry(byte[] hash, Guid? agentId) { public byte[] Hash { get; } = hash; public Guid? AgentId { get; set; } = agentId; }
 }
 
-public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials) : IEndpointFilter
+public sealed class ControlApiAuthenticationFilter(PairingCredentialStore credentials, RevokedSourceStore revocations) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -231,6 +232,8 @@ public sealed class ControlApiAuthenticationFilter(PairingCredentialStore creden
             return await next(context);
         if (!Guid.TryParse(context.HttpContext.Request.Headers["X-BackupMesh-Agent-ID"], out var agentId))
             return Results.Problem(statusCode: 401, title: "UNAUTHORIZED", detail: "A valid Source Agent identity header is required.");
+        if (revocations.IsRevoked(agentId))
+            return Results.Problem(statusCode: 403, title: "REVOKED", detail: "This Source Agent's access has been revoked.");
         if (context.HttpContext.Connection.ClientCertificate is { } certificate)
         {
             if (!Guid.TryParse(certificate.GetNameInfo(X509NameType.SimpleName, false), out var certificateAgentId) || certificateAgentId != agentId)
@@ -259,11 +262,46 @@ public static class ControlApi
 {
     public static IEndpointRouteBuilder MapControlApi(this IEndpointRouteBuilder endpoints)
     {
-        var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
-        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, CancellationToken ct) =>
+        var pairing = endpoints.MapGroup("/api/v1/pairing");
+        pairing.MapPost("/sessions", (HttpContext http, PairingSessionStore sessions, MutualTlsOptions mutualTls, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing sessions can only be created from the local tray app.");
+            var session = sessions.Create();
+            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+            return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = ServerFingerprint(mutualTls.ServerTrustPem) });
+        });
+        pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var remote = http.Connection.RemoteIpAddress;
+            if (throttle.IsLockedOut(remote))
+            {
+                logger.LogWarning("Pairing exchange throttled for {RemoteAddress} after repeated invalid codes.", remote);
+                return Problem(429, "PAIRING_RATE_LIMITED", "Too many invalid pairing attempts. Try again later.");
+            }
+            if (request.AgentId == Guid.Empty || string.IsNullOrWhiteSpace(request.AgentName)) return Problem(400, "INVALID_REQUEST", "Source identity and name are required.");
+            if (!sessions.Consume(request.Code))
+            {
+                throttle.RecordFailure(remote);
+                logger.LogWarning("Pairing exchange rejected an invalid, expired, or already-used code from {RemoteAddress} for agent {AgentId}.", remote, request.AgentId);
+                return Problem(401, "PAIRING_CODE_INVALID", "The pairing code is invalid, expired, or already used.");
+            }
+            throttle.RecordSuccess(remote);
+            var certificate = certificates.Issue(request.AgentId);
+            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+            var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
+            logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
+            return Results.Ok(new { agent_id = request.AgentId, control_endpoint = controlEndpoint, credential = credentials.Issue(request.AgentId), certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt, issued_at = DateTimeOffset.UtcNow });
+        });
+        var api = endpoints.MapGroup("/api/v1").AddEndpointFilter<ControlApiAuthenticationFilter>();
+        api.MapPost("/pairing/credential", (HttpContext http, PairingCredentialStore credentials, PairingCertificateAuthority certificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
+        {
+            // Deprecated migration-only path: superseded by /pairing/sessions + /pairing/exchange. Kept for
+            // one release so pairings created before one-time-code pairing can still be migrated; see CHANGELOG.
+            ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing credentials can only be issued from the local tray app.");
+            logger.LogWarning("Deprecated /pairing/credential was used to issue a file-bundle pairing credential. Migrate to the one-time-code pairing flow.");
             var agentId = Guid.NewGuid();
             var certificate = certificates.Issue(agentId);
             var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
@@ -429,6 +467,27 @@ public static class ControlApi
             return Results.NoContent();
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/source/catalogs", (SourceCatalogStore catalogs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(catalogs.List()); });
+        api.MapGet("/sources", (HttpContext http, SourceCatalogStore catalogs, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            var revoked = revocations.List();
+            return Results.Ok(catalogs.List().Select(catalog => new { agent_id = catalog.SourceAgentId, agent_name = catalog.SourceAgentName, last_seen_at = catalog.UpdatedAt, backup_set_count = catalog.BackupSets.Length, revoked = revoked.Contains(catalog.SourceAgentId) }));
+        });
+        api.MapPost("/sources/{agent_id:guid}/revoke", (Guid agent_id, HttpContext http, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            revocations.Revoke(agent_id);
+            return Results.Ok(new { agent_id, revoked = true });
+        });
+        api.MapPost("/sources/{agent_id:guid}/unrevoke", (Guid agent_id, HttpContext http, RevokedSourceStore revocations, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Connection management is available only from the local tray app.");
+            revocations.Unrevoke(agent_id);
+            return Results.Ok(new { agent_id, revoked = false });
+        });
         api.MapGet("/storage/configuration", (StorageConfigurationStore configuration, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
@@ -445,6 +504,12 @@ public static class ControlApi
                 : Results.Ok(result.Document);
         });
         return endpoints;
+    }
+
+    private static string ServerFingerprint(string certificatePem)
+    {
+        using var certificate = X509Certificate2.CreateFromPem(certificatePem);
+        return Convert.ToHexString(SHA256.HashData(certificate.RawData));
     }
     private static IResult EventResult(StoreOutcome outcome, HttpContext http)
     {
