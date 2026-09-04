@@ -34,6 +34,7 @@ public sealed class RestServerLifecycleTests
             {
                 try { unauthenticated = await client.GetAsync(""); break; }
                 catch (HttpRequestException) { await Task.Delay(100); }
+                catch (TaskCanceledException) { await Task.Delay(100); }
             }
             Assert.NotNull(unauthenticated);
             Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);

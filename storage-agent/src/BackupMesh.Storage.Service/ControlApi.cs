@@ -22,7 +22,16 @@ public static class MutualTlsCertificateValidator
         chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
         chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
         chain.ChainPolicy.ApplicationPolicy.Add(new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.2"));
-        return chain.Build(certificate);
+        try
+        {
+            return chain.Build(certificate);
+        }
+        catch (CryptographicException)
+        {
+            // Some Windows chain engines throw for an untrusted or no-longer-valid custom root instead
+            // of returning false. Certificate validation must fail closed without escaping as a service error.
+            return false;
+        }
     }
 }
 public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags);

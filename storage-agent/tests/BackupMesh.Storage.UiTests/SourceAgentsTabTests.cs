@@ -89,8 +89,9 @@ public sealed class SourceAgentsTabTests : IClassFixture<StorageAppFixture>
     [Fact]
     public void ThisPCIsAlwaysListedInTheGridWithAnExplanation()
     {
-        var grid = Find("SourceConnectionsGrid");
-        Assert.Contains(grid.FindAllDescendants(), element => element.Name == "This PC (no agent needed)");
+        var grid = Find("SourceConnectionsGrid").AsDataGridView();
+        var rows = Retry.WhileEmpty(() => grid.Rows, TimeSpan.FromSeconds(10)).Result;
+        Assert.Contains(rows.SelectMany(row => row.Cells), cell => cell.Value == "This PC (no agent needed)");
     }
 
     [Fact]

@@ -40,6 +40,7 @@ All notable changes to BackupMesh are documented in this file.
 
 ### Fixed
 
+- Client certificate chain failures are rejected cleanly instead of surfacing as Storage Service exceptions.
 - Source state files are no longer rewritten when their contents have not changed.
 - Timed-out Revoke and Restore access actions report an error instead of disappearing silently.
 - Disabled mappings are restored correctly after Skip this time, including across tray restarts.

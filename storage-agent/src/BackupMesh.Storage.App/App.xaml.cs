@@ -47,10 +47,8 @@ public partial class App : System.Windows.Application
         var flyoutViewModel = new TrayFlyoutViewModel(_window.ViewModel);
         _flyout = new TrayFlyoutWindow(flyoutViewModel);
         flyoutViewModel.OpenMainWindowRequested += (_, _) => { _flyout?.Hide(); ShowWindow(); };
-        // Neither Start now nor Skip this time has a real backend effect yet (no "force-start bypassing
-        // the arrival delay" API exists, and "skip" is deliberately flyout-local UI state per
-        // TrayFlyoutViewModel) - both just let the card update itself (RefreshPendingArrivals runs inside
-        // the view model already), which in turn drives UpdateFlyoutState below on the next tick.
+        // Start now and Skip this time update the Storage configuration through TrayFlyoutViewModel;
+        // collection changes then drive visibility and auto-hide behavior below.
         _flyoutAutoHideTimer.Tick += (_, _) => { _flyoutAutoHideTimer.Stop(); _flyout?.Hide(); };
         _window.ViewModel.Jobs.CollectionChanged += (_, _) => UpdateFlyoutState();
         flyoutViewModel.PendingArrivals.CollectionChanged += (_, _) => UpdateFlyoutState();
