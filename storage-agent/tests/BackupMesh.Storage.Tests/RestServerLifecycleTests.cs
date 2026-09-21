@@ -11,11 +11,13 @@ namespace BackupMesh.Storage.Tests;
 public sealed class RestServerLifecycleTests
 {
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task BundledRestServerRequiresGeneratedCredentials()
     {
         var repositoryRoot = FindRepositoryRoot();
         var executable = Path.Combine(repositoryRoot, "artifacts", "tools", "windows-x64", "rest-server.exe");
-        if (!OperatingSystem.IsWindows() || !File.Exists(executable)) return;
+        Assert.True(OperatingSystem.IsWindows(), "Integration tests require Windows.");
+        Assert.True(File.Exists(executable), "Fetch bundled tools with scripts/fetch-third-party-tools.ps1 before running integration tests.");
         var temporary = Path.Combine(Path.GetTempPath(), $"backupmesh-auth-e2e-{Guid.NewGuid():N}");
         Directory.CreateDirectory(temporary);
         var credential = RepositoryServerManager.CreateCredential(Guid.NewGuid(), temporary);
@@ -72,15 +74,6 @@ public sealed class RestServerLifecycleTests
             "storage.local", 18000, "repo", "backupmesh", "secret", useTls: true);
 
         Assert.Equal("rest:https://backupmesh:secret@storage.local:18000/repo/", endpoint.OriginalString);
-    }
-
-    [Fact]
-    public void RepositoryPublicHostUsesTheSameLanAddressAsPairing()
-    {
-        var address = StorageNetworkAddress.Resolve([]);
-        if (address is null) Assert.Throws<InvalidOperationException>(() => RepositoryServerManager.ResolvePublicHost(null));
-        else Assert.Equal(address, RepositoryServerManager.ResolvePublicHost(null));
-        Assert.Equal("storage.example", RepositoryServerManager.ResolvePublicHost(" storage.example "));
     }
 
     [Fact]

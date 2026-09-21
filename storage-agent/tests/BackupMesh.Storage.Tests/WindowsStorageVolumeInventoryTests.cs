@@ -21,9 +21,10 @@ public sealed class WindowsStorageVolumeInventoryTests
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public void IncludesTheRunningWindowsSystemVolume()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Assert.True(OperatingSystem.IsWindows(), "Integration tests require Windows.");
         var systemRoot = Path.GetPathRoot(Environment.SystemDirectory);
 
         var volumes = new WindowsStorageVolumeInventory().GetVolumes();

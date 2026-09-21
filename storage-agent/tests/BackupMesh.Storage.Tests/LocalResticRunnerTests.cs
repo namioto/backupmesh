@@ -57,14 +57,15 @@ public sealed class LocalResticRunnerTests
     /// The one test in this file that actually shells out to the real bundled restic binary
     /// (artifacts/tools/windows-x64/restic.exe, fetched by scripts/fetch-third-party-tools.ps1) and
     /// verifies a genuine backup -&gt; restore round trip, matching the project's rule that "success"
-    /// means real file content survives, not just that a process exited 0. Silently skipped if that
-    /// binary has not been fetched in this checkout.
+    /// means real file content survives, not just that a process exited 0. Requires the bundled tool.
     /// </summary>
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task ARealLocalBackupProducesASnapshotThatRestoresTheOriginalFileContent()
     {
         var resticPath = Path.Combine(FindRepositoryRoot(), "artifacts", "tools", "windows-x64", "restic.exe");
-        if (!OperatingSystem.IsWindows() || !File.Exists(resticPath)) return;
+        Assert.True(OperatingSystem.IsWindows(), "Integration tests require Windows.");
+        Assert.True(File.Exists(resticPath), "Fetch bundled tools with scripts/fetch-third-party-tools.ps1 before running integration tests.");
 
         var root = Path.Combine(Path.GetTempPath(), $"backupmesh-local-restic-{Guid.NewGuid():N}");
         var sourceDirectory = Path.Combine(root, "source");

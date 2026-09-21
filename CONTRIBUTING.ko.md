@@ -42,11 +42,10 @@ pwsh -NoProfile -File scripts/build-windows-source-installer.ps1
 
 백업·복원 정확성, 데이터 보존, 인증과 실제 버그의 재발 방지를 우선합니다. 단순 getter, UI 문구의 정확한 표현, 컨트롤 존재, 장식적 크기만 확인하는 테스트는 추가하지 않습니다. 동작이 폐기되면 해당 테스트도 함께 제거합니다.
 
-스토리지 에이전트 테스트는 Windows에서 실행합니다.
+빌드 스크립트는 테스트를 자동 실행하지 않습니다. 일반적인 스토리지 코드 변경에서는 외부 도구 실행과 실제 장치 검색을 제외한 회귀 테스트를 Windows에서 실행합니다.
 
 ```powershell
-dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj
-pwsh -NoProfile -File scripts/test-settings-cleanup.ps1
+dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj --filter "Category!=Integration"
 ```
 
 원격 에이전트 테스트는 해당 모듈 디렉터리에서 실행합니다.
@@ -57,13 +56,22 @@ go test ./...
 Pop-Location
 ```
 
-Windows 개발용 패키지를 만든 뒤 폴더 저장 대상을 사용해 실제 백업과 복원을 검증합니다.
+통합 테스트는 백업 실행, 저장소 인증, Windows 장치 검색, 번들 도구 변경 시와 릴리스 전에 실행합니다. Windows와 내려받은 도구가 필요하며, 준비물이 없으면 통과로 처리하지 않고 실패합니다.
+
+```powershell
+pwsh -NoProfile -File scripts/fetch-third-party-tools.ps1
+dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj --filter "Category=Integration"
+```
+
+`scripts/test-settings-cleanup.ps1`은 설치·설정 삭제 로직 변경 시와 릴리스 전에 실행합니다. 에이전트 간 동작 변경 시와 릴리스 전에는 Windows 개발용 패키지를 만든 뒤 전체 백업·복원 흐름도 검증합니다.
 
 ```powershell
 pwsh -NoProfile -File scripts/test-local-e2e.ps1 -FolderTargets
 ```
 
 통합 테스트는 포트 7444가 비어 있어야 하며 `artifacts` 아래의 시험 데이터를 사용합니다. 하드웨어에 의존하는 동작은 실제 대상 장치에서 별도로 검증하세요.
+
+`--filter`를 생략하면 모든 .NET 테스트를 실행합니다. 문서만 바꿨다면 링크를 확인하고 전체 테스트는 생략합니다. 구현 후에도 중요한 회귀를 탐지하는 테스트는 유효하므로, 한 번 통과했다는 이유만으로 삭제하지 않습니다.
 
 ## 변경 기여
 
