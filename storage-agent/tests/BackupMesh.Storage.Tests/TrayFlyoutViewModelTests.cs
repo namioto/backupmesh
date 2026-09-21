@@ -5,6 +5,7 @@ namespace BackupMesh.Storage.Tests;
 
 public sealed class TrayFlyoutViewModelTests
 {
+    public TrayFlyoutViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
     [Fact]
     public void PendingArrivalTitleNamesTheDeviceAndStatesItConnected()
     {

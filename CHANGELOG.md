@@ -4,6 +4,15 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-22
+
+### Changed
+
+- Storage UI now supports Korean and English, with a saved language preference and system-language default. Restart the tray app after changing language.
+- The main window shows its version and GitHub link; Settings includes project, user-guide, issue-report and license links.
+- Windows Storage uninstall now offers to remove backup rules, history, pairing information and the current user's settings; keeping settings remains the default, including silent uninstall. Actual backups, local repository passwords and recovery copies of destination metadata are retained.
+- Windows setup announces when it finds previous settings. Automatic startup is also tracked by the installer for removal.
+
 ## [0.2.1] - 2026-09-05
 
 ### Changed
@@ -122,4 +131,5 @@ First end-to-end MVP release.
 [0.1.1]: https://github.com/namioto/backupmesh/compare/v0.1.0...v0.1.1
 [0.2.0]: https://github.com/namioto/backupmesh/compare/v0.1.1...v0.2.0
 [0.2.1]: https://github.com/namioto/backupmesh/compare/v0.2.0...v0.2.1
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.2.1...HEAD
+[0.3.0]: https://github.com/namioto/backupmesh/compare/v0.2.1...v0.3.0
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.0...HEAD

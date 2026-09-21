@@ -4,6 +4,12 @@
 
 This guide covers the current MVP: a Windows Storage Agent and one or more Linux Source Agents. Keep another independent copy of important data until you have tested restoration on your own machines.
 
+## App language and project information
+
+In **Settings → Language**, choose System default, 한국어, or English. The preference saves immediately; choose **Exit** from the tray menu and reopen BackupMesh to apply it. System default uses Korean on Korean Windows and English otherwise. Dates and numbers keep your regional formatting.
+
+The footer always shows the app version and GitHub link. **Settings → About BackupMesh** contains the project address, user guide, issue tracker and license. Service and external-tool diagnostic details may remain in their original language.
+
 ## 1. Build the packages
 
 From PowerShell at the repository root:
@@ -17,18 +23,18 @@ pwsh -NoProfile -File scripts/build-windows-source-installer.ps1
 
 The resulting self-contained packages are written to:
 
-- `artifacts\installer\BackupMesh-Storage-0.2.1-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.0-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\installer\BackupMesh-Source-0.2.1-win-x64-Setup.exe` (Source Agent for backing up this same PC)
+- `artifacts\installer\BackupMesh-Source-0.3.0-win-x64-Setup.exe` (Source Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For normal use, run `BackupMesh-Storage-0.2.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+For normal use, run `BackupMesh-Storage-0.3.0-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
-The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.2.1-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.0-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
 
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
@@ -38,6 +44,10 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 ```
 
 The installer creates the automatically restarting `BackupMeshStorageAgent` Windows service, opens the authenticated Control and repository ports on Private and Domain networks for the local subnet, and starts the tray app at the current user's next sign-in. Service data is protected under `%ProgramData%\BackupMesh`.
+
+Uninstall defaults to **No: keep settings**. Choose **Yes** to remove Storage backup rules, history, pairing information and the app settings of the Windows user running uninstall. Computers must be paired again. Silent uninstall preserves settings. For PowerShell uninstall, use `Uninstall-BackupMesh.ps1 -RemoveSettings` to request the same cleanup.
+
+Actual backups, passwords in `local-repository-passwords`, and separate Source Agent data are never removed. Files named `*.recovery-*` beside the original settings preserve destination paths and mapping IDs needed to identify password files; setup does not automatically reload these copies. Passwords use Windows DPAPI and cannot be recovered on another PC merely by copying these files. Other Windows users' UI settings are preserved. Setup's welcome page announces when previous settings will be reused.
 
 ## 3. Choose where backups are stored
 
@@ -85,7 +95,7 @@ Running `install.sh` from an interactive terminal (rather than a script) prompts
 
 Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **This PC** in the tray instead (section 3b) — no installer needed at all.
 
-Run `BackupMesh-Source-0.2.1-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
+Run `BackupMesh-Source-0.3.0-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 

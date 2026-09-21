@@ -2,6 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Diagnostics;
+using System.ComponentModel;
+using System.Windows.Navigation;
 
 namespace BackupMesh.Storage.App;
 
@@ -30,6 +33,20 @@ public partial class MainWindow : Window
     private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (e.OriginalSource is System.Windows.Controls.TabControl) ViewModel.ClearFooterStatusOnTabChange();
+    }
+
+    private void OnProjectLink(object sender, RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Uri.Scheme != "https" || e.Uri.Host != "github.com") return;
+        var address = e.Uri.AbsoluteUri;
+        if (System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ko")
+            address = address.Replace("/docs/USER_GUIDE.md", "/docs/USER_GUIDE.ko.md");
+        try { Process.Start(new ProcessStartInfo(address) { UseShellExecute = true }); }
+        catch (Exception error) when (error is Win32Exception or InvalidOperationException)
+        {
+            System.Windows.MessageBox.Show(Localization.Text("LinkOpenFailed") + "\n" + address, "BackupMesh");
+        }
     }
 
     private void OnAddMappingClick(object sender, RoutedEventArgs e) => OpenBackupRule(null);

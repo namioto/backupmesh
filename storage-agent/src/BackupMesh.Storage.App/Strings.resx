@@ -1,0 +1,763 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Text_StorageAgent_0CA177" xml:space="preserve">
+    <value>Storage Agent</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgent_CABABF" xml:space="preserve">
+    <value>BackupMesh Storage Agent</value>
+  </data>
+  <data name="Text_Overview_D4B1EA" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="Text_Backups_3334FE" xml:space="preserve">
+    <value>Backups</value>
+  </data>
+  <data name="Text_SourceAgents_016D07" xml:space="preserve">
+    <value>Source Agents</value>
+  </data>
+  <data name="Text_Settings_74A883" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Text_Connectedtargets_E2D19F" xml:space="preserve">
+    <value>Connected targets</value>
+  </data>
+  <data name="Text_Pairedsources_0A551C" xml:space="preserve">
+    <value>Paired sources</value>
+  </data>
+  <data name="Text_Activebackuprules_CEB7B3" xml:space="preserve">
+    <value>Active backup rules</value>
+  </data>
+  <data name="Text_Backupjobs_399BA4" xml:space="preserve">
+    <value>Backup jobs</value>
+  </data>
+  <data name="Text_Backup_838557" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="Text_State_A3B50C" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Text_Progress_466482" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="Text_Result_6E7D50" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="Text_Updated_3A5ECC" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="Text_NobackupjobsyetJobsappearhereo_DF8946" xml:space="preserve">
+    <value>No backup jobs yet. Jobs appear here once a mapped device is ready and a backup starts.</value>
+  </data>
+  <data name="Text_Cancelselectedbackup_F89A69" xml:space="preserve">
+    <value>Cancel selected backup</value>
+  </data>
+  <data name="Text_Recentactivity_6CB44B" xml:space="preserve">
+    <value>Recent activity</value>
+  </data>
+  <data name="Text_Choosewhattobackupandwhereeach_AFABC9" xml:space="preserve">
+    <value>Choose what to back up and where each one saves to.</value>
+  </data>
+  <data name="Text_Backuprules_566313" xml:space="preserve">
+    <value>Backup rules</value>
+  </data>
+  <data name="Text_Source_0E570C" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Text_Sourcefolder_E52E4E" xml:space="preserve">
+    <value>Source folder</value>
+  </data>
+  <data name="Text_Targetdevice_90632A" xml:space="preserve">
+    <value>Target device</value>
+  </data>
+  <data name="Text_Targetfolder_E89C31" xml:space="preserve">
+    <value>Target folder</value>
+  </data>
+  <data name="Text_Lastbackup_8462B6" xml:space="preserve">
+    <value>Last backup</value>
+  </data>
+  <data name="Text_Enabled_92C1CD" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Text_Pausethisbackupwithoutremoving_0ED5D5" xml:space="preserve">
+    <value>Pause this backup without removing it.</value>
+  </data>
+  <data name="Text_NobackuprulesyetAddonetochoose_7C46A4" xml:space="preserve">
+    <value>No backup rules yet. Add one to choose what to back up and where it should be stored.</value>
+  </data>
+  <data name="Text_Removebackup_2D2646" xml:space="preserve">
+    <value>Remove backup</value>
+  </data>
+  <data name="Text_Editbackup_9CBB38" xml:space="preserve">
+    <value>Edit backup…</value>
+  </data>
+  <data name="Text_Addbackup_8026D5" xml:space="preserve">
+    <value>Add backup…</value>
+  </data>
+  <data name="Text_EachcomputeryoupairrunsaSource_32AFD1" xml:space="preserve">
+    <value>Each computer you pair runs a Source Agent that offers folders for backup. This PC is included without one.</value>
+  </data>
+  <data name="Text_SourceAgent_21CF69" xml:space="preserve">
+    <value>Source Agent</value>
+  </data>
+  <data name="Text_Address_56EF8F" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Text_Lastseen_21FD79" xml:space="preserve">
+    <value>Last seen</value>
+  </data>
+  <data name="Text_Status_920E41" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Text_Offers_E98BF0" xml:space="preserve">
+    <value>Offers</value>
+  </data>
+  <data name="Text_Theaddressthiscomputerlastconn_73FCC6" xml:space="preserve">
+    <value>The address this computer last connected from - it can change (DHCP), so it is not a stable identity.</value>
+  </data>
+  <data name="Text_Blockaccess_13C267" xml:space="preserve">
+    <value>Block access</value>
+  </data>
+  <data name="Text_Restoreaccess_4BA2FB" xml:space="preserve">
+    <value>Restore access</value>
+  </data>
+  <data name="Text_Repair_0731E9" xml:space="preserve">
+    <value>Re-pair</value>
+  </data>
+  <data name="Text_Rename_3064D7" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Text_RemoveSourceAgent_ED5EE3" xml:space="preserve">
+    <value>Remove Source Agent</value>
+  </data>
+  <data name="Text_ImmediatelyblockthisSourceAgen_49E716" xml:space="preserve">
+    <value>Immediately block this Source Agent from the control API, even with a valid certificate and token.</value>
+  </data>
+  <data name="Text_Issueanewonetimecodethatcanonl_8B9809" xml:space="preserve">
+    <value>Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost).</value>
+  </data>
+  <data name="Text_Changeonlywhatthetraydisplaysf_8E2E3E" xml:space="preserve">
+    <value>Change only what the tray displays for this Source Agent.</value>
+  </data>
+  <data name="Text_BlockthisSourceAgentandremovei_1A5808" xml:space="preserve">
+    <value>Block this Source Agent and remove it from this list. Its backups are kept but stop being reported until it is re-paired.</value>
+  </data>
+  <data name="Text_PairaSourceAgent_379C01" xml:space="preserve">
+    <value>Pair a Source Agent</value>
+  </data>
+  <data name="Text_Createaonetime10minutepairingc_67FD9C" xml:space="preserve">
+    <value>Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint.</value>
+  </data>
+  <data name="Text_BackupafolderonthisPC_EF3B34" xml:space="preserve">
+    <value>Back up a folder on this PC…</value>
+  </data>
+  <data name="Text_BackupafolderonthisPCdirectlyn_11F9C0" xml:space="preserve">
+    <value>Back up a folder on this PC directly - no Source Agent or pairing needed.</value>
+  </data>
+  <data name="Text_Removefolder_F2A987" xml:space="preserve">
+    <value>Remove folder</value>
+  </data>
+  <data name="Text_Stopbackinguptheselectedlocalf_1235A1" xml:space="preserve">
+    <value>Stop backing up the selected local folder. Its Backups are removed with it.</value>
+  </data>
+  <data name="Text_BackupssyncfrompairedSourceAge_B93A96" xml:space="preserve">
+    <value>Backups sync from paired Source Agents; "This PC" is always available for local folders.</value>
+  </data>
+  <data name="Text_Language_A4FE65" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Text_SavedautomaticallyExitBackupMe_6E29AA" xml:space="preserve">
+    <value>Saved automatically. Exit BackupMesh from the tray menu and reopen it to apply the language.</value>
+  </data>
+  <data name="Text_Automation_D90975" xml:space="preserve">
+    <value>Automation</value>
+  </data>
+  <data name="Text_StartBackupMeshwhenIsignin_A44225" xml:space="preserve">
+    <value>Start BackupMesh when I sign in</value>
+  </data>
+  <data name="Text_ShowaWindowsnotificationwhenab_B5FAB9" xml:space="preserve">
+    <value>Show a Windows notification when a backup target is connected</value>
+  </data>
+  <data name="Text_Automaticallystarteligibleback_02F7BF" xml:space="preserve">
+    <value>Automatically start eligible backups after the grace period</value>
+  </data>
+  <data name="Text_Showastatuswindowwhenabackupst_8A774A" xml:space="preserve">
+    <value>Show a status window when a backup starts</value>
+  </data>
+  <data name="Text_Asmallpopupnearthetrayiconwith_C54240" xml:space="preserve">
+    <value>A small popup near the tray icon with progress and Cancel - never steals focus, and is skipped while a fullscreen app is active.</value>
+  </data>
+  <data name="Text_Waitbeforestartingafteranytarg_F8504D" xml:space="preserve">
+    <value>Wait before starting, after any target connects:</value>
+  </data>
+  <data name="Text_Appliestoeverybackuptarget_F4D827" xml:space="preserve">
+    <value>Applies to every backup target.</value>
+  </data>
+  <data name="Text_minutes_90E63D" xml:space="preserve">
+    <value>minutes</value>
+  </data>
+  <data name="Text_Datalocation_C6F1A5" xml:space="preserve">
+    <value>Data location</value>
+  </data>
+  <data name="Text_Chooseafulldestinationpathfore_04960C" xml:space="preserve">
+    <value>Choose a full destination path for every backup rule. BackupMesh remembers the underlying storage identity so removable-drive letter changes do not break it. Fixed drives, removable storage, and local or network folders are supported.</value>
+  </data>
+  <data name="Text_Savesettings_7F3A3B" xml:space="preserve">
+    <value>Save settings</value>
+  </data>
+  <data name="Text_Security_8F6FB4" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="Text_RotateStorageidentity_8CA37E" xml:space="preserve">
+    <value>Rotate Storage identity</value>
+  </data>
+  <data name="Text_AboutBackupMesh_0F063F" xml:space="preserve">
+    <value>About BackupMesh</value>
+  </data>
+  <data name="Text_Automaticbackupswhenyourstorag_6BDA2D" xml:space="preserve">
+    <value>Automatic backups when your storage is available.</value>
+  </data>
+  <data name="Text_CreatedbynamiotoApache20_6CDCF2" xml:space="preserve">
+    <value>Created by namioto · Apache-2.0</value>
+  </data>
+  <data name="Text_Userguide_86A2A9" xml:space="preserve">
+    <value>User guide</value>
+  </data>
+  <data name="Text_Reportanissue_635AE2" xml:space="preserve">
+    <value>Report an issue</value>
+  </data>
+  <data name="Text_License_C011D6" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="Text_Onetimepairingdetails_EA9AF7" xml:space="preserve">
+    <value>One-time pairing details</value>
+  </data>
+  <data name="Text_Entertheseonthecomputeryoureco_88AC93" xml:space="preserve">
+    <value>Enter these on the computer you're connecting. The code expires in 10 minutes and works once.</value>
+  </data>
+  <data name="Text_Storageendpoint_919B9C" xml:space="preserve">
+    <value>Storage endpoint</value>
+  </data>
+  <data name="Text_Pairingcode_1C5EA2" xml:space="preserve">
+    <value>Pairing code</value>
+  </data>
+  <data name="Text_CertificateSHA256fingerprint_F383F2" xml:space="preserve">
+    <value>Certificate SHA-256 fingerprint</value>
+  </data>
+  <data name="Text_Expires_F6725F" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="Text_Yourclipboardcanbereadbyotherp_5F8CBE" xml:space="preserve">
+    <value>Your clipboard can be read by other processes on this PC. Only copy this pairing code when you are ready to paste it into the other computer, and avoid pasting it anywhere else.</value>
+  </data>
+  <data name="Text_Copytoclipboard_B749E2" xml:space="preserve">
+    <value>Copy to clipboard</value>
+  </data>
+  <data name="Text_Close_7D9EB7" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Text_RenameSourceAgent_7BF263" xml:space="preserve">
+    <value>Rename Source Agent</value>
+  </data>
+  <data name="Text_Displayname_2B7F6A" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Text_Thisonlychangeswhatthetrayshow_F822F2" xml:space="preserve">
+    <value>This only changes what the tray shows you; the Source Agent keeps reporting its own name.</value>
+  </data>
+  <data name="Text_Cancel_19766E" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Text_Save_1509F5" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Text_Addbackuprule_3C4060" xml:space="preserve">
+    <value>Add backup rule</value>
+  </data>
+  <data name="Text_Choosethesourceandwhereitsback_B1390C" xml:space="preserve">
+    <value>Choose the source and where its backups are stored. You can edit this rule later by double-clicking it in the list.</value>
+  </data>
+  <data name="Text_Whattobackup_6B4FC3" xml:space="preserve">
+    <value>What to back up</value>
+  </data>
+  <data name="Text_Sourcepath_6A869D" xml:space="preserve">
+    <value>Source path</value>
+  </data>
+  <data name="Text_Wheretostoreit_50E54D" xml:space="preserve">
+    <value>Where to store it</value>
+  </data>
+  <data name="Text_Choosefolder_6E8EB2" xml:space="preserve">
+    <value>Choose folder…</value>
+  </data>
+  <data name="Text_Fulldestinationpath_FA4DF9" xml:space="preserve">
+    <value>Full destination path</value>
+  </data>
+  <data name="Text_Browse_93C6B6" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="Text_Thisisthecompletepathwheretheb_68B6C2" xml:space="preserve">
+    <value>This is the complete path where the backup repository will be stored.</value>
+  </data>
+  <data name="Text_Enablethisbackuprule_9415CF" xml:space="preserve">
+    <value>Enable this backup rule</value>
+  </data>
+  <data name="Text_Addbackup_9C04C0" xml:space="preserve">
+    <value>Add backup</value>
+  </data>
+  <data name="Text_Backupstatus_CEA8A0" xml:space="preserve">
+    <value>Backup status</value>
+  </data>
+  <data name="Text_NobackupsrunningConnectadrivet_02023F" xml:space="preserve">
+    <value>No backups running. Connect a drive to start one.</value>
+  </data>
+  <data name="Text_Backingupnow_632CAE" xml:space="preserve">
+    <value>Backing up now</value>
+  </data>
+  <data name="Text_Cancelthisbackup_23F218" xml:space="preserve">
+    <value>Cancel this backup</value>
+  </data>
+  <data name="Text_Upnext_E31DA5" xml:space="preserve">
+    <value>Up next</value>
+  </data>
+  <data name="Text_Justarrived_A12733" xml:space="preserve">
+    <value>Just arrived</value>
+  </data>
+  <data name="Text_Skipthistime_D3077F" xml:space="preserve">
+    <value>Skip this time</value>
+  </data>
+  <data name="Text_Startnow_9FF3A6" xml:space="preserve">
+    <value>Start now</value>
+  </data>
+  <data name="Text_Skippingaffectsthisconnectiono_3BFF0F" xml:space="preserve">
+    <value>Skipping affects this connection only.</value>
+  </data>
+  <data name="Text_Cancelallbackups_AE5D12" xml:space="preserve">
+    <value>Cancel all backups</value>
+  </data>
+  <data name="Text_OpenBackupMesh_1E9B33" xml:space="preserve">
+    <value>Open BackupMesh</value>
+  </data>
+  <data name="Text_Backupnow_02A284" xml:space="preserve">
+    <value>Back up now</value>
+  </data>
+  <data name="Text_Exit_D17D84" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgentstarting_01492B" xml:space="preserve">
+    <value>BackupMesh Storage Agent — starting</value>
+  </data>
+  <data name="Text_Editbackuprule_A40603" xml:space="preserve">
+    <value>Edit backup rule</value>
+  </data>
+  <data name="Text_Savechanges_DD0AE7" xml:space="preserve">
+    <value>Save changes</value>
+  </data>
+  <data name="Text_Chooseatargetstoragedevicefirs_95F977" xml:space="preserve">
+    <value>Choose a target storage device first.</value>
+  </data>
+  <data name="Text_Theselectedstoragedeviceisnotc_837EBD" xml:space="preserve">
+    <value>The selected storage device is not currently available.</value>
+  </data>
+  <data name="Text_Chooseorcreatethefolderthatwil_1EAC62" xml:space="preserve">
+    <value>Choose or create the folder that will contain this backup repository.</value>
+  </data>
+  <data name="Text_Chooseadriveorfolderwherebacku_9995EA" xml:space="preserve">
+    <value>Choose a drive or folder where backups will be stored.</value>
+  </data>
+  <data name="Text_Ready_5FA7AA" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Text_Configurationloaded_F98E9C" xml:space="preserve">
+    <value>Configuration loaded.</value>
+  </data>
+  <data name="Text_StorageAgentUIstarted_99C199" xml:space="preserve">
+    <value>Storage Agent UI started.</value>
+  </data>
+  <data name="Text_StorageAgentUIteststateinitial_49AF15" xml:space="preserve">
+    <value>Storage Agent UI test state initialized.</value>
+  </data>
+  <data name="Text_ThisPChasnoSourceAgenttomanage_C05F5C" xml:space="preserve">
+    <value>This PC has no Source Agent to manage - these actions apply only to other rows.</value>
+  </data>
+  <data name="Text_ThisSourceAgenthasntconnectedy_34F527" xml:space="preserve">
+    <value>This Source Agent hasn't connected yet, so there's nothing to manage here.</value>
+  </data>
+  <data name="Text_Backingupnow_CF4F1D" xml:space="preserve">
+    <value>Backing up now…</value>
+  </data>
+  <data name="Text_Lastattemptfailed_96E5BC" xml:space="preserve">
+    <value>Last attempt failed</value>
+  </data>
+  <data name="Text_Lastattemptwascancelled_AEA9F1" xml:space="preserve">
+    <value>Last attempt was cancelled</value>
+  </data>
+  <data name="Text_0isoffline_966AA7" xml:space="preserve">
+    <value>{0} is offline</value>
+  </data>
+  <data name="Text_aremoveddevice_DE214B" xml:space="preserve">
+    <value>a removed device</value>
+  </data>
+  <data name="Text_Startswhen0connects_F34F79" xml:space="preserve">
+    <value>Starts when {0} connects</value>
+  </data>
+  <data name="Text_Startswhen0areallconnected_C94AE2" xml:space="preserve">
+    <value>Starts when {0} are all connected</value>
+  </data>
+  <data name="Text_Selectanactivebackupjobfirst_487C65" xml:space="preserve">
+    <value>Select an active backup job first.</value>
+  </data>
+  <data name="Text_CancellationrequestedThecomput_ACFD78" xml:space="preserve">
+    <value>Cancellation requested. The computer will stop at the next safe point.</value>
+  </data>
+  <data name="Text_Thecancellationrequestcouldnot_5624F8" xml:space="preserve">
+    <value>The cancellation request could not reach Storage Service.</value>
+  </data>
+  <data name="Text_Thecancellationrequesttimedout_2623FB" xml:space="preserve">
+    <value>The cancellation request timed out.</value>
+  </data>
+  <data name="Text_Onetimepairingdetailsgenerated_6E3566" xml:space="preserve">
+    <value>One-time pairing details generated. The code expires in 10 minutes and works once.</value>
+  </data>
+  <data name="Text_Onetimerepairingdetailsgenerat_0C12FF" xml:space="preserve">
+    <value>One-time re-pairing details generated for {0}. The code expires in 10 minutes and works once.</value>
+  </data>
+  <data name="Text_Computerpairing_53ECA5" xml:space="preserve">
+    <value>Computer pairing</value>
+  </data>
+  <data name="Text_Pairingsessioncouldnotbecreate_168B2A" xml:space="preserve">
+    <value>Pairing session could not be created: {0}</value>
+  </data>
+  <data name="Text_Nocomputerhasreportedanythingt_2B5CCE" xml:space="preserve">
+    <value>No computer has reported anything to back up yet.</value>
+  </data>
+  <data name="Text_Synchronized0_F08374" xml:space="preserve">
+    <value>Synchronized {0}.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablesho_BAF1A3" xml:space="preserve">
+    <value>Storage Service is unavailable; showing the last known Source catalog.</value>
+  </data>
+  <data name="Text_Sourcecatalogsynchronizationti_468130" xml:space="preserve">
+    <value>Source catalog synchronization timed out.</value>
+  </data>
+  <data name="Text_Blockaccessfor0Itwillbeimmedia_3393BA" xml:space="preserve">
+    <value>Block access for "{0}"? It will be immediately blocked from sending backups, even with a valid certificate and token. Nothing is deleted - its backups are kept and reporting resumes as soon as you choose Restore access.</value>
+  </data>
+  <data name="Text_Blockedaccessfor0_B6A848" xml:space="preserve">
+    <value>Blocked access for {0}.</value>
+  </data>
+  <data name="Text_Restoredaccessfor0_824F36" xml:space="preserve">
+    <value>Restored access for {0}.</value>
+  </data>
+  <data name="Text_Computerconnection_6BB4A5" xml:space="preserve">
+    <value>Computer connection</value>
+  </data>
+  <data name="Text_Couldnotupdate0saccess1_5A8E32" xml:space="preserve">
+    <value>Could not update {0}'s access: {1}</value>
+  </data>
+  <data name="Text_Therequesttoupdate0saccesstime_414854" xml:space="preserve">
+    <value>The request to update {0}'s access timed out.</value>
+  </data>
+  <data name="Text_Computerrenamed_F1C8AC" xml:space="preserve">
+    <value>Computer renamed.</value>
+  </data>
+  <data name="Text_Couldnotrename01_6AD77F" xml:space="preserve">
+    <value>Could not rename {0}: {1}</value>
+  </data>
+  <data name="Text_Therenamerequestfor0timedout_EBEFC7" xml:space="preserve">
+    <value>The rename request for {0} timed out.</value>
+  </data>
+  <data name="Text_Remove0Itsaccesswillbeblockedi_7EB827" xml:space="preserve">
+    <value>Remove "{0}"? Its access will be blocked immediately, and it disappears from this list. Nothing is deleted - its backups are kept and stay listed as unresolved until it is re-paired.</value>
+  </data>
+  <data name="Text_Removecomputer_3BE329" xml:space="preserve">
+    <value>Remove computer</value>
+  </data>
+  <data name="Text_Removed0Itsbackupsarepreserved_A71B5C" xml:space="preserve">
+    <value>Removed {0}. Its backups are preserved as unresolved.</value>
+  </data>
+  <data name="Text_Couldnotremove01_0831D6" xml:space="preserve">
+    <value>Could not remove {0}: {1}</value>
+  </data>
+  <data name="Text_Therequesttoremove0timedout_B33434" xml:space="preserve">
+    <value>The request to remove {0} timed out.</value>
+  </data>
+  <data name="Text_ThisregeneratestheStoragescert_1C14DB" xml:space="preserve">
+    <value>This regenerates the Storage's certificate authority and server certificate. Every currently paired computer will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?</value>
+  </data>
+  <data name="Text_StorageidentityrotatedRestartt_20367A" xml:space="preserve">
+    <value>Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every computer.</value>
+  </data>
+  <data name="Text_Storageidentityrotated_D5E024" xml:space="preserve">
+    <value>Storage identity rotated</value>
+  </data>
+  <data name="Text_CouldnotrotatetheStorageidenti_B322A0" xml:space="preserve">
+    <value>Could not rotate the Storage identity: {0}</value>
+  </data>
+  <data name="Text_TheStorageidentityrotationrequ_E2B876" xml:space="preserve">
+    <value>The Storage identity rotation request timed out.</value>
+  </data>
+  <data name="Text_LoadedStorageServiceconfigurat_E46147" xml:space="preserve">
+    <value>Loaded Storage Service configuration revision {0}.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablecon_214300" xml:space="preserve">
+    <value>Storage Service is unavailable; configuration changes cannot be saved.</value>
+  </data>
+  <data name="Text_StorageServiceconfigurationreq_80A20B" xml:space="preserve">
+    <value>Storage Service configuration request timed out.</value>
+  </data>
+  <data name="Text_Nomappedbackupiscurrentlyeligi_D66941" xml:space="preserve">
+    <value>No mapped backup is currently eligible.</value>
+  </data>
+  <data name="Text_Requestedbackupfor0to1_B5C1BB" xml:space="preserve">
+    <value>Requested backup for {0} to {1}.</value>
+  </data>
+  <data name="Text_Nonewbackupswerequeuedmatching_5E559C" xml:space="preserve">
+    <value>No new backups were queued; matching backup commands may already be pending.</value>
+  </data>
+  <data name="Text_Queued0_06E215" xml:space="preserve">
+    <value>Queued {0}.</value>
+  </data>
+  <data name="Text_Backupqueuerequestfailed0_55FABD" xml:space="preserve">
+    <value>Backup queue request failed: {0}</value>
+  </data>
+  <data name="Text_Configurationnotsaved_111EDE" xml:space="preserve">
+    <value>Configuration not saved</value>
+  </data>
+  <data name="Text_Democonfigurationvalidatednotp_0E3623" xml:space="preserve">
+    <value>Demo configuration validated (not persisted).</value>
+  </data>
+  <data name="Text_Configurationvalidated_66FB81" xml:space="preserve">
+    <value>Configuration validated.</value>
+  </data>
+  <data name="Text_SavedtoStorageServiceat0trevis_F376AF" xml:space="preserve">
+    <value>Saved to Storage Service at {0:t} (revision {1}).</value>
+  </data>
+  <data name="Text_ConfigurationsavedtoStorageSer_42EE6B" xml:space="preserve">
+    <value>Configuration saved to Storage Service.</value>
+  </data>
+  <data name="Text_ConfigurationchangedelsewhereR_A78194" xml:space="preserve">
+    <value>Configuration changed elsewhere. Reloading before you save again.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablecon_6AFB61" xml:space="preserve">
+    <value>Storage Service is unavailable; configuration was not saved.</value>
+  </data>
+  <data name="Text_StorageServiceconfigurationsav_29FCF3" xml:space="preserve">
+    <value>Storage Service configuration save timed out.</value>
+  </data>
+  <data name="Text_Choosewhattobackupandatargetde_50AF40" xml:space="preserve">
+    <value>Choose what to back up and a target device.</value>
+  </data>
+  <data name="Text_Chooseadestinationfolderinside_ACC42F" xml:space="preserve">
+    <value>Choose a destination folder inside the selected device.</value>
+  </data>
+  <data name="Text_Thatbackuprulealreadyexists_35EA38" xml:space="preserve">
+    <value>That backup rule already exists.</value>
+  </data>
+  <data name="Text_Thebackuprulenolongerexists_6BD0E4" xml:space="preserve">
+    <value>The backup rule no longer exists.</value>
+  </data>
+  <data name="Text_Choosewheretostorethebackup_870A83" xml:space="preserve">
+    <value>Choose where to store the backup.</value>
+  </data>
+  <data name="Text_Choosealocalfoldertobackup_3357E4" xml:space="preserve">
+    <value>Choose a local folder to back up</value>
+  </data>
+  <data name="Text_Thatfolderisalreadybeingbacked_D63D12" xml:space="preserve">
+    <value>That folder is already being backed up.</value>
+  </data>
+  <data name="Text_Addedabackupfor0Chooseadevicef_85F762" xml:space="preserve">
+    <value>Added a backup for {0}. Choose a device for it below.</value>
+  </data>
+  <data name="Text_SelectabackupofafolderonthisPC_A6612F" xml:space="preserve">
+    <value>Select a backup of a folder on this PC first.</value>
+  </data>
+  <data name="Text_Backuptargetconnected0_199CC8" xml:space="preserve">
+    <value>Backup target connected: {0}.</value>
+  </data>
+  <data name="Text_Backupstorageconnected_B99FB5" xml:space="preserve">
+    <value>Backup storage connected</value>
+  </data>
+  <data name="Text_Waitingforstorage_AB8528" xml:space="preserve">
+    <value>Waiting for storage</value>
+  </data>
+  <data name="Text_0isconnectedandreadyforbackup_85786B" xml:space="preserve">
+    <value>{0} is connected and ready for backup.</value>
+  </data>
+  <data name="Text_0isconnectedBackupsbecomeeligi_11599A" xml:space="preserve">
+    <value>{0} is connected. Backups become eligible after its {1}-minute arrival delay.</value>
+  </data>
+  <data name="Text_justnow_7DDB44" xml:space="preserve">
+    <value>just now</value>
+  </data>
+  <data name="Text_0noagentneeded_182A79" xml:space="preserve">
+    <value>{0} (no agent needed)</value>
+  </data>
+  <data name="Text_Expiredrepairtoreconnect_ECB494" xml:space="preserve">
+    <value>Expired — re-pair to reconnect</value>
+  </data>
+  <data name="Text_Offlinerepairbefore0d_A7CF69" xml:space="preserve">
+    <value>Offline — re-pair before {0:d}</value>
+  </data>
+  <data name="Text_Connected_229655" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Text_Offline_A17947" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="Text_01lastseen2_55F71D" xml:space="preserve">
+    <value>{0} — {1}, last seen {2}</value>
+  </data>
+  <data name="Text_notreported_EAAB4F" xml:space="preserve">
+    <value> (not reported)</value>
+  </data>
+  <data name="Text_0notconnected_78FCB7" xml:space="preserve">
+    <value>{0} (not connected)</value>
+  </data>
+  <data name="Text_000GBfree_D5E243" xml:space="preserve">
+    <value>{0:0.0} GB free</value>
+  </data>
+  <data name="Text_01200GBfree_964D13" xml:space="preserve">
+    <value>{0} ({1}), {2:0.0} GB free</value>
+  </data>
+  <data name="Text_012300GBfree_F81620" xml:space="preserve">
+    <value>{0} — {1} ({2}), {3:0.0} GB free</value>
+  </data>
+  <data name="Text_Never_6300EF" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="Text_TargetTrigger_EAE2DB" xml:space="preserve">
+    <value>Target + Trigger</value>
+  </data>
+  <data name="Text_Target_978354" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Text_Trigger_8B9C64" xml:space="preserve">
+    <value>Trigger</value>
+  </data>
+  <data name="Text_Localdisk_8C7556" xml:space="preserve">
+    <value>Local disk</value>
+  </data>
+  <data name="Text_About000hremaining_160B92" xml:space="preserve">
+    <value>About {0:0.0} h remaining</value>
+  </data>
+  <data name="Text_About0minremaining_4FE4D2" xml:space="preserve">
+    <value>About {0} min remaining</value>
+  </data>
+  <data name="Text_Lessthanaminuteremaining_AC41BE" xml:space="preserve">
+    <value>Less than a minute remaining</value>
+  </data>
+  <data name="Text_Estimatingtimeremaining_EDC8C1" xml:space="preserve">
+    <value>Estimating time remaining…</value>
+  </data>
+  <data name="Text_Waitingtostart_F5E5F8" xml:space="preserve">
+    <value>Waiting to start</value>
+  </data>
+  <data name="Text_0connected_5C85CA" xml:space="preserve">
+    <value>{0} connected</value>
+  </data>
+  <data name="Text_Readytobackup0queued_CAA783" xml:space="preserve">
+    <value>Ready to back up ({0} queued)</value>
+  </data>
+  <data name="Text_Startsautomaticallyin0_518309" xml:space="preserve">
+    <value>Starts automatically in {0}</value>
+  </data>
+  <data name="Text_underaminute_30D511" xml:space="preserve">
+    <value>under a minute</value>
+  </data>
+  <data name="Text_00min_9685AD" xml:space="preserve">
+    <value>{0:0} min</value>
+  </data>
+  <data name="Text_00012files3_B2C08E" xml:space="preserve">
+    <value>{0:0.0}% · {1}/{2} files{3}</value>
+  </data>
+  <data name="Text_0N0bytes1files_8634DD" xml:space="preserve">
+    <value>{0:N0} bytes · {1} files</value>
+  </data>
+  <data name="Text_ETA0_C36B6F" xml:space="preserve">
+    <value> · ETA {0}</value>
+  </data>
+  <data name="Text_000h_6525E3" xml:space="preserve">
+    <value>{0:0.0}h</value>
+  </data>
+  <data name="Text_00m_2F8840" xml:space="preserve">
+    <value>{0:0}m</value>
+  </data>
+  <data name="Text_1m_BC5702" xml:space="preserve">
+    <value>&lt;1m</value>
+  </data>
+  <data name="Text_Copied_D24981" xml:space="preserve">
+    <value>Copied.</value>
+  </data>
+  <data name="Text_Couldnotaccesstheclipboard_75C339" xml:space="preserve">
+    <value>Could not access the clipboard.</value>
+  </data>
+  <data name="Text_Thiscodewillonlyrepairtheexist_40CE33" xml:space="preserve">
+    <value>This code will only re-pair the existing Source Agent "{0}" — no other Source Agent can use it.</value>
+  </data>
+  <data name="Text_ThiscodewillpairanewSourceAgen_7A5CFC" xml:space="preserve">
+    <value>This code will pair a new Source Agent.</value>
+  </data>
+  <data name="Text_Revoked_F6F738" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="Text_Unassigned_14D33B" xml:space="preserve">
+    <value>Unassigned</value>
+  </data>
+  <data name="Text_Folder_74CCD4" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="Text_Requestfailedwithstatus0_DEBAE1" xml:space="preserve">
+    <value>Request failed with status {0}.</value>
+  </data>
+  <data name="Text_Pairingresponsewasempty_536774" xml:space="preserve">
+    <value>Pairing response was empty.</value>
+  </data>
+  <data name="Text_StorageServicereturnedanemptyc_DD38A2" xml:space="preserve">
+    <value>Storage Service returned an empty configuration response.</value>
+  </data>
+  <data name="Text_TheStorageAgentconfigurationch_B0E837" xml:space="preserve">
+    <value>The Storage Agent configuration changed in another process.</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgent0_8B0304" xml:space="preserve">
+    <value>BackupMesh Storage Agent — {0}</value>
+  </data>
+  <data name="Text_0device1connected_5378A0" xml:space="preserve">
+    <value>{0} device{1} connected</value>
+  </data>
+  <data name="Text_RotatingtheStorageidentityrege_47B7C4" xml:space="preserve">
+    <value>Rotating the Storage identity regenerates its certificate authority and server certificate. Every currently paired computer loses access until it is re-paired, and the change only takes effect after the BackupMesh Storage service is restarted.</value>
+  </data>
+  <data name="SystemDefault">
+    <value>System default</value>
+  </data>
+  <data name="LinkOpenFailed">
+    <value>Could not open the browser. Open this address manually:</value>
+  </data>
+  <data name="ThisPC"><value>This PC</value></data>
+  <data name="LanguageSaveFailed"><value>Could not save the language preference. Check access to the app settings folder.</value></data>
+  <data name="And"><value>and</value></data>
+  <data name="Or"><value>or</value></data>
+  <data name="TimeAgo"><value>{0} ago</value></data>
+  <data name="Count_minute"><value>{0} minute{1}</value></data>
+  <data name="Count_hour"><value>{0} hour{1}</value></data>
+  <data name="Count_day"><value>{0} day{1}</value></data>
+  <data name="Count_backup"><value>{0} backup{1}</value></data>
+  <data name="Count_computer"><value>{0} computer{1}</value></data>
+  <data name="State_ACCEPTED"><value>Queued</value></data>
+  <data name="State_RUNNING"><value>Running</value></data>
+  <data name="State_SUCCEEDED"><value>Succeeded</value></data>
+  <data name="State_FAILED"><value>Failed</value></data>
+  <data name="State_CANCELLED"><value>Cancelled</value></data>
+  <data name="State_CANCEL_REQUESTED"><value>Cancelling</value></data>
+</root>

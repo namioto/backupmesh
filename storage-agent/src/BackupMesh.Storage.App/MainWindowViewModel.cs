@@ -39,8 +39,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private DeviceViewModel? _selectedDevice;
     private MappingViewModel? _selectedMapping;
     private BackupJobViewModel? _selectedJob;
-    private string _overallStatus = "Ready";
-    private string _footerStatus = "Configuration loaded.";
+    private string _overallStatus = Localization.Text("Text_Ready_5FA7AA");
+    private string _footerStatus = Localization.Text("Text_Configurationloaded_F98E9C");
     private long _configurationRevision;
     private readonly bool _demoMode;
     private readonly bool _persistLocalState;
@@ -54,6 +54,28 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<AvailableDriveViewModel> AvailableDrives { get; } = [];
     public ObservableCollection<string> Activity { get; } = [];
     public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
+    public string ProductVersion => "BackupMesh v" + typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3);
+    public IReadOnlyList<LanguageOption> Languages { get; } = [new("", Localization.Text("SystemDefault")), new("ko", "한국어"), new("en", "English")];
+    private string _language = "";
+    public string Language
+    {
+        get => _language;
+        set
+        {
+            var normalized = value is "ko" or "en" ? value : "";
+            if (normalized == _language) return;
+            try
+            {
+                if (_persistLocalState) _store.Save(_store.Load() with { Language = normalized });
+                Set(ref _language, normalized);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                FooterStatus = Localization.Text("LanguageSaveFailed");
+                OnPropertyChanged(nameof(Language));
+            }
+        }
+    }
 
     public event EventHandler<AppNotification>? NotificationRequested;
     public event EventHandler<string>? StatusChanged;
@@ -102,12 +124,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
         if (loadLocalState) Load();
-        else Activity.Add("Storage Agent UI test state initialized.");
+        else Activity.Add(Localization.Text("Text_StorageAgentUIteststateinitial_49AF15"));
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
         if (loadLocalState || demoMode) RefreshDrives();
     }
 
-    public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, $"BackupMesh Storage Agent — {value}"); } }
+    public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, Localization.Format("Text_BackupMeshStorageAgent0_8B0304", value)); } }
     public string FooterStatus { get => _footerStatus; private set => Set(ref _footerStatus, value); }
 
     // A status message from an action on one tab (e.g. "One-time pairing details generated…") otherwise
@@ -136,8 +158,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public string SelectedComputerActionHint => SelectedSourceAgent switch
     {
         null => string.Empty,
-        { Id: var id } when id == LocalSourceIdentity.AgentId => "This PC has no Source Agent to manage - these actions apply only to other rows.",
-        _ when SelectedSourceConnection is null => "This Source Agent hasn't connected yet, so there's nothing to manage here.",
+        { Id: var id } when id == LocalSourceIdentity.AgentId => Localization.Text("Text_ThisPChasnoSourceAgenttomanage_C05F5C"),
+        _ when SelectedSourceConnection is null => Localization.Text("Text_ThisSourceAgenthasntconnectedy_34F527"),
         _ => string.Empty
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
@@ -211,25 +233,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var jobsForMapping = Jobs.Where(job => job.TargetMappingId == mapping.Id).ToArray();
             if (jobsForMapping.Any(job => !job.IsTerminal))
             {
-                mapping.LastBackupDisplay = "Backing up now…";
+                mapping.LastBackupDisplay = Localization.Text("Text_Backingupnow_CF4F1D");
                 mapping.LastBackupIssue = string.Empty;
                 continue;
             }
             var latest = jobsForMapping.Where(job => job.IsTerminal).OrderByDescending(job => job.UpdatedAt).FirstOrDefault();
             if (latest is null)
             {
-                mapping.LastBackupDisplay = "Never";
+                mapping.LastBackupDisplay = Localization.Text("Text_Never_6300EF");
                 mapping.LastBackupIssue = string.Empty;
                 continue;
             }
             mapping.LastBackupDisplay = RelativeTimeDisplay(latest.UpdatedAt);
             mapping.LastBackupIssue = latest.State switch
             {
-                "FAILED" => "Last attempt failed",
-                "CANCELLED" => "Last attempt was cancelled",
+                "FAILED" => Localization.Text("Text_Lastattemptfailed_96E5BC"),
+                "CANCELLED" => Localization.Text("Text_Lastattemptwascancelled_AEA9F1"),
                 _ when mapping.BackupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId
-                    && Sources.FirstOrDefault(source => source.Id == mapping.BackupSet.Model.SourceAgentId)?.StatusDisplay == "Offline"
-                    => $"{mapping.SourceAgentName} is offline",
+                    && Sources.FirstOrDefault(source => source.Id == mapping.BackupSet.Model.SourceAgentId)?.StatusDisplay == Localization.Text("Text_Offline_A17947")
+                    => Localization.Format("Text_0isoffline_966AA7", mapping.SourceAgentName),
                 _ => string.Empty
             };
         }
@@ -243,11 +265,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string ComputeTriggerNote(SourceBackupSet set)
     {
         if (set.TriggerDeviceIds.Count == 0) return string.Empty;
-        var names = set.TriggerDeviceIds.Select(id => Devices.FirstOrDefault(device => device.Id == id)?.DisplayName ?? "a removed device").ToArray();
-        if (names.Length == 1) return $"Starts when {names[0]} connects";
-        var connective = set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "and" : "or";
+        var names = set.TriggerDeviceIds.Select(id => Devices.FirstOrDefault(device => device.Id == id)?.DisplayName ?? Localization.Text("Text_aremoveddevice_DE214B")).ToArray();
+        if (names.Length == 1) return Localization.Format("Text_Startswhen0connects_F34F79", names[0]);
+        var connective = Localization.Text(set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? "And" : "Or");
         var joined = $"{string.Join(", ", names[..^1])} {connective} {names[^1]}";
-        return set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? $"Starts when {joined} are all connected" : $"Starts when {joined} connects";
+        return set.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable ? Localization.Format("Text_Startswhen0areallconnected_C94AE2", joined) : Localization.Format("Text_Startswhen0connects_F34F79", joined);
     }
 
     // Mark consecutive rows sharing a Source or Source folder so the view can group them visually. Recomputed
@@ -267,15 +289,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task CancelSelectedJobAsync()
     {
-        if (SelectedJob is not { CanCancel: true } job) { FooterStatus = "Select an active backup job first."; return; }
+        if (SelectedJob is not { CanCancel: true } job) { FooterStatus = Localization.Text("Text_Selectanactivebackupjobfirst_487C65"); return; }
         try
         {
             await _jobClient.CancelAsync(job.JobId, _shutdown.Token);
-            FooterStatus = "Cancellation requested. The computer will stop at the next safe point.";
+            FooterStatus = Localization.Text("Text_CancellationrequestedThecomput_ACFD78");
             await RefreshJobsAsync();
         }
-        catch (HttpRequestException) { FooterStatus = "The cancellation request could not reach Storage Service."; }
-        catch (TaskCanceledException) { FooterStatus = "The cancellation request timed out."; }
+        catch (HttpRequestException) { FooterStatus = Localization.Text("Text_Thecancellationrequestcouldnot_5624F8"); }
+        catch (TaskCanceledException) { FooterStatus = Localization.Text("Text_Thecancellationrequesttimedout_2623FB"); }
     }
 
     private async Task PairSourceAsync(SourceConnectionViewModel? rebind)
@@ -285,11 +307,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var pairing = await _pairingClient.CreateSessionAsync(rebind?.AgentId, _shutdown.Token);
             new PairingDetailsWindow(pairing, rebind?.AgentName).ShowDialog();
             FooterStatus = rebind is null
-                ? "One-time pairing details generated. The code expires in 10 minutes and works once."
-                : $"One-time re-pairing details generated for {rebind.AgentName}. The code expires in 10 minutes and works once.";
-            NotificationRequested?.Invoke(this, new("Computer pairing", FooterStatus));
+                ? Localization.Text("Text_Onetimepairingdetailsgenerated_6E3566")
+                : Localization.Format("Text_Onetimerepairingdetailsgenerat_0C12FF", rebind.AgentName);
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerpairing_53ECA5"), FooterStatus));
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Pairing session could not be created: {exception.Message}"; }
+        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Pairingsessioncouldnotbecreate_168B2A", exception.Message); }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -299,16 +321,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var catalogs = await _catalogClient.ListAsync(_shutdown.Token);
             ApplyCatalogs(catalogs);
-            FooterStatus = catalogs.Count == 0 ? "No computer has reported anything to back up yet." : $"Synchronized {Pluralize(catalogs.Count, "computer")}.";
+            FooterStatus = catalogs.Count == 0 ? Localization.Text("Text_Nocomputerhasreportedanythingt_2B5CCE") : Localization.Format("Text_Synchronized0_F08374", Pluralize(catalogs.Count, "computer"));
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException)
         {
-            FooterStatus = "Storage Service is unavailable; showing the last known Source catalog.";
+            FooterStatus = Localization.Text("Text_StorageServiceisunavailablesho_BAF1A3");
         }
         catch (TaskCanceledException)
         {
-            FooterStatus = "Source catalog synchronization timed out.";
+            FooterStatus = Localization.Text("Text_Sourcecatalogsynchronizationti_468130");
         }
     }
 
@@ -347,20 +369,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (revoked)
         {
             var confirmed = System.Windows.MessageBox.Show(
-                $"Block access for \"{connection.AgentName}\"? It will be immediately blocked from sending backups, even with a valid certificate and token. Nothing is deleted - its backups are kept and reporting resumes as soon as you choose Restore access.",
-                "Block access", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+                Localization.Format("Text_Blockaccessfor0Itwillbeimmedia_3393BA", connection.AgentName),
+                Localization.Text("Text_Blockaccess_13C267"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
             if (!confirmed) return;
         }
         try
         {
             if (revoked) await _connectionsClient.RevokeAsync(connection.AgentId, _shutdown.Token);
             else await _connectionsClient.UnrevokeAsync(connection.AgentId, _shutdown.Token);
-            FooterStatus = revoked ? $"Blocked access for {connection.AgentName}." : $"Restored access for {connection.AgentName}.";
-            NotificationRequested?.Invoke(this, new("Computer connection", FooterStatus));
+            FooterStatus = revoked ? Localization.Format("Text_Blockedaccessfor0_B6A848", connection.AgentName) : Localization.Format("Text_Restoredaccessfor0_824F36", connection.AgentName);
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerconnection_6BB4A5"), FooterStatus));
             await RefreshConnectionsAsync();
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Could not update {connection.AgentName}'s access: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = $"The request to update {connection.AgentName}'s access timed out."; }
+        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Couldnotupdate0saccess1_5A8E32", connection.AgentName, exception.Message); }
+        catch (TaskCanceledException) { FooterStatus = Localization.Format("Text_Therequesttoupdate0saccesstime_414854", connection.AgentName); }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -373,11 +395,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await _connectionsClient.RenameAsync(connection.AgentId, dialog.ResultDisplayName, _shutdown.Token);
-            FooterStatus = "Computer renamed.";
+            FooterStatus = Localization.Text("Text_Computerrenamed_F1C8AC");
             await RefreshConnectionsAsync();
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Could not rename {connection.AgentName}: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = $"The rename request for {connection.AgentName} timed out."; }
+        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Couldnotrename01_6AD77F", connection.AgentName, exception.Message); }
+        catch (TaskCanceledException) { FooterStatus = Localization.Format("Text_Therenamerequestfor0timedout_EBEFC7", connection.AgentName); }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -386,36 +408,36 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var connection = SelectedSourceConnection;
         if (connection is null) return;
         var confirmed = System.Windows.MessageBox.Show(
-            $"Remove \"{connection.AgentName}\"? Its access will be blocked immediately, and it disappears from this list. Nothing is deleted - its backups are kept and stay listed as unresolved until it is re-paired.",
-            "Remove computer", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+            Localization.Format("Text_Remove0Itsaccesswillbeblockedi_7EB827", connection.AgentName),
+            Localization.Text("Text_Removecomputer_3BE329"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
         if (!confirmed) return;
         try
         {
             await _connectionsClient.ForgetAsync(connection.AgentId, _shutdown.Token);
-            FooterStatus = $"Removed {connection.AgentName}. Its backups are preserved as unresolved.";
-            NotificationRequested?.Invoke(this, new("Computer connection", FooterStatus));
+            FooterStatus = Localization.Format("Text_Removed0Itsbackupsarepreserved_A71B5C", connection.AgentName);
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerconnection_6BB4A5"), FooterStatus));
             await RefreshConnectionsAsync();
             await RefreshCatalogsAsync();
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Could not remove {connection.AgentName}: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = $"The request to remove {connection.AgentName} timed out."; }
+        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Couldnotremove01_0831D6", connection.AgentName, exception.Message); }
+        catch (TaskCanceledException) { FooterStatus = Localization.Format("Text_Therequesttoremove0timedout_B33434", connection.AgentName); }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
     private async Task RotateStorageIdentityAsync()
     {
         var confirmed = System.Windows.MessageBox.Show(
-            "This regenerates the Storage's certificate authority and server certificate. Every currently paired computer will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?",
-            "Rotate Storage identity", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+            Localization.Text("Text_ThisregeneratestheStoragescert_1C14DB"),
+            Localization.Text("Text_RotateStorageidentity_8CA37E"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
         if (!confirmed) return;
         try
         {
             await _pairingClient.RotateAuthorityAsync(_shutdown.Token);
-            FooterStatus = "Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every computer.";
-            NotificationRequested?.Invoke(this, new("Storage identity rotated", FooterStatus));
+            FooterStatus = Localization.Text("Text_StorageidentityrotatedRestartt_20367A");
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Storageidentityrotated_D5E024"), FooterStatus));
         }
-        catch (HttpRequestException exception) { FooterStatus = $"Could not rotate the Storage identity: {exception.Message}"; }
-        catch (TaskCanceledException) { FooterStatus = "The Storage identity rotation request timed out."; }
+        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_CouldnotrotatetheStorageidenti_B322A0", exception.Message); }
+        catch (TaskCanceledException) { FooterStatus = Localization.Text("Text_TheStorageidentityrotationrequ_E2B876"); }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
@@ -428,16 +450,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             ApplyTopology(document.Configuration);
             _configurationRevision = document.Revision;
             AutomaticBackups = (await _configurationClient.GetAutomationAsync(_shutdown.Token)).Enabled;
-            FooterStatus = $"Loaded Storage Service configuration revision {document.Revision}.";
+            FooterStatus = Localization.Format("Text_LoadedStorageServiceconfigurat_E46147", document.Revision);
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException)
         {
-            FooterStatus = "Storage Service is unavailable; configuration changes cannot be saved.";
+            FooterStatus = Localization.Text("Text_StorageServiceisunavailablecon_214300");
         }
         catch (TaskCanceledException)
         {
-            FooterStatus = "Storage Service configuration request timed out.";
+            FooterStatus = Localization.Text("Text_StorageServiceconfigurationreq_80A20B");
         }
         catch (InvalidDataException exception)
         {
@@ -547,7 +569,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected && filter(mapping)).ToArray();
         if (eligible.Length == 0)
         {
-            const string noTargets = "No mapped backup is currently eligible.";
+            var noTargets = Localization.Text("Text_Nomappedbackupiscurrentlyeligi_D66941");
             FooterStatus = noTargets;
             AddActivity(noTargets);
             NotificationRequested?.Invoke(this, new("BackupMesh", noTargets));
@@ -557,11 +579,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var queued = await _jobClient.EnqueueAsync(eligible.Select(mapping => mapping.Id).ToArray(), "manual", _shutdown.Token);
-            foreach (var mapping in eligible) AddActivity($"Requested backup for {mapping.BackupSetName} to {mapping.DeviceName}.");
+            foreach (var mapping in eligible) AddActivity(Localization.Format("Text_Requestedbackupfor0to1_B5C1BB", mapping.BackupSetName, mapping.DeviceName));
             await RefreshJobsAsync();
             var message = queued == 0
-                ? "No new backups were queued; matching backup commands may already be pending."
-                : $"Queued {Pluralize(queued, "backup")}.";
+                ? Localization.Text("Text_Nonewbackupswerequeuedmatching_5E559C")
+                : Localization.Format("Text_Queued0_06E215", Pluralize(queued, "backup"));
             FooterStatus = message;
             NotificationRequested?.Invoke(this, new("BackupMesh", message));
             return queued;
@@ -569,7 +591,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return 0; }
         catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or TaskCanceledException)
         {
-            var message = $"Backup queue request failed: {exception.Message}";
+            var message = Localization.Format("Text_Backupqueuerequestfailed0_55FABD", exception.Message);
             FooterStatus = message;
             AddActivity(message);
             NotificationRequested?.Invoke(this, new("BackupMesh", message, true));
@@ -580,6 +602,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private void Load()
     {
         var state = _store.Load();
+        _language = state.Language is "ko" or "en" ? state.Language : "";
         StartWithWindows = state.StartWithWindows;
         NotifyOnDeviceArrival = state.NotifyOnDeviceArrival;
         AutomaticBackups = state.AutomaticBackups;
@@ -609,7 +632,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _skipDisabledMappingIds.UnionWith(skipped);
             RestoreSkipDisabledMappingsIntoCurrentSet();
         }
-        Activity.Add("Storage Agent UI started.");
+        Activity.Add(Localization.Text("Text_StorageAgentUIstarted_99C199"));
     }
 
     private void LoadDemoSources()
@@ -665,13 +688,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (errors.Count > 0)
         {
             FooterStatus = errors[0];
-            NotificationRequested?.Invoke(this, new("Configuration not saved", errors[0], true));
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Configurationnotsaved_111EDE"), errors[0], true));
             return;
         }
         if (_demoMode)
         {
-            FooterStatus = "Demo configuration validated (not persisted).";
-            AddActivity("Configuration validated.");
+            FooterStatus = Localization.Text("Text_Democonfigurationvalidatednotp_0E3623");
+            AddActivity(Localization.Text("Text_Configurationvalidated_66FB81"));
             return;
         }
 
@@ -682,27 +705,27 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {
-                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes, ShowFlyoutOnBackupStart, _skipDisabledMappingIds.ToArray()));
+                _store.Save(new(topology, StartWithWindows, NotifyOnDeviceArrival, AutomaticBackups, DefaultArrivalDelayMinutes, ShowFlyoutOnBackupStart, _skipDisabledMappingIds.ToArray(), Language));
                 ConfigureStartup(StartWithWindows);
             }
-            FooterStatus = $"Saved to Storage Service at {DateTime.Now:t} (revision {document.Revision}).";
-            AddActivity("Configuration saved to Storage Service.");
+            FooterStatus = Localization.Format("Text_SavedtoStorageServiceat0trevis_F376AF", DateTime.Now, document.Revision);
+            AddActivity(Localization.Text("Text_ConfigurationsavedtoStorageSer_42EE6B"));
         }
         catch (StorageConfigurationConflictException)
         {
-            FooterStatus = "Configuration changed elsewhere. Reloading before you save again.";
-            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+            FooterStatus = Localization.Text("Text_ConfigurationchangedelsewhereR_A78194");
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Configurationnotsaved_111EDE"), FooterStatus, true));
             await RefreshConfigurationAsync();
         }
         catch (HttpRequestException)
         {
-            FooterStatus = "Storage Service is unavailable; configuration was not saved.";
-            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+            FooterStatus = Localization.Text("Text_StorageServiceisunavailablecon_6AFB61");
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Configurationnotsaved_111EDE"), FooterStatus, true));
         }
         catch (TaskCanceledException)
         {
-            FooterStatus = "Storage Service configuration save timed out.";
-            NotificationRequested?.Invoke(this, new("Configuration not saved", FooterStatus, true));
+            FooterStatus = Localization.Text("Text_StorageServiceconfigurationsav_29FCF3");
+            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Configurationnotsaved_111EDE"), FooterStatus, true));
         }
     }
 
@@ -769,14 +792,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled)
     {
-        if (backupSet is null || device is null) return "Choose what to back up and a target device.";
+        if (backupSet is null || device is null) return Localization.Text("Text_Choosewhattobackupandatargetde_50AF40");
         var repositoryPath = RelativeDestinationPath(device, destination);
-        if (repositoryPath is null) return "Choose a destination folder inside the selected device.";
+        if (repositoryPath is null) return Localization.Text("Text_Chooseadestinationfolderinside_ACC42F");
         if (Mappings.Any(mapping => mapping.Id != existing?.Id
             && mapping.BackupSet.Id == backupSet.Id
             && mapping.Device.Id == device.Id
             && string.Equals(NormalizeRepositoryPath(mapping.RepositoryPath), NormalizeRepositoryPath(repositoryPath), StringComparison.OrdinalIgnoreCase)))
-            return "That backup rule already exists.";
+            return Localization.Text("Text_Thatbackuprulealreadyexists_35EA38");
 
         var candidate = new BackupTargetMapping(existing?.Id ?? Guid.NewGuid(), backupSet.Id, device.Id, repositoryPath, enabled);
         var all = existing is null
@@ -791,7 +814,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         else
         {
             var index = Mappings.IndexOf(existing);
-            if (index < 0) return "The backup rule no longer exists.";
+            if (index < 0) return Localization.Text("Text_Thebackuprulenolongerexists_6BD0E4");
             Mappings[index] = saved;
         }
         SelectedMapping = saved;
@@ -804,7 +827,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled)
     {
-        if (destinationOption is null) return "Choose where to store the backup.";
+        if (destinationOption is null) return Localization.Text("Text_Choosewheretostorethebackup_870A83");
         var device = destinationOption.Device;
         var added = false;
         if (device is null && destinationOption.AvailableDrive is { } drive)
@@ -840,7 +863,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try { var drive = new DriveInfo(Path.GetPathRoot(root) ?? root); available = drive.AvailableFreeSpace; total = drive.TotalSize; }
         catch (Exception exception) when (exception is ArgumentException or IOException) { }
         var name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : root;
-        var option = new BackupDestinationOptionViewModel(null, new(stableId, root, "Folder", available, total, name, 1, false));
+        var option = new BackupDestinationOptionViewModel(null, new(stableId, root, Localization.Text("Text_Folder_74CCD4"), available, total, name, 1, false));
         BackupDestinations.Add(option);
         return option;
     }
@@ -894,12 +917,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // flow, mirroring RegisterFolder()'s own no-separate-name-prompt pattern.
     private async Task AddLocalBackupSetAsync()
     {
-        using var dialog = new Forms.FolderBrowserDialog { Description = "Choose a local folder to back up", ShowNewFolderButton = false };
+        using var dialog = new Forms.FolderBrowserDialog { Description = Localization.Text("Text_Choosealocalfoldertobackup_3357E4"), ShowNewFolderButton = false };
         if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
         var path = Path.GetFullPath(dialog.SelectedPath);
         if (BackupSets.Any(set => set.Model.SourceAgentId == LocalSourceIdentity.AgentId && set.Model.SourcePaths.Contains(path, StringComparer.OrdinalIgnoreCase)))
         {
-            FooterStatus = "That folder is already being backed up.";
+            FooterStatus = Localization.Text("Text_Thatfolderisalreadybeingbacked_D63D12");
             return;
         }
         var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : path;
@@ -913,7 +936,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         localSource.BackupSets.Add(backupSet);
         SelectedBackupSet = backupSet;
-        AddActivity($"Added a backup for {path}. Choose a device for it below.");
+        AddActivity(Localization.Format("Text_Addedabackupfor0Chooseadevicef_85F762", path));
         NotifyCounts();
         await SaveAsync();
     }
@@ -922,7 +945,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (SelectedBackupSet is not { } backupSet || backupSet.Model.SourceAgentId != LocalSourceIdentity.AgentId)
         {
-            FooterStatus = "Select a backup of a folder on this PC first.";
+            FooterStatus = Localization.Text("Text_SelectabackupofafolderonthisPC_A6612F");
             return;
         }
         foreach (var mapping in Mappings.Where(mapping => mapping.BackupSet.Id == backupSet.Id).ToArray()) Mappings.Remove(mapping);
@@ -955,8 +978,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 device.ConnectedAt = DateTimeOffset.UtcNow;
-                AddActivity($"Backup target connected: {device.DisplayName}.");
-                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new("Backup storage connected", DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
+                AddActivity(Localization.Format("Text_Backuptargetconnected0_199CC8", device.DisplayName));
+                if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new(Localization.Text("Text_Backupstorageconnected_B99FB5"), DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
             }
             else if (wasConnected && !device.IsConnected)
             {
@@ -993,7 +1016,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // mutation path that used to call NotifyCounts() alone gets the badge update for free here too.
     private void NotifyCounts()
     {
-        OverallStatus = ConnectedDeviceCount > 0 ? $"{ConnectedDeviceCount} device{(ConnectedDeviceCount == 1 ? "" : "s")} connected" : "Waiting for storage";
+        OverallStatus = ConnectedDeviceCount > 0 ? Localization.Format("Text_0device1connected_5378A0", ConnectedDeviceCount, (ConnectedDeviceCount == 1 ? "" : "s")) : Localization.Text("Text_Waitingforstorage_AB8528");
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
@@ -1020,10 +1043,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     internal static string DeviceArrivalMessage(string displayName, int arrivalDelayMinutes) => arrivalDelayMinutes == 0
-        ? $"{displayName} is connected and ready for backup."
-        : $"{displayName} is connected. Backups become eligible after its {arrivalDelayMinutes}-minute arrival delay.";
+        ? Localization.Format("Text_0isconnectedandreadyforbackup_85786B", displayName)
+        : Localization.Format("Text_0isconnectedBackupsbecomeeligi_11599A", displayName, arrivalDelayMinutes);
 
-    internal static string Pluralize(int count, string singularNoun) => $"{count} {singularNoun}{(count == 1 ? "" : "s")}";
+    internal static string Pluralize(int count, string singularNoun) => Localization.Count(count, singularNoun);
 
     // Shared by every "how long ago" display in the tray (computer last-seen, and the Backups grid's Last
     // backup column) so "just now" vs. "6 days ago" phrasing - and its threshold for falling back to an
@@ -1034,10 +1057,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
         return elapsed switch
         {
-            { TotalSeconds: < 60 } => "just now",
-            { TotalMinutes: < 60 } => Pluralize((int)elapsed.TotalMinutes, "minute") + " ago",
-            { TotalHours: < 24 } => Pluralize((int)elapsed.TotalHours, "hour") + " ago",
-            { TotalDays: < 30 } => Pluralize((int)elapsed.TotalDays, "day") + " ago",
+            { TotalSeconds: < 60 } => Localization.Text("Text_justnow_7DDB44"),
+            { TotalMinutes: < 60 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalMinutes, "minute")),
+            { TotalHours: < 24 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalHours, "hour")),
+            { TotalDays: < 30 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalDays, "day")),
             _ => at.LocalDateTime.ToString("g")
         };
     }
@@ -1065,9 +1088,9 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
 {
     private SourceConnectionViewModel? _connection;
     public Guid Id { get; } = id;
-    public string DisplayName { get; } = displayName;
+    public string DisplayName => Id == LocalSourceIdentity.AgentId ? Localization.Text("ThisPC") : displayName;
     // State why Address and Status do not apply to the local source.
-    public string DisplayNameWithHint => Id == LocalSourceIdentity.AgentId ? $"{DisplayName} (no agent needed)" : DisplayName;
+    public string DisplayNameWithHint => Id == LocalSourceIdentity.AgentId ? Localization.Format("Text_0noagentneeded_182A79", DisplayName) : DisplayName;
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public SourceConnectionViewModel? Connection
     {
@@ -1120,21 +1143,21 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model)
     {
         get
         {
-            if (IsRevoked) return "Revoked";
+            if (IsRevoked) return Localization.Text("Text_Revoked_F6F738");
             var now = DateTimeOffset.UtcNow;
             if (CertificateExpiresAt is { } expires)
             {
                 var renewalWindowStart = expires.AddDays(-30);
-                if (expires <= now) return "Expired — re-pair to reconnect";
+                if (expires <= now) return Localization.Text("Text_Expiredrepairtoreconnect_ECB494");
                 // Must also check whether the renewal window has actually opened yet - otherwise a
                 // healthy computer seen minutes ago, with a certificate not due for renewal for months,
                 // reads "hasn't been seen since {a still-future date}" as true and wrongly warns.
-                if (now >= renewalWindowStart && LastSeenAt < renewalWindowStart) return $"Offline — re-pair before {expires.LocalDateTime:d}";
+                if (now >= renewalWindowStart && LastSeenAt < renewalWindowStart) return Localization.Format("Text_Offlinerepairbefore0d_A7CF69", expires.LocalDateTime);
             }
-            return now - LastSeenAt <= OnlineThreshold ? "Connected" : "Offline";
+            return now - LastSeenAt <= OnlineThreshold ? Localization.Text("Text_Connected_229655") : Localization.Text("Text_Offline_A17947");
         }
     }
-    public string DisplayName => $"{AgentName} — {StatusDisplay}, last seen {LastSeenDisplay}";
+    public string DisplayName => Localization.Format("Text_01lastseen2_55F71D", AgentName, StatusDisplay, LastSeenDisplay);
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
 }
@@ -1147,7 +1170,8 @@ public sealed class BackupSetViewModel : ObservableObject
     public SourceBackupSet Model => _model;
     public Guid Id => Model.Id;
     public bool IsAvailable { get => _isAvailable; set { if (Set(ref _isAvailable, value)) OnPropertyChanged(nameof(DisplayName)); } }
-    public string DisplayName => $"{Model.SourceAgentName} / {Model.Name}{(IsAvailable ? string.Empty : " (not reported)")}";
+    public string SourceDisplayName => Model.SourceAgentId == LocalSourceIdentity.AgentId ? Localization.Text("ThisPC") : Model.SourceAgentName;
+    public string DisplayName => $"{SourceDisplayName} / {Model.Name}{(IsAvailable ? string.Empty : Localization.Text("Text_notreported_EAAB4F"))}";
     public string SourcePathsDisplay => string.Join(Environment.NewLine, Model.SourcePaths);
     public void Update(SourceBackupSet model)
     {
@@ -1168,7 +1192,7 @@ public sealed class BackupDestinationOptionViewModel(DeviceViewModel? device, Av
     public AvailableDriveViewModel? AvailableDrive { get; } = availableDrive;
     public string StableId => Device?.StableId ?? AvailableDrive!.StableId;
     public string Root => AvailableDrive?.Root ?? Device?.CurrentRoot ?? Device?.LastKnownRoot ?? string.Empty;
-    public string DisplayName => AvailableDrive?.DisplayName ?? $"{Device!.DisplayNameWithDetails} (not connected)";
+    public string DisplayName => AvailableDrive?.DisplayName ?? Localization.Format("Text_0notconnected_78FCB7", Device!.DisplayNameWithDetails);
     public override string ToString() => DisplayName;
 }
 
@@ -1204,16 +1228,16 @@ public sealed class DeviceViewModel : ObservableObject
     // AvailableDriveViewModel.DisplayName uses the same capacity source before registration.
     public long? AvailableBytes { get => _availableBytes; set { if (Set(ref _availableBytes, value)) { OnPropertyChanged(nameof(FreeSpaceDisplay)); OnPropertyChanged(nameof(DisplayNameWithDetails)); } } }
     public long? TotalBytes { get => _totalBytes; set { if (Set(ref _totalBytes, value)) OnPropertyChanged(nameof(FreeSpaceDisplay)); } }
-    public string FreeSpaceDisplay => AvailableBytes is { } bytes ? $"{bytes / 1_073_741_824d:0.0} GB free" : "—";
+    public string FreeSpaceDisplay => AvailableBytes is { } bytes ? Localization.Format("Text_000GBfree_D5E243", bytes / 1_073_741_824d) : "—";
 
     // Mirror AvailableDriveViewModel.DisplayName's "(root), n GB free" pattern after registration.
     public string DisplayNameWithDetails => CurrentRoot is { Length: > 0 } root
-        ? AvailableBytes is { } bytes ? $"{DisplayName} ({root}), {bytes / 1_073_741_824d:0.0} GB free" : $"{DisplayName} ({root})"
+        ? AvailableBytes is { } bytes ? Localization.Format("Text_01200GBfree_964D13", DisplayName, root, bytes / 1_073_741_824d) : $"{DisplayName} ({root})"
         : DisplayName;
     // Use name and drive letter only in the removal banner; capacity belongs in device selection/status UI.
     public string DisplayNameWithRoot => CurrentRoot is { Length: > 0 } root ? $"{DisplayName} ({root})" : DisplayName;
-    public string Status => IsConnected ? "Connected" : "Offline";
-    public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? "Never";
+    public string Status => IsConnected ? Localization.Text("Text_Connected_229655") : Localization.Text("Text_Offline_A17947");
+    public string LastSeenDisplay => LastSeenAt?.LocalDateTime.ToString("g") ?? Localization.Text("Text_Never_6300EF");
     public int ArrivalDelayMinutes { get; set; }
     // Explicitly set only when a Backup Set names this device as its trigger, or a mapping targets it -
     // never inferred, per the same "don't let the UI guess" principle as the arrival logic itself.
@@ -1221,10 +1245,10 @@ public sealed class DeviceViewModel : ObservableObject
     public bool IsUsedAsTarget { get => _isUsedAsTarget; set { if (Set(ref _isUsedAsTarget, value)) OnPropertyChanged(nameof(RoleDisplay)); } }
     public string RoleDisplay => (IsUsedAsTarget, IsSourceTrigger) switch
     {
-        (true, true) => "Target + Trigger",
-        (false, true) => "Trigger",
-        (true, false) => "Target",
-        (false, false) => "Unassigned"
+        (true, true) => Localization.Text("Text_TargetTrigger_EAE2DB"),
+        (false, true) => Localization.Text("Text_Trigger_8B9C64"),
+        (true, false) => Localization.Text("Text_Target_978354"),
+        (false, false) => Localization.Text("Text_Unassigned_14D33B")
     };
     public RegisteredDevice ToModel() => new(Id, StableId, DisplayName, VolumeLabel, CurrentRoot ?? LastKnownRoot, RegisteredAt, LastSeenAt, ArrivalDelayMinutes);
 
@@ -1239,7 +1263,7 @@ public sealed class MappingViewModel : ObservableObject
     private bool _enabled;
     private bool _isRepeatOfPreviousSource;
     private bool _isRepeatOfPreviousSourceFolder;
-    private string _lastBackupDisplay = "Never";
+    private string _lastBackupDisplay = Localization.Text("Text_Never_6300EF");
     private string _lastBackupIssue = string.Empty;
     private string _triggerNote = string.Empty;
 
@@ -1257,7 +1281,7 @@ public sealed class MappingViewModel : ObservableObject
     public BackupSetViewModel BackupSet { get; }
     public DeviceViewModel Device { get; }
     public string BackupSetName => BackupSet.DisplayName;
-    public string SourceAgentName => BackupSet.Model.SourceAgentName;
+    public string SourceAgentName => BackupSet.SourceDisplayName;
     public string BackupSetOnlyName => BackupSet.Model.Name;
     public string SourcePathsDisplay => string.Join(" · ", BackupSet.Model.SourcePaths);
     public string DeviceName => Device.DisplayName;
@@ -1295,7 +1319,7 @@ public sealed class MappingViewModel : ObservableObject
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
 {
-    public string DisplayName => $"{HardwareName} — {VolumeLabel} ({Root}), {AvailableBytes / 1_073_741_824d:0.0} GB free";
+    public string DisplayName => Localization.Format("Text_012300GBfree_F81620", HardwareName, VolumeLabel, Root, AvailableBytes / 1_073_741_824d);
 
     // Without this the compiler-generated record ToString() becomes the UI Automation Name, leaking
     // StableId and volume serials to screen readers. DisplayMemberPath does not affect the UIA Name.
@@ -1303,7 +1327,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
 
     public static AvailableDriveViewModel FromDrive(DriveInfo drive)
     {
-        var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? "Local disk" : drive.VolumeLabel;
+        var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? Localization.Text("Text_Localdisk_8C7556") : drive.VolumeLabel;
         // The production Windows provider replaces this provisional identifier with volume GUID + hardware identity.
         var stableId = $"{drive.DriveFormat}|{label}|{drive.TotalSize}";
         return new(stableId, drive.RootDirectory.FullName, label, drive.AvailableFreeSpace, drive.TotalSize, label, 1);
@@ -1315,7 +1339,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
 // is gone if the app exits (crash, forced close, or simply quitting) before that disconnect happens, and
 // without this, the mapping stays persisted as Enabled=false forever with nothing in the UI explaining why
 // because silently leaving a backup disabled after restart would be unsafe.
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true, IReadOnlyList<Guid>? SkipDisabledMappingIds = null);
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true, IReadOnlyList<Guid>? SkipDisabledMappingIds = null, string Language = "");
 
 internal sealed class ConfigurationStore
 {

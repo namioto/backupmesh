@@ -25,7 +25,7 @@ public sealed class PairingClient : IPairingClient, IDisposable
     {
         using var response = await _client.PostAsJsonAsync("pairing/sessions", new PairingSessionRequestDto(rebindAgentId), cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException("Pairing response was empty.");
+        return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException(Localization.Text("Text_Pairingresponsewasempty_536774"));
     }
     public async Task RotateAuthorityAsync(CancellationToken cancellationToken)
     {

@@ -20,7 +20,7 @@ public interface IStorageConfigurationClient
 
 public sealed class StorageConfigurationConflictException : Exception
 {
-    public StorageConfigurationConflictException() : base("The Storage Agent configuration changed in another process.") { }
+    public StorageConfigurationConflictException() : base(Localization.Text("Text_TheStorageAgentconfigurationch_B0E837")) { }
 }
 
 public sealed class StorageConfigurationClient : IStorageConfigurationClient, IDisposable
@@ -37,7 +37,7 @@ public sealed class StorageConfigurationClient : IStorageConfigurationClient, ID
         using var response = await _client.GetAsync("storage/configuration", cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<StorageConfigurationDocumentDto>(cancellationToken: cancellationToken)
-            ?? throw new InvalidDataException("Storage Service returned an empty configuration response.");
+            ?? throw new InvalidDataException(Localization.Text("Text_StorageServicereturnedanemptyc_DD38A2"));
     }
 
     public async Task<StorageConfigurationDocumentDto> UpdateAsync(long expectedRevision, StorageAgentConfiguration configuration, CancellationToken cancellationToken)
@@ -46,7 +46,7 @@ public sealed class StorageConfigurationClient : IStorageConfigurationClient, ID
         if (response.StatusCode == HttpStatusCode.Conflict) throw new StorageConfigurationConflictException();
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<StorageConfigurationDocumentDto>(cancellationToken: cancellationToken)
-            ?? throw new InvalidDataException("Storage Service returned an empty configuration response.");
+            ?? throw new InvalidDataException(Localization.Text("Text_StorageServicereturnedanemptyc_DD38A2"));
     }
 
     public async Task<AutomationSettingsDto> GetAutomationAsync(CancellationToken cancellationToken) =>

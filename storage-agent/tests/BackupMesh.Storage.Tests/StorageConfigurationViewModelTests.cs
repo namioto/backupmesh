@@ -5,6 +5,7 @@ namespace BackupMesh.Storage.Tests;
 
 public sealed class StorageConfigurationViewModelTests
 {
+    public StorageConfigurationViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
     [Theory]
     [InlineData(0, "connected and ready")]
     [InlineData(15, "15-minute arrival delay")]

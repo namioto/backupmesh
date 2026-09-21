@@ -1,8 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -208,15 +206,9 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     }
 }
 
-// Wraps a BackupJobViewModel (built fresh by MainWindowViewModel.RefreshJobsAsync every 2s) for flyout
-// display. BackupJobDto's raw byte/file counts are private to BackupJobViewModel - Progress is the only
-// public surface for them - so PercentComplete parses that already-formatted string back into a number
-// rather than duplicating its rounding/formatting logic here. A job with no known total has no "%" to find
-// and falls back to an indeterminate bar instead of reporting a misleading 0%.
+// Use numeric progress directly so translations and regional number formats cannot affect the bar.
 public sealed class FlyoutJobViewModel
 {
-    private static readonly Regex PercentPattern = new(@"(\d+(?:\.\d+)?)%", RegexOptions.Compiled);
-
     public FlyoutJobViewModel(BackupJobViewModel job) => Job = job;
 
     public BackupJobViewModel Job { get; }
@@ -225,23 +217,16 @@ public sealed class FlyoutJobViewModel
     public bool CanCancel => Job.CanCancel;
     public bool IsRunning => Job.State == "RUNNING";
 
-    public double? PercentComplete
-    {
-        get
-        {
-            var match = PercentPattern.Match(Job.Progress);
-            return match.Success && double.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
-        }
-    }
+    public double? PercentComplete => Job.PercentComplete;
 
     public bool IsIndeterminate => IsRunning && PercentComplete is null;
 
     public string EtaDisplay => Job.EstimatedTimeRemaining switch
     {
-        { TotalHours: >= 1 } remaining => $"About {remaining.TotalHours:0.0} h remaining",
-        { TotalMinutes: >= 1 } remaining => $"About {(int)remaining.TotalMinutes} min remaining",
-        { } => "Less than a minute remaining",
-        null => IsRunning ? "Estimating time remaining…" : "Waiting to start"
+        { TotalHours: >= 1 } remaining => Localization.Format("Text_About000hremaining_160B92", remaining.TotalHours),
+        { TotalMinutes: >= 1 } remaining => Localization.Format("Text_About0minremaining_4FE4D2", (int)remaining.TotalMinutes),
+        { } => Localization.Text("Text_Lessthanaminuteremaining_AC41BE"),
+        null => IsRunning ? Localization.Text("Text_Estimatingtimeremaining_EDC8C1") : Localization.Text("Text_Waitingtostart_F5E5F8")
     };
 }
 
@@ -263,15 +248,15 @@ public sealed class PendingArrivalViewModel
 
     public DeviceViewModel Device { get; }
     // State explicitly that the device connected, regardless of section header wording.
-    public string TitleDisplay => $"{Device.DisplayNameWithRoot} connected";
+    public string TitleDisplay => Localization.Format("Text_0connected_5C85CA", Device.DisplayNameWithRoot);
     public int EligibleMappingCount { get; }
     public bool IsEligibleNow => DateTimeOffset.UtcNow >= _eligibleAt;
 
     public string StatusDisplay => IsEligibleNow
-        ? $"Ready to back up ({MainWindowViewModel.Pluralize(EligibleMappingCount, "backup")} queued)"
+        ? Localization.Format("Text_Readytobackup0queued_CAA783", MainWindowViewModel.Pluralize(EligibleMappingCount, "backup"))
         // Use a countdown to one specific, named event.
-        : $"Starts automatically in {FormatRemaining(_eligibleAt - DateTimeOffset.UtcNow)}";
+        : Localization.Format("Text_Startsautomaticallyin0_518309", FormatRemaining(_eligibleAt - DateTimeOffset.UtcNow));
 
     private static string FormatRemaining(TimeSpan remaining) =>
-        remaining <= TimeSpan.Zero ? "under a minute" : remaining.TotalMinutes >= 1 ? $"{Math.Ceiling(remaining.TotalMinutes):0} min" : "under a minute";
+        remaining <= TimeSpan.Zero ? Localization.Text("Text_underaminute_30D511") : remaining.TotalMinutes >= 1 ? Localization.Format("Text_00min_9685AD", Math.Ceiling(remaining.TotalMinutes)) : Localization.Text("Text_underaminute_30D511");
 }

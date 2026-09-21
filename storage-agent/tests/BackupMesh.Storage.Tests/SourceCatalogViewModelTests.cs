@@ -4,6 +4,7 @@ namespace BackupMesh.Storage.Tests;
 
 public sealed class SourceCatalogViewModelTests
 {
+    public SourceCatalogViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
     [Fact]
     public async Task PublishedCatalogPopulatesSourcesAndBackupSets()
     {

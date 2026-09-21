@@ -72,6 +72,6 @@ Remove-NetFirewallRule -DisplayName $repositoryFirewallRuleName -ErrorAction Sil
 New-NetFirewallRule -DisplayName $repositoryFirewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 18000-18099 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
 
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$trayCommand = "`"$(Join-Path $packageRoot 'App\BackupMesh.Storage.App.exe')`""
+$trayCommand = '"' + (Join-Path $packageRoot 'App\BackupMesh.Storage.App.exe') + '"'
 New-ItemProperty -Path $runKey -Name 'BackupMesh Storage Agent' -Value $trayCommand -PropertyType String -Force | Out-Null
 Write-Host 'BackupMesh Storage Agent is installed and running. The tray app will start at sign-in; Control and repository ports are open to the local subnet on Private and Domain networks.'

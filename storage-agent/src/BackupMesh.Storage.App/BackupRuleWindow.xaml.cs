@@ -25,9 +25,9 @@ public partial class BackupRuleWindow : Window
         EnabledCheckBox.IsChecked = existing?.Enabled ?? true;
         if (existing is not null)
         {
-            Title = "Edit backup rule";
-            HeadingText.Text = "Edit backup rule";
-            SaveButton.Content = "Save changes";
+            Title = Localization.Text("Text_Editbackuprule_A40603");
+            HeadingText.Text = Localization.Text("Text_Editbackuprule_A40603");
+            SaveButton.Content = Localization.Text("Text_Savechanges_DD0AE7");
         }
         _initializing = false;
         if (existing is null) OnTargetChanged(TargetDeviceCombo, null!);
@@ -52,18 +52,18 @@ public partial class BackupRuleWindow : Window
     {
         if (TargetDeviceCombo.SelectedItem is not BackupDestinationOptionViewModel option)
         {
-            ValidationText.Text = "Choose a target storage device first.";
+            ValidationText.Text = Localization.Text("Text_Chooseatargetstoragedevicefirs_95F977");
             return;
         }
         var root = option.Root;
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
         {
-            ValidationText.Text = "The selected storage device is not currently available.";
+            ValidationText.Text = Localization.Text("Text_Theselectedstoragedeviceisnotc_837EBD");
             return;
         }
         using var dialog = new Forms.FolderBrowserDialog
         {
-            Description = "Choose or create the folder that will contain this backup repository.",
+            Description = Localization.Text("Text_Chooseorcreatethefolderthatwil_1EAC62"),
             InitialDirectory = root,
             SelectedPath = root,
             ShowNewFolderButton = true
@@ -75,7 +75,7 @@ public partial class BackupRuleWindow : Window
     {
         using var dialog = new Forms.FolderBrowserDialog
         {
-            Description = "Choose a drive or folder where backups will be stored.",
+            Description = Localization.Text("Text_Chooseadriveorfolderwherebacku_9995EA"),
             ShowNewFolderButton = true
         };
         if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;

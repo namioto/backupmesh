@@ -11,8 +11,8 @@ public partial class PairingDetailsWindow : Window
     {
         InitializeComponent();
         IntentText.Text = rebindAgentName is null
-            ? "This code will pair a new Source Agent."
-            : $"This code will only re-pair the existing Source Agent \"{rebindAgentName}\" — no other Source Agent can use it.";
+            ? Localization.Text("Text_ThiscodewillpairanewSourceAgen_7A5CFC")
+            : Localization.Format("Text_Thiscodewillonlyrepairtheexist_40CE33", rebindAgentName);
         EndpointText.Text = pairing.ControlEndpoint;
         CodeText.Text = pairing.Code;
         FingerprintText.Text = pairing.CertificateSha256;
@@ -25,11 +25,11 @@ public partial class PairingDetailsWindow : Window
         try
         {
             System.Windows.Clipboard.SetText(_clipboardText);
-            CopyStatus.Text = "Copied.";
+            CopyStatus.Text = Localization.Text("Text_Copied_D24981");
         }
         catch (ExternalException)
         {
-            CopyStatus.Text = "Could not access the clipboard.";
+            CopyStatus.Text = Localization.Text("Text_Couldnotaccesstheclipboard_75C339");
         }
     }
 

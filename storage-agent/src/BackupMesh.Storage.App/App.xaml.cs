@@ -12,7 +12,7 @@ public partial class App : System.Windows.Application
     private Forms.NotifyIcon? _trayIcon;
     private MainWindow? _window;
     private TrayFlyoutWindow? _flyout;
-    private string _baseTrayText = "BackupMesh Storage Agent — starting";
+    private string _baseTrayText = Localization.Text("Text_BackupMeshStorageAgentstarting_01492B");
     private bool _wasBackingUp;
     private bool _wasAwaitingDecision;
     private bool _flyoutStateUpdateScheduled;
@@ -22,16 +22,19 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
         var demoMode = e.Args.Any(argument => argument.Equals("--demo", StringComparison.OrdinalIgnoreCase));
+        var languageArgument = e.Args.FirstOrDefault(argument => argument.StartsWith("--language=", StringComparison.OrdinalIgnoreCase));
+        Localization.Initialize(languageArgument is not null ? languageArgument["--language=".Length..] : demoMode ? "en" : new ConfigurationStore().Load().Language);
+        _baseTrayText = Localization.Text("Text_BackupMeshStorageAgentstarting_01492B");
         var endpointArgument = e.Args.FirstOrDefault(argument => argument.StartsWith("--service-endpoint=", StringComparison.OrdinalIgnoreCase));
         var serviceEndpoint = endpointArgument is null ? null : endpointArgument[(endpointArgument.IndexOf('=') + 1)..];
         _window = new MainWindow(demoMode, serviceEndpoint);
         _window.Closing += (_, args) => { args.Cancel = true; _window.Hide(); };
 
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open BackupMesh", null, (_, _) => ShowWindow());
-        menu.Items.Add("Back up now", null, (_, _) => _window.ViewModel.QueueSelectedBackups());
+        menu.Items.Add(Localization.Text("Text_OpenBackupMesh_1E9B33"), null, (_, _) => ShowWindow());
+        menu.Items.Add(Localization.Text("Text_Backupnow_02A284"), null, (_, _) => _window.ViewModel.QueueSelectedBackups());
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => ExitApplication());
+        menu.Items.Add(Localization.Text("Text_Exit_D17D84"), null, (_, _) => ExitApplication());
 
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "backupmesh-tray.ico");
         _trayIcon = new Forms.NotifyIcon

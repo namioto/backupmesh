@@ -1,6 +1,6 @@
 #Requires -RunAsAdministrator
 [CmdletBinding()]
-param()
+param([switch]$RemoveSettings)
 
 $ErrorActionPreference = 'Stop'
 $serviceName = 'BackupMeshStorageAgent'
@@ -14,18 +14,25 @@ $repositoryFirewallRuleName = 'BackupMesh Storage Agent (repositories)'
 # its open directory handles when Setup tries to remove the now-empty App folder right afterward.
 $trayProcesses = Get-Process -Name 'BackupMesh.Storage.App' -ErrorAction SilentlyContinue
 if ($trayProcesses) {
-    $trayProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-    $trayProcesses | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
+    $trayProcesses | Stop-Process -Force -ErrorAction Stop
+    $trayProcesses | Wait-Process -Timeout 5 -ErrorAction Stop
     Start-Sleep -Milliseconds 500
 }
 
 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($service) {
     if ($service.Status -ne 'Stopped') { Stop-Service -Name $serviceName -Force }
+    $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
     & sc.exe delete $serviceName | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not remove the BackupMesh service.' }
 }
 Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'BackupMesh Storage Agent' -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName $repositoryFirewallRuleName -ErrorAction SilentlyContinue
-Write-Host 'BackupMesh was uninstalled. Configuration and repositories were preserved.'
+if ($RemoveSettings) {
+    . (Join-Path $PSScriptRoot 'Clear-BackupMeshSettings.ps1')
+    Clear-BackupMeshSettings -DataRoot (Join-Path $env:ProgramData 'BackupMesh') -UserRoot (Join-Path $env:LOCALAPPDATA 'BackupMesh')
+    Write-Host 'Storage settings and connections were removed. Backups, repository passwords and recovery metadata were preserved.'
+} else {
+    Write-Host 'BackupMesh was uninstalled. Configuration and repositories were preserved.'
+}

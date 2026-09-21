@@ -1,0 +1,763 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Text_StorageAgent_0CA177" xml:space="preserve">
+    <value>저장 에이전트</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgent_CABABF" xml:space="preserve">
+    <value>BackupMesh 저장 에이전트</value>
+  </data>
+  <data name="Text_Overview_D4B1EA" xml:space="preserve">
+    <value>개요</value>
+  </data>
+  <data name="Text_Backups_3334FE" xml:space="preserve">
+    <value>백업</value>
+  </data>
+  <data name="Text_SourceAgents_016D07" xml:space="preserve">
+    <value>원본 에이전트</value>
+  </data>
+  <data name="Text_Settings_74A883" xml:space="preserve">
+    <value>설정</value>
+  </data>
+  <data name="Text_Connectedtargets_E2D19F" xml:space="preserve">
+    <value>연결된 저장장치</value>
+  </data>
+  <data name="Text_Pairedsources_0A551C" xml:space="preserve">
+    <value>연결된 원본</value>
+  </data>
+  <data name="Text_Activebackuprules_CEB7B3" xml:space="preserve">
+    <value>활성 백업 규칙</value>
+  </data>
+  <data name="Text_Backupjobs_399BA4" xml:space="preserve">
+    <value>백업 작업</value>
+  </data>
+  <data name="Text_Backup_838557" xml:space="preserve">
+    <value>백업</value>
+  </data>
+  <data name="Text_State_A3B50C" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Text_Progress_466482" xml:space="preserve">
+    <value>진행률</value>
+  </data>
+  <data name="Text_Result_6E7D50" xml:space="preserve">
+    <value>결과</value>
+  </data>
+  <data name="Text_Updated_3A5ECC" xml:space="preserve">
+    <value>갱신 시각</value>
+  </data>
+  <data name="Text_NobackupjobsyetJobsappearhereo_DF8946" xml:space="preserve">
+    <value>아직 백업 작업이 없습니다. 연결된 저장장치가 준비되어 백업을 시작하면 여기에 표시됩니다.</value>
+  </data>
+  <data name="Text_Cancelselectedbackup_F89A69" xml:space="preserve">
+    <value>선택한 백업 취소</value>
+  </data>
+  <data name="Text_Recentactivity_6CB44B" xml:space="preserve">
+    <value>최근 활동</value>
+  </data>
+  <data name="Text_Choosewhattobackupandwhereeach_AFABC9" xml:space="preserve">
+    <value>백업할 데이터와 저장 위치를 선택하세요.</value>
+  </data>
+  <data name="Text_Backuprules_566313" xml:space="preserve">
+    <value>백업 규칙</value>
+  </data>
+  <data name="Text_Source_0E570C" xml:space="preserve">
+    <value>원본</value>
+  </data>
+  <data name="Text_Sourcefolder_E52E4E" xml:space="preserve">
+    <value>원본 폴더</value>
+  </data>
+  <data name="Text_Targetdevice_90632A" xml:space="preserve">
+    <value>저장장치</value>
+  </data>
+  <data name="Text_Targetfolder_E89C31" xml:space="preserve">
+    <value>저장 폴더</value>
+  </data>
+  <data name="Text_Lastbackup_8462B6" xml:space="preserve">
+    <value>최근 백업</value>
+  </data>
+  <data name="Text_Enabled_92C1CD" xml:space="preserve">
+    <value>사용</value>
+  </data>
+  <data name="Text_Pausethisbackupwithoutremoving_0ED5D5" xml:space="preserve">
+    <value>규칙을 삭제하지 않고 백업을 일시 중지합니다.</value>
+  </data>
+  <data name="Text_NobackuprulesyetAddonetochoose_7C46A4" xml:space="preserve">
+    <value>아직 백업 규칙이 없습니다. 규칙을 추가해 백업할 데이터와 저장 위치를 선택하세요.</value>
+  </data>
+  <data name="Text_Removebackup_2D2646" xml:space="preserve">
+    <value>백업 규칙 삭제</value>
+  </data>
+  <data name="Text_Editbackup_9CBB38" xml:space="preserve">
+    <value>백업 수정…</value>
+  </data>
+  <data name="Text_Addbackup_8026D5" xml:space="preserve">
+    <value>백업 추가…</value>
+  </data>
+  <data name="Text_EachcomputeryoupairrunsaSource_32AFD1" xml:space="preserve">
+    <value>연결된 각 컴퓨터의 원본 에이전트가 백업할 폴더를 제공합니다. 이 PC는 별도 에이전트 없이 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_SourceAgent_21CF69" xml:space="preserve">
+    <value>원본 에이전트</value>
+  </data>
+  <data name="Text_Address_56EF8F" xml:space="preserve">
+    <value>주소</value>
+  </data>
+  <data name="Text_Lastseen_21FD79" xml:space="preserve">
+    <value>최근 연결</value>
+  </data>
+  <data name="Text_Status_920E41" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Text_Offers_E98BF0" xml:space="preserve">
+    <value>제공 폴더</value>
+  </data>
+  <data name="Text_Theaddressthiscomputerlastconn_73FCC6" xml:space="preserve">
+    <value>이 컴퓨터가 마지막으로 연결한 주소입니다. DHCP로 변경될 수 있으므로 고정 식별자로 사용하지 않습니다.</value>
+  </data>
+  <data name="Text_Blockaccess_13C267" xml:space="preserve">
+    <value>접근 차단</value>
+  </data>
+  <data name="Text_Restoreaccess_4BA2FB" xml:space="preserve">
+    <value>접근 복원</value>
+  </data>
+  <data name="Text_Repair_0731E9" xml:space="preserve">
+    <value>다시 연결</value>
+  </data>
+  <data name="Text_Rename_3064D7" xml:space="preserve">
+    <value>이름 변경</value>
+  </data>
+  <data name="Text_RemoveSourceAgent_ED5EE3" xml:space="preserve">
+    <value>원본 에이전트 제거</value>
+  </data>
+  <data name="Text_ImmediatelyblockthisSourceAgen_49E716" xml:space="preserve">
+    <value>유효한 인증서와 토큰이 있어도 이 원본 에이전트의 접근을 즉시 차단합니다.</value>
+  </data>
+  <data name="Text_Issueanewonetimecodethatcanonl_8B9809" xml:space="preserve">
+    <value>이 원본 에이전트만 다시 연결할 수 있는 일회용 코드를 발급합니다. 인증서나 키를 분실했을 때 사용하세요.</value>
+  </data>
+  <data name="Text_Changeonlywhatthetraydisplaysf_8E2E3E" xml:space="preserve">
+    <value>이 원본 에이전트의 표시 이름만 변경합니다.</value>
+  </data>
+  <data name="Text_BlockthisSourceAgentandremovei_1A5808" xml:space="preserve">
+    <value>접근을 차단하고 목록에서 제거합니다. 기존 백업은 보존되며 다시 연결할 때까지 보고가 중단됩니다.</value>
+  </data>
+  <data name="Text_PairaSourceAgent_379C01" xml:space="preserve">
+    <value>원본 에이전트 연결</value>
+  </data>
+  <data name="Text_Createaonetime10minutepairingc_67FD9C" xml:space="preserve">
+    <value>10분간 유효한 일회용 연결 코드와 저장 에이전트 인증서 지문을 생성합니다.</value>
+  </data>
+  <data name="Text_BackupafolderonthisPC_EF3B34" xml:space="preserve">
+    <value>이 PC의 폴더 백업…</value>
+  </data>
+  <data name="Text_BackupafolderonthisPCdirectlyn_11F9C0" xml:space="preserve">
+    <value>별도 원본 에이전트나 연결 절차 없이 이 PC의 폴더를 백업합니다.</value>
+  </data>
+  <data name="Text_Removefolder_F2A987" xml:space="preserve">
+    <value>폴더 제거</value>
+  </data>
+  <data name="Text_Stopbackinguptheselectedlocalf_1235A1" xml:space="preserve">
+    <value>선택한 로컬 폴더의 백업을 중지하고 연결된 백업 규칙도 제거합니다.</value>
+  </data>
+  <data name="Text_BackupssyncfrompairedSourceAge_B93A96" xml:space="preserve">
+    <value>연결된 원본 에이전트에서 백업 목록을 가져옵니다. 로컬 폴더는 항상 '이 PC'에서 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_Language_A4FE65" xml:space="preserve">
+    <value>언어</value>
+  </data>
+  <data name="Text_SavedautomaticallyExitBackupMe_6E29AA" xml:space="preserve">
+    <value>자동 저장됩니다. 트레이 메뉴에서 BackupMesh를 종료한 뒤 다시 실행하면 적용됩니다.</value>
+  </data>
+  <data name="Text_Automation_D90975" xml:space="preserve">
+    <value>자동화</value>
+  </data>
+  <data name="Text_StartBackupMeshwhenIsignin_A44225" xml:space="preserve">
+    <value>로그인 시 BackupMesh 실행</value>
+  </data>
+  <data name="Text_ShowaWindowsnotificationwhenab_B5FAB9" xml:space="preserve">
+    <value>백업 저장장치 연결 시 Windows 알림 표시</value>
+  </data>
+  <data name="Text_Automaticallystarteligibleback_02F7BF" xml:space="preserve">
+    <value>대기 시간이 지나면 가능한 백업 자동 시작</value>
+  </data>
+  <data name="Text_Showastatuswindowwhenabackupst_8A774A" xml:space="preserve">
+    <value>백업 시작 시 상태 창 표시</value>
+  </data>
+  <data name="Text_Asmallpopupnearthetrayiconwith_C54240" xml:space="preserve">
+    <value>트레이 근처에 진행률과 취소 버튼을 표시합니다. 포커스를 가져오지 않으며 전체 화면 앱 사용 중에는 표시하지 않습니다.</value>
+  </data>
+  <data name="Text_Waitbeforestartingafteranytarg_F8504D" xml:space="preserve">
+    <value>저장장치 연결 후 백업 대기 시간:</value>
+  </data>
+  <data name="Text_Appliestoeverybackuptarget_F4D827" xml:space="preserve">
+    <value>모든 백업 저장장치에 적용합니다.</value>
+  </data>
+  <data name="Text_minutes_90E63D" xml:space="preserve">
+    <value>분</value>
+  </data>
+  <data name="Text_Datalocation_C6F1A5" xml:space="preserve">
+    <value>저장 위치</value>
+  </data>
+  <data name="Text_Chooseafulldestinationpathfore_04960C" xml:space="preserve">
+    <value>각 백업 규칙의 전체 저장 경로를 선택하세요. 저장장치 식별 정보를 기억하므로 이동식 드라이브 문자가 바뀌어도 사용할 수 있습니다. 고정·이동식 저장장치와 로컬·네트워크 폴더를 지원합니다.</value>
+  </data>
+  <data name="Text_Savesettings_7F3A3B" xml:space="preserve">
+    <value>설정 저장</value>
+  </data>
+  <data name="Text_Security_8F6FB4" xml:space="preserve">
+    <value>보안</value>
+  </data>
+  <data name="Text_RotateStorageidentity_8CA37E" xml:space="preserve">
+    <value>저장 에이전트 인증 정보 교체</value>
+  </data>
+  <data name="Text_AboutBackupMesh_0F063F" xml:space="preserve">
+    <value>BackupMesh 정보</value>
+  </data>
+  <data name="Text_Automaticbackupswhenyourstorag_6BDA2D" xml:space="preserve">
+    <value>저장장치가 연결되면 알아서 백업합니다.</value>
+  </data>
+  <data name="Text_CreatedbynamiotoApache20_6CDCF2" xml:space="preserve">
+    <value>namioto 제작 · Apache-2.0</value>
+  </data>
+  <data name="Text_Userguide_86A2A9" xml:space="preserve">
+    <value>사용자 가이드</value>
+  </data>
+  <data name="Text_Reportanissue_635AE2" xml:space="preserve">
+    <value>문제 신고</value>
+  </data>
+  <data name="Text_License_C011D6" xml:space="preserve">
+    <value>라이선스</value>
+  </data>
+  <data name="Text_Onetimepairingdetails_EA9AF7" xml:space="preserve">
+    <value>일회용 연결 정보</value>
+  </data>
+  <data name="Text_Entertheseonthecomputeryoureco_88AC93" xml:space="preserve">
+    <value>연결할 컴퓨터에 아래 정보를 입력하세요. 코드는 10분 후 만료되며 한 번만 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_Storageendpoint_919B9C" xml:space="preserve">
+    <value>저장 에이전트 주소</value>
+  </data>
+  <data name="Text_Pairingcode_1C5EA2" xml:space="preserve">
+    <value>연결 코드</value>
+  </data>
+  <data name="Text_CertificateSHA256fingerprint_F383F2" xml:space="preserve">
+    <value>인증서 SHA-256 지문</value>
+  </data>
+  <data name="Text_Expires_F6725F" xml:space="preserve">
+    <value>만료 시각</value>
+  </data>
+  <data name="Text_Yourclipboardcanbereadbyotherp_5F8CBE" xml:space="preserve">
+    <value>다른 프로그램이 클립보드를 읽을 수 있습니다. 다른 컴퓨터에 입력할 준비가 되었을 때만 코드를 복사하고, 다른 곳에 붙여넣지 마세요.</value>
+  </data>
+  <data name="Text_Copytoclipboard_B749E2" xml:space="preserve">
+    <value>클립보드에 복사</value>
+  </data>
+  <data name="Text_Close_7D9EB7" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="Text_RenameSourceAgent_7BF263" xml:space="preserve">
+    <value>원본 에이전트 이름 변경</value>
+  </data>
+  <data name="Text_Displayname_2B7F6A" xml:space="preserve">
+    <value>표시 이름</value>
+  </data>
+  <data name="Text_Thisonlychangeswhatthetrayshow_F822F2" xml:space="preserve">
+    <value>앱의 표시 이름만 변경합니다. 원본 에이전트가 보고하는 이름은 유지됩니다.</value>
+  </data>
+  <data name="Text_Cancel_19766E" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="Text_Save_1509F5" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="Text_Addbackuprule_3C4060" xml:space="preserve">
+    <value>백업 규칙 추가</value>
+  </data>
+  <data name="Text_Choosethesourceandwhereitsback_B1390C" xml:space="preserve">
+    <value>백업할 원본과 저장 위치를 선택하세요. 목록에서 두 번 클릭하면 규칙을 수정할 수 있습니다.</value>
+  </data>
+  <data name="Text_Whattobackup_6B4FC3" xml:space="preserve">
+    <value>백업할 데이터</value>
+  </data>
+  <data name="Text_Sourcepath_6A869D" xml:space="preserve">
+    <value>원본 경로</value>
+  </data>
+  <data name="Text_Wheretostoreit_50E54D" xml:space="preserve">
+    <value>저장 위치</value>
+  </data>
+  <data name="Text_Choosefolder_6E8EB2" xml:space="preserve">
+    <value>폴더 선택…</value>
+  </data>
+  <data name="Text_Fulldestinationpath_FA4DF9" xml:space="preserve">
+    <value>전체 저장 경로</value>
+  </data>
+  <data name="Text_Browse_93C6B6" xml:space="preserve">
+    <value>찾아보기…</value>
+  </data>
+  <data name="Text_Thisisthecompletepathwheretheb_68B6C2" xml:space="preserve">
+    <value>백업 저장소가 만들어질 전체 경로입니다.</value>
+  </data>
+  <data name="Text_Enablethisbackuprule_9415CF" xml:space="preserve">
+    <value>이 백업 규칙 사용</value>
+  </data>
+  <data name="Text_Addbackup_9C04C0" xml:space="preserve">
+    <value>백업 추가</value>
+  </data>
+  <data name="Text_Backupstatus_CEA8A0" xml:space="preserve">
+    <value>백업 상태</value>
+  </data>
+  <data name="Text_NobackupsrunningConnectadrivet_02023F" xml:space="preserve">
+    <value>실행 중인 백업이 없습니다. 저장장치를 연결하면 시작합니다.</value>
+  </data>
+  <data name="Text_Backingupnow_632CAE" xml:space="preserve">
+    <value>백업 중</value>
+  </data>
+  <data name="Text_Cancelthisbackup_23F218" xml:space="preserve">
+    <value>이 백업 취소</value>
+  </data>
+  <data name="Text_Upnext_E31DA5" xml:space="preserve">
+    <value>대기 중</value>
+  </data>
+  <data name="Text_Justarrived_A12733" xml:space="preserve">
+    <value>새로 연결됨</value>
+  </data>
+  <data name="Text_Skipthistime_D3077F" xml:space="preserve">
+    <value>이번 연결 건너뛰기</value>
+  </data>
+  <data name="Text_Startnow_9FF3A6" xml:space="preserve">
+    <value>지금 시작</value>
+  </data>
+  <data name="Text_Skippingaffectsthisconnectiono_3BFF0F" xml:space="preserve">
+    <value>이번 연결에만 적용됩니다.</value>
+  </data>
+  <data name="Text_Cancelallbackups_AE5D12" xml:space="preserve">
+    <value>모든 백업 취소</value>
+  </data>
+  <data name="Text_OpenBackupMesh_1E9B33" xml:space="preserve">
+    <value>BackupMesh 열기</value>
+  </data>
+  <data name="Text_Backupnow_02A284" xml:space="preserve">
+    <value>지금 백업</value>
+  </data>
+  <data name="Text_Exit_D17D84" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgentstarting_01492B" xml:space="preserve">
+    <value>BackupMesh 저장 에이전트 — 시작 중</value>
+  </data>
+  <data name="Text_Editbackuprule_A40603" xml:space="preserve">
+    <value>백업 규칙 수정</value>
+  </data>
+  <data name="Text_Savechanges_DD0AE7" xml:space="preserve">
+    <value>변경 사항 저장</value>
+  </data>
+  <data name="Text_Chooseatargetstoragedevicefirs_95F977" xml:space="preserve">
+    <value>먼저 백업 저장장치를 선택하세요.</value>
+  </data>
+  <data name="Text_Theselectedstoragedeviceisnotc_837EBD" xml:space="preserve">
+    <value>선택한 저장장치를 현재 사용할 수 없습니다.</value>
+  </data>
+  <data name="Text_Chooseorcreatethefolderthatwil_1EAC62" xml:space="preserve">
+    <value>백업 저장소를 보관할 폴더를 선택하거나 만드세요.</value>
+  </data>
+  <data name="Text_Chooseadriveorfolderwherebacku_9995EA" xml:space="preserve">
+    <value>백업을 저장할 드라이브나 폴더를 선택하세요.</value>
+  </data>
+  <data name="Text_Ready_5FA7AA" xml:space="preserve">
+    <value>준비됨</value>
+  </data>
+  <data name="Text_Configurationloaded_F98E9C" xml:space="preserve">
+    <value>설정을 불러왔습니다.</value>
+  </data>
+  <data name="Text_StorageAgentUIstarted_99C199" xml:space="preserve">
+    <value>저장 에이전트 UI를 시작했습니다.</value>
+  </data>
+  <data name="Text_StorageAgentUIteststateinitial_49AF15" xml:space="preserve">
+    <value>저장 에이전트 UI 테스트 상태를 초기화했습니다.</value>
+  </data>
+  <data name="Text_ThisPChasnoSourceAgenttomanage_C05F5C" xml:space="preserve">
+    <value>이 PC에는 관리할 원본 에이전트가 없습니다. 다른 컴퓨터에만 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_ThisSourceAgenthasntconnectedy_34F527" xml:space="preserve">
+    <value>이 원본 에이전트가 아직 연결되지 않아 관리할 정보가 없습니다.</value>
+  </data>
+  <data name="Text_Backingupnow_CF4F1D" xml:space="preserve">
+    <value>백업 중…</value>
+  </data>
+  <data name="Text_Lastattemptfailed_96E5BC" xml:space="preserve">
+    <value>최근 백업 실패</value>
+  </data>
+  <data name="Text_Lastattemptwascancelled_AEA9F1" xml:space="preserve">
+    <value>최근 백업 취소됨</value>
+  </data>
+  <data name="Text_0isoffline_966AA7" xml:space="preserve">
+    <value>{0} 오프라인</value>
+  </data>
+  <data name="Text_aremoveddevice_DE214B" xml:space="preserve">
+    <value>제거된 저장장치</value>
+  </data>
+  <data name="Text_Startswhen0connects_F34F79" xml:space="preserve">
+    <value>{0} 연결 시 시작</value>
+  </data>
+  <data name="Text_Startswhen0areallconnected_C94AE2" xml:space="preserve">
+    <value>{0} 모두 연결 시 시작</value>
+  </data>
+  <data name="Text_Selectanactivebackupjobfirst_487C65" xml:space="preserve">
+    <value>먼저 진행 중인 백업을 선택하세요.</value>
+  </data>
+  <data name="Text_CancellationrequestedThecomput_ACFD78" xml:space="preserve">
+    <value>취소를 요청했습니다. 안전하게 중단할 수 있는 시점에 멈춥니다.</value>
+  </data>
+  <data name="Text_Thecancellationrequestcouldnot_5624F8" xml:space="preserve">
+    <value>저장 서비스에 취소 요청을 전달하지 못했습니다.</value>
+  </data>
+  <data name="Text_Thecancellationrequesttimedout_2623FB" xml:space="preserve">
+    <value>취소 요청 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Onetimepairingdetailsgenerated_6E3566" xml:space="preserve">
+    <value>일회용 연결 정보를 생성했습니다. 코드는 10분간 유효하며 한 번만 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_Onetimerepairingdetailsgenerat_0C12FF" xml:space="preserve">
+    <value>{0}의 재연결 정보를 생성했습니다. 코드는 10분간 유효하며 한 번만 사용할 수 있습니다.</value>
+  </data>
+  <data name="Text_Computerpairing_53ECA5" xml:space="preserve">
+    <value>컴퓨터 연결</value>
+  </data>
+  <data name="Text_Pairingsessioncouldnotbecreate_168B2A" xml:space="preserve">
+    <value>연결 정보를 생성하지 못했습니다: {0}</value>
+  </data>
+  <data name="Text_Nocomputerhasreportedanythingt_2B5CCE" xml:space="preserve">
+    <value>아직 백업할 폴더를 보고한 컴퓨터가 없습니다.</value>
+  </data>
+  <data name="Text_Synchronized0_F08374" xml:space="preserve">
+    <value>{0} 동기화 완료.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablesho_BAF1A3" xml:space="preserve">
+    <value>저장 서비스에 연결할 수 없어 마지막 원본 목록을 표시합니다.</value>
+  </data>
+  <data name="Text_Sourcecatalogsynchronizationti_468130" xml:space="preserve">
+    <value>원본 목록 동기화 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Blockaccessfor0Itwillbeimmedia_3393BA" xml:space="preserve">
+    <value>'{0}'의 접근을 차단하시겠습니까? 인증서와 토큰이 유효해도 즉시 백업 전송이 차단됩니다. 기존 백업은 보존되며 '접근 복원'을 선택하면 보고를 재개합니다.</value>
+  </data>
+  <data name="Text_Blockedaccessfor0_B6A848" xml:space="preserve">
+    <value>{0}의 접근을 차단했습니다.</value>
+  </data>
+  <data name="Text_Restoredaccessfor0_824F36" xml:space="preserve">
+    <value>{0}의 접근을 복원했습니다.</value>
+  </data>
+  <data name="Text_Computerconnection_6BB4A5" xml:space="preserve">
+    <value>컴퓨터 연결</value>
+  </data>
+  <data name="Text_Couldnotupdate0saccess1_5A8E32" xml:space="preserve">
+    <value>{0}의 접근 권한을 변경하지 못했습니다: {1}</value>
+  </data>
+  <data name="Text_Therequesttoupdate0saccesstime_414854" xml:space="preserve">
+    <value>{0}의 접근 권한 변경 요청 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Computerrenamed_F1C8AC" xml:space="preserve">
+    <value>컴퓨터 이름을 변경했습니다.</value>
+  </data>
+  <data name="Text_Couldnotrename01_6AD77F" xml:space="preserve">
+    <value>{0}의 이름을 변경하지 못했습니다: {1}</value>
+  </data>
+  <data name="Text_Therenamerequestfor0timedout_EBEFC7" xml:space="preserve">
+    <value>{0}의 이름 변경 요청 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Remove0Itsaccesswillbeblockedi_7EB827" xml:space="preserve">
+    <value>'{0}'을 제거하시겠습니까? 접근을 즉시 차단하고 목록에서 제거합니다. 기존 백업은 보존되며 다시 연결할 때까지 원본 미확인 상태로 남습니다.</value>
+  </data>
+  <data name="Text_Removecomputer_3BE329" xml:space="preserve">
+    <value>컴퓨터 제거</value>
+  </data>
+  <data name="Text_Removed0Itsbackupsarepreserved_A71B5C" xml:space="preserve">
+    <value>{0}을 제거했습니다. 기존 백업은 원본 미확인 상태로 보존됩니다.</value>
+  </data>
+  <data name="Text_Couldnotremove01_0831D6" xml:space="preserve">
+    <value>{0}을 제거하지 못했습니다: {1}</value>
+  </data>
+  <data name="Text_Therequesttoremove0timedout_B33434" xml:space="preserve">
+    <value>{0} 제거 요청 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_ThisregeneratestheStoragescert_1C14DB" xml:space="preserve">
+    <value>저장 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다. 계속하시겠습니까?</value>
+  </data>
+  <data name="Text_StorageidentityrotatedRestartt_20367A" xml:space="preserve">
+    <value>인증 정보를 교체했습니다. 저장 서비스를 다시 시작하고 각 컴퓨터를 다시 연결하세요.</value>
+  </data>
+  <data name="Text_Storageidentityrotated_D5E024" xml:space="preserve">
+    <value>인증 정보 교체 완료</value>
+  </data>
+  <data name="Text_CouldnotrotatetheStorageidenti_B322A0" xml:space="preserve">
+    <value>인증 정보를 교체하지 못했습니다: {0}</value>
+  </data>
+  <data name="Text_TheStorageidentityrotationrequ_E2B876" xml:space="preserve">
+    <value>인증 정보 교체 요청 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_LoadedStorageServiceconfigurat_E46147" xml:space="preserve">
+    <value>저장 서비스 설정 버전 {0}을 불러왔습니다.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablecon_214300" xml:space="preserve">
+    <value>저장 서비스에 연결할 수 없어 설정을 저장할 수 없습니다.</value>
+  </data>
+  <data name="Text_StorageServiceconfigurationreq_80A20B" xml:space="preserve">
+    <value>저장 서비스 설정 조회 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Nomappedbackupiscurrentlyeligi_D66941" xml:space="preserve">
+    <value>현재 실행할 수 있는 백업 규칙이 없습니다.</value>
+  </data>
+  <data name="Text_Requestedbackupfor0to1_B5C1BB" xml:space="preserve">
+    <value>{0}을 {1}에 백업하도록 요청했습니다.</value>
+  </data>
+  <data name="Text_Nonewbackupswerequeuedmatching_5E559C" xml:space="preserve">
+    <value>새로 추가된 백업이 없습니다. 같은 백업이 이미 대기 중일 수 있습니다.</value>
+  </data>
+  <data name="Text_Queued0_06E215" xml:space="preserve">
+    <value>대기열에 추가: {0}.</value>
+  </data>
+  <data name="Text_Backupqueuerequestfailed0_55FABD" xml:space="preserve">
+    <value>백업 요청 실패: {0}</value>
+  </data>
+  <data name="Text_Configurationnotsaved_111EDE" xml:space="preserve">
+    <value>설정 저장 실패</value>
+  </data>
+  <data name="Text_Democonfigurationvalidatednotp_0E3623" xml:space="preserve">
+    <value>데모 설정을 검증했습니다. 실제로 저장하지 않습니다.</value>
+  </data>
+  <data name="Text_Configurationvalidated_66FB81" xml:space="preserve">
+    <value>설정을 검증했습니다.</value>
+  </data>
+  <data name="Text_SavedtoStorageServiceat0trevis_F376AF" xml:space="preserve">
+    <value>{0:t}에 저장 서비스에 저장했습니다(버전 {1}).</value>
+  </data>
+  <data name="Text_ConfigurationsavedtoStorageSer_42EE6B" xml:space="preserve">
+    <value>저장 서비스에 설정을 저장했습니다.</value>
+  </data>
+  <data name="Text_ConfigurationchangedelsewhereR_A78194" xml:space="preserve">
+    <value>다른 곳에서 설정이 변경되었습니다. 다시 저장하기 전에 최신 설정을 불러옵니다.</value>
+  </data>
+  <data name="Text_StorageServiceisunavailablecon_6AFB61" xml:space="preserve">
+    <value>저장 서비스에 연결할 수 없어 설정을 저장하지 못했습니다.</value>
+  </data>
+  <data name="Text_StorageServiceconfigurationsav_29FCF3" xml:space="preserve">
+    <value>저장 서비스 설정 저장 시간이 초과되었습니다.</value>
+  </data>
+  <data name="Text_Choosewhattobackupandatargetde_50AF40" xml:space="preserve">
+    <value>백업할 데이터와 저장장치를 선택하세요.</value>
+  </data>
+  <data name="Text_Chooseadestinationfolderinside_ACC42F" xml:space="preserve">
+    <value>선택한 저장장치 안의 폴더를 지정하세요.</value>
+  </data>
+  <data name="Text_Thatbackuprulealreadyexists_35EA38" xml:space="preserve">
+    <value>이미 등록된 백업 규칙입니다.</value>
+  </data>
+  <data name="Text_Thebackuprulenolongerexists_6BD0E4" xml:space="preserve">
+    <value>해당 백업 규칙이 더 이상 존재하지 않습니다.</value>
+  </data>
+  <data name="Text_Choosewheretostorethebackup_870A83" xml:space="preserve">
+    <value>백업을 저장할 위치를 선택하세요.</value>
+  </data>
+  <data name="Text_Choosealocalfoldertobackup_3357E4" xml:space="preserve">
+    <value>백업할 로컬 폴더 선택</value>
+  </data>
+  <data name="Text_Thatfolderisalreadybeingbacked_D63D12" xml:space="preserve">
+    <value>이미 백업 중인 폴더입니다.</value>
+  </data>
+  <data name="Text_Addedabackupfor0Chooseadevicef_85F762" xml:space="preserve">
+    <value>{0}의 백업을 추가했습니다. 아래에서 저장장치를 선택하세요.</value>
+  </data>
+  <data name="Text_SelectabackupofafolderonthisPC_A6612F" xml:space="preserve">
+    <value>먼저 이 PC의 폴더 백업을 선택하세요.</value>
+  </data>
+  <data name="Text_Backuptargetconnected0_199CC8" xml:space="preserve">
+    <value>백업 저장장치 연결됨: {0}.</value>
+  </data>
+  <data name="Text_Backupstorageconnected_B99FB5" xml:space="preserve">
+    <value>백업 저장장치 연결됨</value>
+  </data>
+  <data name="Text_Waitingforstorage_AB8528" xml:space="preserve">
+    <value>저장장치 연결 대기 중</value>
+  </data>
+  <data name="Text_0isconnectedandreadyforbackup_85786B" xml:space="preserve">
+    <value>{0}이 연결되어 백업할 준비가 되었습니다.</value>
+  </data>
+  <data name="Text_0isconnectedBackupsbecomeeligi_11599A" xml:space="preserve">
+    <value>{0}이 연결되었습니다. 대기 시간 {1}분 후 백업할 수 있습니다.</value>
+  </data>
+  <data name="Text_justnow_7DDB44" xml:space="preserve">
+    <value>방금</value>
+  </data>
+  <data name="Text_0noagentneeded_182A79" xml:space="preserve">
+    <value>{0} (별도 에이전트 불필요)</value>
+  </data>
+  <data name="Text_Expiredrepairtoreconnect_ECB494" xml:space="preserve">
+    <value>인증서 만료 — 다시 연결 필요</value>
+  </data>
+  <data name="Text_Offlinerepairbefore0d_A7CF69" xml:space="preserve">
+    <value>오프라인 — {0:d} 전 재연결 필요</value>
+  </data>
+  <data name="Text_Connected_229655" xml:space="preserve">
+    <value>연결됨</value>
+  </data>
+  <data name="Text_Offline_A17947" xml:space="preserve">
+    <value>오프라인</value>
+  </data>
+  <data name="Text_01lastseen2_55F71D" xml:space="preserve">
+    <value>{0} — {1}, 최근 연결 {2}</value>
+  </data>
+  <data name="Text_notreported_EAAB4F" xml:space="preserve">
+    <value> (보고되지 않음)</value>
+  </data>
+  <data name="Text_0notconnected_78FCB7" xml:space="preserve">
+    <value>{0} (연결되지 않음)</value>
+  </data>
+  <data name="Text_000GBfree_D5E243" xml:space="preserve">
+    <value>여유 공간 {0:0.0} GB</value>
+  </data>
+  <data name="Text_01200GBfree_964D13" xml:space="preserve">
+    <value>{0} ({1}), 여유 공간 {2:0.0} GB</value>
+  </data>
+  <data name="Text_012300GBfree_F81620" xml:space="preserve">
+    <value>{0} — {1} ({2}), 여유 공간 {3:0.0} GB</value>
+  </data>
+  <data name="Text_Never_6300EF" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="Text_TargetTrigger_EAE2DB" xml:space="preserve">
+    <value>저장 대상 + 시작 조건</value>
+  </data>
+  <data name="Text_Target_978354" xml:space="preserve">
+    <value>저장 대상</value>
+  </data>
+  <data name="Text_Trigger_8B9C64" xml:space="preserve">
+    <value>시작 조건</value>
+  </data>
+  <data name="Text_Localdisk_8C7556" xml:space="preserve">
+    <value>로컬 디스크</value>
+  </data>
+  <data name="Text_About000hremaining_160B92" xml:space="preserve">
+    <value>약 {0:0.0}시간 남음</value>
+  </data>
+  <data name="Text_About0minremaining_4FE4D2" xml:space="preserve">
+    <value>약 {0}분 남음</value>
+  </data>
+  <data name="Text_Lessthanaminuteremaining_AC41BE" xml:space="preserve">
+    <value>1분 미만 남음</value>
+  </data>
+  <data name="Text_Estimatingtimeremaining_EDC8C1" xml:space="preserve">
+    <value>남은 시간 계산 중…</value>
+  </data>
+  <data name="Text_Waitingtostart_F5E5F8" xml:space="preserve">
+    <value>시작 대기 중</value>
+  </data>
+  <data name="Text_0connected_5C85CA" xml:space="preserve">
+    <value>{0} 연결됨</value>
+  </data>
+  <data name="Text_Readytobackup0queued_CAA783" xml:space="preserve">
+    <value>백업 준비됨 ({0} 대기 중)</value>
+  </data>
+  <data name="Text_Startsautomaticallyin0_518309" xml:space="preserve">
+    <value>{0} 후 자동 시작</value>
+  </data>
+  <data name="Text_underaminute_30D511" xml:space="preserve">
+    <value>1분 미만</value>
+  </data>
+  <data name="Text_00min_9685AD" xml:space="preserve">
+    <value>{0:0}분</value>
+  </data>
+  <data name="Text_00012files3_B2C08E" xml:space="preserve">
+    <value>{0:0.0}% · 파일 {1}/{2}개{3}</value>
+  </data>
+  <data name="Text_0N0bytes1files_8634DD" xml:space="preserve">
+    <value>{0:N0}바이트 · 파일 {1}개</value>
+  </data>
+  <data name="Text_ETA0_C36B6F" xml:space="preserve">
+    <value> · 남은 시간 {0}</value>
+  </data>
+  <data name="Text_000h_6525E3" xml:space="preserve">
+    <value>{0:0.0}시간</value>
+  </data>
+  <data name="Text_00m_2F8840" xml:space="preserve">
+    <value>{0:0}분</value>
+  </data>
+  <data name="Text_1m_BC5702" xml:space="preserve">
+    <value>1분 미만</value>
+  </data>
+  <data name="Text_Copied_D24981" xml:space="preserve">
+    <value>복사했습니다.</value>
+  </data>
+  <data name="Text_Couldnotaccesstheclipboard_75C339" xml:space="preserve">
+    <value>클립보드에 접근할 수 없습니다.</value>
+  </data>
+  <data name="Text_Thiscodewillonlyrepairtheexist_40CE33" xml:space="preserve">
+    <value>이 코드는 기존 원본 에이전트 '{0}'만 다시 연결할 수 있습니다. 다른 원본 에이전트는 사용할 수 없습니다.</value>
+  </data>
+  <data name="Text_ThiscodewillpairanewSourceAgen_7A5CFC" xml:space="preserve">
+    <value>새 원본 에이전트를 연결하는 코드입니다.</value>
+  </data>
+  <data name="Text_Revoked_F6F738" xml:space="preserve">
+    <value>차단됨</value>
+  </data>
+  <data name="Text_Unassigned_14D33B" xml:space="preserve">
+    <value>미지정</value>
+  </data>
+  <data name="Text_Folder_74CCD4" xml:space="preserve">
+    <value>폴더</value>
+  </data>
+  <data name="Text_Requestfailedwithstatus0_DEBAE1" xml:space="preserve">
+    <value>요청 실패(상태 코드 {0}).</value>
+  </data>
+  <data name="Text_Pairingresponsewasempty_536774" xml:space="preserve">
+    <value>연결 응답이 비어 있습니다.</value>
+  </data>
+  <data name="Text_StorageServicereturnedanemptyc_DD38A2" xml:space="preserve">
+    <value>저장 서비스의 설정 응답이 비어 있습니다.</value>
+  </data>
+  <data name="Text_TheStorageAgentconfigurationch_B0E837" xml:space="preserve">
+    <value>다른 프로그램에서 저장 에이전트 설정을 변경했습니다.</value>
+  </data>
+  <data name="Text_BackupMeshStorageAgent0_8B0304" xml:space="preserve">
+    <value>BackupMesh 저장 에이전트 — {0}</value>
+  </data>
+  <data name="Text_0device1connected_5378A0" xml:space="preserve">
+    <value>저장장치 {0}개 연결됨</value>
+  </data>
+  <data name="Text_RotatingtheStorageidentityrege_47B7C4" xml:space="preserve">
+    <value>저장 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다.</value>
+  </data>
+  <data name="SystemDefault">
+    <value>시스템 기본값</value>
+  </data>
+  <data name="LinkOpenFailed">
+    <value>브라우저를 열 수 없습니다. 다음 주소를 직접 열어 주세요:</value>
+  </data>
+  <data name="ThisPC"><value>이 PC</value></data>
+  <data name="LanguageSaveFailed"><value>언어 설정을 저장하지 못했습니다. 앱 설정 폴더의 접근 권한을 확인하세요.</value></data>
+  <data name="And"><value>및</value></data>
+  <data name="Or"><value>또는</value></data>
+  <data name="TimeAgo"><value>{0} 전</value></data>
+  <data name="Count_minute"><value>{0}분</value></data>
+  <data name="Count_hour"><value>{0}시간</value></data>
+  <data name="Count_day"><value>{0}일</value></data>
+  <data name="Count_backup"><value>백업 {0}개</value></data>
+  <data name="Count_computer"><value>컴퓨터 {0}대</value></data>
+  <data name="State_ACCEPTED"><value>대기 중</value></data>
+  <data name="State_RUNNING"><value>실행 중</value></data>
+  <data name="State_SUCCEEDED"><value>성공</value></data>
+  <data name="State_FAILED"><value>실패</value></data>
+  <data name="State_CANCELLED"><value>취소됨</value></data>
+  <data name="State_CANCEL_REQUESTED"><value>취소 중</value></data>
+</root>

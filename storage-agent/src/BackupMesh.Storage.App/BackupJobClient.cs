@@ -86,15 +86,18 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
 {
     public Guid JobId => model.JobId;
     public string State => model.State;
+    public string StateDisplay => Localization.State(State);
+    public double? PercentComplete => model.Progress is { BytesTotal: > 0 } progress
+        ? Math.Clamp(progress.BytesDone * 100d / progress.BytesTotal.Value, 0, 100) : null;
     public Guid? TargetMappingId => model.TargetMappingId;
     public DateTimeOffset? StartedAt => model.StartedAt;
     public DateTimeOffset UpdatedAt => model.UpdatedAt;
     public string Updated => model.UpdatedAt.LocalDateTime.ToString("g");
     public string Target => mapping is null ? "—" : $"{mapping.BackupSetName} → {mapping.DeviceName}";
     public string Progress => model.Progress is null ? "—" : model.Progress.BytesTotal is > 0
-        ? $"{model.Progress.BytesDone * 100d / model.Progress.BytesTotal:0.0}% · {model.Progress.FilesDone}/{model.Progress.FilesTotal?.ToString() ?? "?"} files{EtaSuffix}"
-        : $"{model.Progress.BytesDone:N0} bytes · {model.Progress.FilesDone} files";
-    public string Result => model.Result?.SnapshotId is { Length: > 0 } snapshot ? $"{model.Result.Outcome} · {snapshot[..Math.Min(8, snapshot.Length)]}" : model.Result?.Outcome ?? "—";
+        ? Localization.Format("Text_00012files3_B2C08E", model.Progress.BytesDone * 100d / model.Progress.BytesTotal, model.Progress.FilesDone, model.Progress.FilesTotal?.ToString() ?? "?", EtaSuffix)
+        : Localization.Format("Text_0N0bytes1files_8634DD", model.Progress.BytesDone, model.Progress.FilesDone);
+    public string Result => model.Result?.SnapshotId is { Length: > 0 } snapshot ? $"{Localization.State(model.Result.Outcome)} · {snapshot[..Math.Min(8, snapshot.Length)]}" : Localization.State(model.Result?.Outcome);
     public bool CanCancel => State is "ACCEPTED" or "RUNNING";
     // Mirrors BackupJobStore.Terminal() server-side: CANCEL_REQUESTED is deliberately excluded - a
     // cancellation still in flight is not yet safe to treat as "this device is done".
@@ -119,8 +122,8 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
         get
         {
             if (EstimatedTimeRemaining is not { } remaining) return string.Empty;
-            var eta = remaining.TotalHours >= 1 ? $"{remaining.TotalHours:0.0}h" : remaining.TotalMinutes >= 1 ? $"{remaining.TotalMinutes:0}m" : "<1m";
-            return $" · ETA {eta}";
+            var eta = remaining.TotalHours >= 1 ? Localization.Format("Text_000h_6525E3", remaining.TotalHours) : remaining.TotalMinutes >= 1 ? Localization.Format("Text_00m_2F8840", remaining.TotalMinutes) : Localization.Text("Text_1m_BC5702");
+            return Localization.Format("Text_ETA0_C36B6F", eta);
         }
     }
 }
@@ -153,7 +156,7 @@ public sealed class StorageDeviceClient : IStorageDeviceClient, IDisposable
         ProblemResponseDto? problem = null;
         try { problem = await response.Content.ReadFromJsonAsync<ProblemResponseDto>(cancellationToken: cancellationToken); }
         catch (JsonException) { }
-        throw new StorageDeviceEjectRefusedException(problem?.Code ?? problem?.Title ?? "UNKNOWN", problem?.Detail ?? $"Request failed with status {(int)response.StatusCode}.");
+        throw new StorageDeviceEjectRefusedException(problem?.Code ?? problem?.Title ?? "UNKNOWN", problem?.Detail ?? Localization.Format("Text_Requestfailedwithstatus0_DEBAE1", (int)response.StatusCode));
     }
     public void Dispose() => _client.Dispose();
 }
