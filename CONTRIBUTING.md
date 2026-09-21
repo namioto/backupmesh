@@ -40,6 +40,8 @@ Package directories are `artifacts/BackupMesh-Source-linux-x64` and `artifacts/B
 
 ## Tests
 
+Prioritize backup and restore correctness, data preservation, authentication, and meaningful regression coverage. Avoid tests that only repeat getters, exact UI wording, control presence, or cosmetic dimensions. Remove obsolete tests with the behavior they covered.
+
 Run Storage Agent tests on Windows:
 
 ```powershell

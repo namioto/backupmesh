@@ -8,16 +8,6 @@ public sealed class TrayFlyoutViewModelTests
 {
     public TrayFlyoutViewModelTests() => Localization.Initialize("en");
     [Fact]
-    public void PendingArrivalTitleNamesTheDeviceAndStatesItConnected()
-    {
-        // The card title explicitly identifies the device connection event.
-        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive HDD", "A", "E:\\", DateTimeOffset.UtcNow, null)) { CurrentRoot = "E:\\" };
-        var pending = new PendingArrivalViewModel(device, eligibleMappingCount: 1, eligibleAt: DateTimeOffset.UtcNow);
-
-        Assert.Equal("Archive HDD (E:\\) connected", pending.TitleDisplay);
-    }
-
-    [Fact]
     public void PendingArrivalStatusStatesACountdownNotAThreshold()
     {
         // Use a plain countdown to one named automatic event.

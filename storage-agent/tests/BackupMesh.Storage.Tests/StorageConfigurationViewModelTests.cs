@@ -7,16 +7,6 @@ namespace BackupMesh.Storage.Tests;
 public sealed class StorageConfigurationViewModelTests
 {
     public StorageConfigurationViewModelTests() => Localization.Initialize("en");
-    [Theory]
-    [InlineData(0, "connected and ready")]
-    [InlineData(15, "15-minute arrival delay")]
-    public void ArrivalNotificationDescribesActualEligibility(int delay, string expected)
-    {
-        var message = MainWindowViewModel.DeviceArrivalMessage("Archive", delay);
-        Assert.Contains(expected, message, StringComparison.OrdinalIgnoreCase);
-        if (delay > 0) Assert.DoesNotContain("is ready", message, StringComparison.OrdinalIgnoreCase);
-    }
-
     [Fact]
     public void RefreshDrivesPublishesEveryAvailableBackupDestination()
     {
@@ -118,16 +108,6 @@ public sealed class StorageConfigurationViewModelTests
     // now dormant client-side data with no UI consumer.
 
     [Fact]
-    public void DisplayNameWithHintExplainsThisPCNeedsNoAgent()
-    {
-        var thisPc = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
-        Assert.Equal("This PC (no agent needed)", thisPc.DisplayNameWithHint);
-
-        var remote = new RemoteAgentViewModel(Guid.NewGuid(), "Home Server");
-        Assert.Equal("Home Server", remote.DisplayNameWithHint);
-    }
-
-    [Fact]
     public void ComputerUnseenSinceItsRenewalWindowOpenedNeedsRePairing()
     {
         var connection = new SourceConnectionViewModel(new(Guid.NewGuid(), "Studio Workstation", "Studio Workstation", DateTimeOffset.UtcNow.AddDays(-45), null, 1, false, DateTimeOffset.UtcNow.AddDays(5)));
@@ -193,38 +173,6 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
-    public void ConsecutiveMappingsSharingASourceOrSourceFolderAreFlaggedAsRepeats()
-    {
-        // Keep the real repeated value and use visual dimming in MainWindow.xaml rather than text substitution. The
-        // text is always the bound value; only these two flags change.
-        var sourceId = Guid.NewGuid();
-        var set = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Documents", ["C:\\Data"]));
-        var otherSet = new BackupSetViewModel(new(Guid.NewGuid(), sourceId, "Studio", "Photos", ["C:\\Photos"]));
-        var deviceA = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
-        var deviceB = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Disk B", "B", "E:\\", DateTimeOffset.UtcNow, null));
-        using var viewModel = new MainWindowViewModel(loadLocalState: false);
-        var first = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceA.Id, "docs-a"), set, deviceA);
-        var second = new MappingViewModel(new(Guid.NewGuid(), set.Id, deviceB.Id, "docs-b"), set, deviceB);
-        var unrelated = new MappingViewModel(new(Guid.NewGuid(), otherSet.Id, deviceA.Id, "photos-a"), otherSet, deviceA);
-
-        viewModel.Mappings.Add(first);
-        viewModel.Mappings.Add(second);
-        viewModel.Mappings.Add(unrelated);
-
-        Assert.False(first.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("Studio", first.SourceAgentName);
-        Assert.True(second.IsRepeatOfPreviousSource);
-        Assert.True(second.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("Studio", second.SourceAgentName);
-        Assert.Equal("Documents", second.BackupSetOnlyName);
-        // Same computer, different Backup Set: the Source repeats but the folder does not, so only the
-        // Source half is flagged.
-        Assert.True(unrelated.IsRepeatOfPreviousSource);
-        Assert.False(unrelated.IsRepeatOfPreviousSourceFolder);
-        Assert.Equal("Photos", unrelated.BackupSetOnlyName);
-    }
-
-    [Fact]
     public async Task LastBackupShowsRelativeTimeAndAFailureReasonForTheMostRecentAttempt()
     {
         var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
@@ -244,23 +192,6 @@ public sealed class StorageConfigurationViewModelTests
         var view = Assert.Single(viewModel.Mappings);
         Assert.Contains("hour", view.LastBackupDisplay);
         Assert.Equal("Last attempt failed", view.LastBackupIssue);
-    }
-
-    [Fact]
-    public async Task LastBackupIsNeverWithNoJobHistory()
-    {
-        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
-        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
-        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "docs");
-        var client = new FakeJobClient([]);
-        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
-        viewModel.Mappings.Add(new(mapping, set, device));
-
-        await viewModel.RefreshJobsAsync();
-
-        var view = Assert.Single(viewModel.Mappings);
-        Assert.Equal("Never", view.LastBackupDisplay);
-        Assert.Equal(string.Empty, view.LastBackupIssue);
     }
 
     [Fact]
@@ -287,21 +218,6 @@ public sealed class StorageConfigurationViewModelTests
 
         var view = Assert.Single(viewModel.Mappings);
         Assert.Equal("Starts when Camera card and Backup USB are all connected", view.TriggerNote);
-    }
-
-    [Fact]
-    public async Task TriggerNoteIsEmptyWithoutAnExplicitTriggerDevice()
-    {
-        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
-        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "A", "D:\\", DateTimeOffset.UtcNow, null));
-        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "docs");
-        var client = new FakeJobClient([]);
-        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
-        viewModel.Mappings.Add(new(mapping, set, device));
-
-        await viewModel.RefreshJobsAsync();
-
-        Assert.Equal(string.Empty, Assert.Single(viewModel.Mappings).TriggerNote);
     }
 
     [Fact]

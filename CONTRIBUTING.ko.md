@@ -40,6 +40,8 @@ pwsh -NoProfile -File scripts/build-windows-source-installer.ps1
 
 ## 테스트
 
+백업·복원 정확성, 데이터 보존, 인증과 실제 버그의 재발 방지를 우선합니다. 단순 getter, UI 문구의 정확한 표현, 컨트롤 존재, 장식적 크기만 확인하는 테스트는 추가하지 않습니다. 동작이 폐기되면 해당 테스트도 함께 제거합니다.
+
 스토리지 에이전트 테스트는 Windows에서 실행합니다.
 
 ```powershell

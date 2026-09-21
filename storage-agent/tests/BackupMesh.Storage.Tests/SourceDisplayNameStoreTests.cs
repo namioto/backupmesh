@@ -5,13 +5,6 @@ namespace BackupMesh.Storage.Tests;
 public sealed class SourceDisplayNameStoreTests
 {
     [Fact]
-    public void UnnamedAgentHasNoOverride()
-    {
-        var store = new SourceDisplayNameStore();
-        Assert.Null(store.Get(Guid.NewGuid()));
-    }
-
-    [Fact]
     public void SettingAnEmptyNameClearsTheOverride()
     {
         var store = new SourceDisplayNameStore();

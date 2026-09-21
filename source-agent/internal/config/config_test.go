@@ -186,14 +186,6 @@ func TestValidateReportsMultipleProblems(t *testing.T) {
 	}
 }
 
-func TestFindBackupSet(t *testing.T) {
-	c := validConfig()
-	set, ok := c.FindBackupSet("home")
-	if !ok || set.Name != "home" {
-		t.Fatalf("FindBackupSet() = %#v, %v", set, ok)
-	}
-}
-
 func TestValidateRejectsRelativeResticCacheDirectory(t *testing.T) {
 	c := validConfig()
 	c.Storage.ResticCacheDirectory = "relative/cache"
