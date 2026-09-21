@@ -40,7 +40,7 @@ public partial class MainWindow : Window
         e.Handled = true;
         if (e.Uri.Scheme != "https" || e.Uri.Host != "github.com") return;
         var address = e.Uri.AbsoluteUri;
-        if (System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ko")
+        if (Localization.Source.Culture.TwoLetterISOLanguageName == "ko")
             address = address.Replace("/docs/USER_GUIDE.md", "/docs/USER_GUIDE.ko.md");
         try { Process.Start(new ProcessStartInfo(address) { UseShellExecute = true }); }
         catch (Exception error) when (error is Win32Exception or InvalidOperationException)

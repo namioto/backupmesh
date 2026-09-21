@@ -40,6 +40,7 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
     public TrayFlyoutViewModel(MainWindowViewModel main)
     {
         _main = main ?? throw new ArgumentNullException(nameof(main));
+        Localization.LanguageChanged += OnLanguageChanged;
 
         OpenMainWindowCommand = new RelayCommand(() => OpenMainWindowRequested?.Invoke(this, EventArgs.Empty));
         CancelAllCommand = new RelayCommand(CancelAll);
@@ -155,6 +156,12 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
         NotifyDerivedPropertiesChanged();
     }
 
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        RefreshJobs();
+        RefreshPendingArrivals();
+    }
+
     private void StartNow(PendingArrivalViewModel? pending)
     {
         if (pending is null) return;
@@ -199,6 +206,7 @@ public sealed class TrayFlyoutViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Localization.LanguageChanged -= OnLanguageChanged;
         _displayTimer.Stop();
         _main.Jobs.CollectionChanged -= OnJobsChanged;
         _main.Devices.CollectionChanged -= OnDevicesChanged;

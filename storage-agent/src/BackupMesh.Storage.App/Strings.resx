@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -25,7 +25,7 @@
     <value>Backups</value>
   </data>
   <data name="Text_SourceAgents_016D07" xml:space="preserve">
-    <value>Source Agents</value>
+    <value>Remote Agents</value>
   </data>
   <data name="Text_Settings_74A883" xml:space="preserve">
     <value>Settings</value>
@@ -106,10 +106,10 @@
     <value>Add backup…</value>
   </data>
   <data name="Text_EachcomputeryoupairrunsaSource_32AFD1" xml:space="preserve">
-    <value>Each computer you pair runs a Source Agent that offers folders for backup. This PC is included without one.</value>
+    <value>Each computer you pair runs a Remote Agent that offers folders for backup. This PC is included without one.</value>
   </data>
   <data name="Text_SourceAgent_21CF69" xml:space="preserve">
-    <value>Source Agent</value>
+    <value>Remote Agent</value>
   </data>
   <data name="Text_Address_56EF8F" xml:space="preserve">
     <value>Address</value>
@@ -139,22 +139,22 @@
     <value>Rename</value>
   </data>
   <data name="Text_RemoveSourceAgent_ED5EE3" xml:space="preserve">
-    <value>Remove Source Agent</value>
+    <value>Remove Remote Agent</value>
   </data>
   <data name="Text_ImmediatelyblockthisSourceAgen_49E716" xml:space="preserve">
-    <value>Immediately block this Source Agent from the control API, even with a valid certificate and token.</value>
+    <value>Immediately block this Remote Agent from the control API, even with a valid certificate and token.</value>
   </data>
   <data name="Text_Issueanewonetimecodethatcanonl_8B9809" xml:space="preserve">
-    <value>Issue a new one-time code that can only re-pair this specific Source Agent (for example, after its certificate or key was lost).</value>
+    <value>Issue a new one-time code that can only re-pair this specific Remote Agent (for example, after its certificate or key was lost).</value>
   </data>
   <data name="Text_Changeonlywhatthetraydisplaysf_8E2E3E" xml:space="preserve">
-    <value>Change only what the tray displays for this Source Agent.</value>
+    <value>Change only what the tray displays for this Remote Agent.</value>
   </data>
   <data name="Text_BlockthisSourceAgentandremovei_1A5808" xml:space="preserve">
-    <value>Block this Source Agent and remove it from this list. Its backups are kept but stop being reported until it is re-paired.</value>
+    <value>Block this Remote Agent and remove it from this list. Its backups are kept but stop being reported until it is re-paired.</value>
   </data>
   <data name="Text_PairaSourceAgent_379C01" xml:space="preserve">
-    <value>Pair a Source Agent</value>
+    <value>Pair a Remote Agent</value>
   </data>
   <data name="Text_Createaonetime10minutepairingc_67FD9C" xml:space="preserve">
     <value>Create a one-time 10-minute pairing code and pinned Storage certificate fingerprint.</value>
@@ -163,7 +163,7 @@
     <value>Back up a folder on this PC…</value>
   </data>
   <data name="Text_BackupafolderonthisPCdirectlyn_11F9C0" xml:space="preserve">
-    <value>Back up a folder on this PC directly - no Source Agent or pairing needed.</value>
+    <value>Back up a folder on this PC directly - no Remote Agent or pairing needed.</value>
   </data>
   <data name="Text_Removefolder_F2A987" xml:space="preserve">
     <value>Remove folder</value>
@@ -172,13 +172,13 @@
     <value>Stop backing up the selected local folder. Its Backups are removed with it.</value>
   </data>
   <data name="Text_BackupssyncfrompairedSourceAge_B93A96" xml:space="preserve">
-    <value>Backups sync from paired Source Agents; "This PC" is always available for local folders.</value>
+    <value>Backups sync from paired Remote Agents; "This PC" is always available for local folders.</value>
   </data>
   <data name="Text_Language_A4FE65" xml:space="preserve">
     <value>Language</value>
   </data>
   <data name="Text_SavedautomaticallyExitBackupMe_6E29AA" xml:space="preserve">
-    <value>Saved automatically. Exit BackupMesh from the tray menu and reopen it to apply the language.</value>
+    <value>Language changes apply immediately and are saved automatically.</value>
   </data>
   <data name="Text_Automation_D90975" xml:space="preserve">
     <value>Automation</value>
@@ -268,13 +268,13 @@
     <value>Close</value>
   </data>
   <data name="Text_RenameSourceAgent_7BF263" xml:space="preserve">
-    <value>Rename Source Agent</value>
+    <value>Rename Remote Agent</value>
   </data>
   <data name="Text_Displayname_2B7F6A" xml:space="preserve">
     <value>Display name</value>
   </data>
   <data name="Text_Thisonlychangeswhatthetrayshow_F822F2" xml:space="preserve">
-    <value>This only changes what the tray shows you; the Source Agent keeps reporting its own name.</value>
+    <value>This only changes what the tray shows you; the Remote Agent keeps reporting its own name.</value>
   </data>
   <data name="Text_Cancel_19766E" xml:space="preserve">
     <value>Cancel</value>
@@ -388,10 +388,10 @@
     <value>Storage Agent UI test state initialized.</value>
   </data>
   <data name="Text_ThisPChasnoSourceAgenttomanage_C05F5C" xml:space="preserve">
-    <value>This PC has no Source Agent to manage - these actions apply only to other rows.</value>
+    <value>This PC has no Remote Agent to manage - these actions apply only to other rows.</value>
   </data>
   <data name="Text_ThisSourceAgenthasntconnectedy_34F527" xml:space="preserve">
-    <value>This Source Agent hasn't connected yet, so there's nothing to manage here.</value>
+    <value>This Remote Agent hasn't connected yet, so there's nothing to manage here.</value>
   </data>
   <data name="Text_Backingupnow_CF4F1D" xml:space="preserve">
     <value>Backing up now…</value>
@@ -703,10 +703,10 @@
     <value>Could not access the clipboard.</value>
   </data>
   <data name="Text_Thiscodewillonlyrepairtheexist_40CE33" xml:space="preserve">
-    <value>This code will only re-pair the existing Source Agent "{0}" — no other Source Agent can use it.</value>
+    <value>This code will only re-pair the existing Remote Agent "{0}" — no other Remote Agent can use it.</value>
   </data>
   <data name="Text_ThiscodewillpairanewSourceAgen_7A5CFC" xml:space="preserve">
-    <value>This code will pair a new Source Agent.</value>
+    <value>This code will pair a new Remote Agent.</value>
   </data>
   <data name="Text_Revoked_F6F738" xml:space="preserve">
     <value>Revoked</value>

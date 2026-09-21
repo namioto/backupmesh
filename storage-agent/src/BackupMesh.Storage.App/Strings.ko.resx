@@ -25,7 +25,7 @@
     <value>백업</value>
   </data>
   <data name="Text_SourceAgents_016D07" xml:space="preserve">
-    <value>원본 에이전트</value>
+    <value>원격 에이전트</value>
   </data>
   <data name="Text_Settings_74A883" xml:space="preserve">
     <value>설정</value>
@@ -106,10 +106,10 @@
     <value>백업 추가…</value>
   </data>
   <data name="Text_EachcomputeryoupairrunsaSource_32AFD1" xml:space="preserve">
-    <value>연결된 각 컴퓨터의 원본 에이전트가 백업할 폴더를 제공합니다. 이 PC는 별도 에이전트 없이 사용할 수 있습니다.</value>
+    <value>연결된 각 컴퓨터의 원격 에이전트가 백업할 폴더를 제공합니다. 이 PC는 별도 에이전트 없이 사용할 수 있습니다.</value>
   </data>
   <data name="Text_SourceAgent_21CF69" xml:space="preserve">
-    <value>원본 에이전트</value>
+    <value>원격 에이전트</value>
   </data>
   <data name="Text_Address_56EF8F" xml:space="preserve">
     <value>주소</value>
@@ -139,22 +139,22 @@
     <value>이름 변경</value>
   </data>
   <data name="Text_RemoveSourceAgent_ED5EE3" xml:space="preserve">
-    <value>원본 에이전트 제거</value>
+    <value>원격 에이전트 제거</value>
   </data>
   <data name="Text_ImmediatelyblockthisSourceAgen_49E716" xml:space="preserve">
-    <value>유효한 인증서와 토큰이 있어도 이 원본 에이전트의 접근을 즉시 차단합니다.</value>
+    <value>유효한 인증서와 토큰이 있어도 이 원격 에이전트의 접근을 즉시 차단합니다.</value>
   </data>
   <data name="Text_Issueanewonetimecodethatcanonl_8B9809" xml:space="preserve">
-    <value>이 원본 에이전트만 다시 연결할 수 있는 일회용 코드를 발급합니다. 인증서나 키를 분실했을 때 사용하세요.</value>
+    <value>이 원격 에이전트만 다시 연결할 수 있는 일회용 코드를 발급합니다. 인증서나 키를 분실했을 때 사용하세요.</value>
   </data>
   <data name="Text_Changeonlywhatthetraydisplaysf_8E2E3E" xml:space="preserve">
-    <value>이 원본 에이전트의 표시 이름만 변경합니다.</value>
+    <value>이 원격 에이전트의 표시 이름만 변경합니다.</value>
   </data>
   <data name="Text_BlockthisSourceAgentandremovei_1A5808" xml:space="preserve">
     <value>접근을 차단하고 목록에서 제거합니다. 기존 백업은 보존되며 다시 연결할 때까지 보고가 중단됩니다.</value>
   </data>
   <data name="Text_PairaSourceAgent_379C01" xml:space="preserve">
-    <value>원본 에이전트 연결</value>
+    <value>원격 에이전트 연결</value>
   </data>
   <data name="Text_Createaonetime10minutepairingc_67FD9C" xml:space="preserve">
     <value>10분간 유효한 일회용 연결 코드와 스토리지 에이전트 인증서 지문을 생성합니다.</value>
@@ -163,7 +163,7 @@
     <value>이 PC의 폴더 백업…</value>
   </data>
   <data name="Text_BackupafolderonthisPCdirectlyn_11F9C0" xml:space="preserve">
-    <value>별도 원본 에이전트나 연결 절차 없이 이 PC의 폴더를 백업합니다.</value>
+    <value>별도 원격 에이전트나 연결 절차 없이 이 PC의 폴더를 백업합니다.</value>
   </data>
   <data name="Text_Removefolder_F2A987" xml:space="preserve">
     <value>폴더 제거</value>
@@ -172,13 +172,13 @@
     <value>선택한 로컬 폴더의 백업을 중지하고 연결된 백업 규칙도 제거합니다.</value>
   </data>
   <data name="Text_BackupssyncfrompairedSourceAge_B93A96" xml:space="preserve">
-    <value>연결된 원본 에이전트에서 백업 목록을 가져옵니다. 로컬 폴더는 항상 '이 PC'에서 사용할 수 있습니다.</value>
+    <value>연결된 원격 에이전트에서 백업 목록을 가져옵니다. 로컬 폴더는 항상 '이 PC'에서 사용할 수 있습니다.</value>
   </data>
   <data name="Text_Language_A4FE65" xml:space="preserve">
     <value>언어</value>
   </data>
   <data name="Text_SavedautomaticallyExitBackupMe_6E29AA" xml:space="preserve">
-    <value>자동 저장됩니다. 트레이 메뉴에서 BackupMesh를 종료한 뒤 다시 실행하면 적용됩니다.</value>
+    <value>언어는 즉시 적용되며 자동으로 저장됩니다.</value>
   </data>
   <data name="Text_Automation_D90975" xml:space="preserve">
     <value>자동화</value>
@@ -268,13 +268,13 @@
     <value>닫기</value>
   </data>
   <data name="Text_RenameSourceAgent_7BF263" xml:space="preserve">
-    <value>원본 에이전트 이름 변경</value>
+    <value>원격 에이전트 이름 변경</value>
   </data>
   <data name="Text_Displayname_2B7F6A" xml:space="preserve">
     <value>표시 이름</value>
   </data>
   <data name="Text_Thisonlychangeswhatthetrayshow_F822F2" xml:space="preserve">
-    <value>앱의 표시 이름만 변경합니다. 원본 에이전트가 보고하는 이름은 유지됩니다.</value>
+    <value>앱의 표시 이름만 변경합니다. 원격 에이전트가 보고하는 이름은 유지됩니다.</value>
   </data>
   <data name="Text_Cancel_19766E" xml:space="preserve">
     <value>취소</value>
@@ -388,10 +388,10 @@
     <value>스토리지 에이전트 UI 테스트 상태를 초기화했습니다.</value>
   </data>
   <data name="Text_ThisPChasnoSourceAgenttomanage_C05F5C" xml:space="preserve">
-    <value>이 PC에는 관리할 원본 에이전트가 없습니다. 다른 컴퓨터에만 사용할 수 있습니다.</value>
+    <value>이 PC에는 관리할 원격 에이전트가 없습니다. 다른 컴퓨터에만 사용할 수 있습니다.</value>
   </data>
   <data name="Text_ThisSourceAgenthasntconnectedy_34F527" xml:space="preserve">
-    <value>이 원본 에이전트가 아직 연결되지 않아 관리할 정보가 없습니다.</value>
+    <value>이 원격 에이전트가 아직 연결되지 않아 관리할 정보가 없습니다.</value>
   </data>
   <data name="Text_Backingupnow_CF4F1D" xml:space="preserve">
     <value>백업 중…</value>
@@ -703,10 +703,10 @@
     <value>클립보드에 접근할 수 없습니다.</value>
   </data>
   <data name="Text_Thiscodewillonlyrepairtheexist_40CE33" xml:space="preserve">
-    <value>이 코드는 기존 원본 에이전트 '{0}'만 다시 연결할 수 있습니다. 다른 원본 에이전트는 사용할 수 없습니다.</value>
+    <value>이 코드는 기존 원격 에이전트 '{0}'만 다시 연결할 수 있습니다. 다른 원격 에이전트는 사용할 수 없습니다.</value>
   </data>
   <data name="Text_ThiscodewillpairanewSourceAgen_7A5CFC" xml:space="preserve">
-    <value>새 원본 에이전트를 연결하는 코드입니다.</value>
+    <value>새 원격 에이전트를 연결하는 코드입니다.</value>
   </data>
   <data name="Text_Revoked_F6F738" xml:space="preserve">
     <value>차단됨</value>

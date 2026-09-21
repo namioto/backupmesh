@@ -6,6 +6,10 @@ using BackupMesh.Storage.App;
 
 namespace BackupMesh.Storage.Tests;
 
+[CollectionDefinition("Localization", DisableParallelization = true)]
+public sealed class LocalizationCollection;
+
+[Collection("Localization")]
 public sealed class LocalizationTests
 {
     [Fact]
@@ -34,7 +38,7 @@ public sealed class LocalizationTests
         var originalFormat = CultureInfo.CurrentCulture;
         try
         {
-            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ko");
+            Localization.Initialize("ko");
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
             var job = new BackupJobViewModel(new(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, new(125, 1000, 1, 8), null));
             Assert.Equal("RUNNING", job.State);
@@ -51,8 +55,52 @@ public sealed class LocalizationTests
         }
         finally
         {
-            CultureInfo.CurrentUICulture = originalUi;
+            Localization.Initialize(originalUi.TwoLetterISOLanguageName);
             CultureInfo.CurrentCulture = originalFormat;
         }
+    }
+
+    [Fact]
+    public void LanguageSwitchUpdatesExistingBindingsAndPreservesViewModel()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            var original = Localization.Source.Culture;
+            try
+            {
+                Localization.Initialize("en");
+                var label = (System.Windows.Controls.TextBlock)System.Windows.Markup.XamlReader.Parse("""
+                    <TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                               xmlns:local="clr-namespace:BackupMesh.Storage.App;assembly=BackupMesh.Storage.App"
+                               Text="{local:Loc Text_SourceAgent_21CF69}"/>
+                    """);
+                using var model = new MainWindowViewModel(loadLocalState: false);
+                var jobs = model.Jobs;
+                var job = new BackupJobViewModel(new(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, null, null));
+                jobs.Add(job);
+                model.SelectedJob = job;
+                Assert.Equal("Remote Agent", label.Text);
+                model.Language = "ko";
+                Assert.Equal("원격 에이전트", label.Text);
+                Assert.Equal("실행 중", job.StateDisplay);
+                Assert.Same(jobs, model.Jobs);
+                Assert.Same(job, model.SelectedJob);
+                model.Language = "en";
+                Assert.Equal("Remote Agent", label.Text);
+                Assert.Equal("RUNNING", job.State);
+                model.Language = "";
+                var automatic = Localization.Source.Culture;
+                model.Language = "ko";
+                model.Language = "";
+                Assert.Equal(automatic, Localization.Source.Culture);
+            }
+            catch (Exception error) { failure = error; }
+            finally { Localization.Initialize(original.TwoLetterISOLanguageName); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(20)), "Language switch check timed out.");
+        Assert.Null(failure);
     }
 }

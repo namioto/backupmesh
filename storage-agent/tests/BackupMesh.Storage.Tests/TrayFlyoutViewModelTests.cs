@@ -3,9 +3,10 @@ using BackupMesh.Storage.Core;
 
 namespace BackupMesh.Storage.Tests;
 
+[Collection("Localization")]
 public sealed class TrayFlyoutViewModelTests
 {
-    public TrayFlyoutViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
+    public TrayFlyoutViewModelTests() => Localization.Initialize("en");
     [Fact]
     public void PendingArrivalTitleNamesTheDeviceAndStatesItConnected()
     {

@@ -3,9 +3,10 @@ using BackupMesh.Storage.Core;
 
 namespace BackupMesh.Storage.Tests;
 
+[Collection("Localization")]
 public sealed class StorageConfigurationViewModelTests
 {
-    public StorageConfigurationViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
+    public StorageConfigurationViewModelTests() => Localization.Initialize("en");
     [Theory]
     [InlineData(0, "connected and ready")]
     [InlineData(15, "15-minute arrival delay")]
@@ -119,10 +120,10 @@ public sealed class StorageConfigurationViewModelTests
     [Fact]
     public void DisplayNameWithHintExplainsThisPCNeedsNoAgent()
     {
-        var thisPc = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        var thisPc = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
         Assert.Equal("This PC (no agent needed)", thisPc.DisplayNameWithHint);
 
-        var remote = new SourceAgentViewModel(Guid.NewGuid(), "Home Server");
+        var remote = new RemoteAgentViewModel(Guid.NewGuid(), "Home Server");
         Assert.Equal("Home Server", remote.DisplayNameWithHint);
     }
 

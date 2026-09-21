@@ -157,7 +157,7 @@
                     <GroupBox Grid.Row="1" Header="{local:Loc Text_SourceAgents_016D07}" Padding="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid MinHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSourceAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                            <DataGrid MinHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{local:Loc Text_SourceAgent_21CF69}" Binding="{Binding DisplayNameWithHint}" Width="1.7*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="{local:Loc Text_Address_56EF8F}" Binding="{Binding AddressDisplay}" Width="1.1*" ToolTipService.ToolTip="{local:Loc Text_Theaddressthiscomputerlastconn_73FCC6}"/>

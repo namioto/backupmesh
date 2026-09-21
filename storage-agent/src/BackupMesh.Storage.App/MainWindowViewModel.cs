@@ -34,7 +34,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // already off before the skip happened.
     private readonly HashSet<Guid> _skipDisabledMappingIds = [];
     private BackupSetViewModel? _selectedBackupSet;
-    private SourceAgentViewModel? _selectedSourceAgent;
+    private RemoteAgentViewModel? _selectedRemoteAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
     private DeviceViewModel? _selectedDevice;
     private MappingViewModel? _selectedMapping;
@@ -45,7 +45,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly bool _demoMode;
     private readonly bool _persistLocalState;
 
-    public ObservableCollection<SourceAgentViewModel> Sources { get; } = [];
+    public ObservableCollection<RemoteAgentViewModel> Sources { get; } = [];
     public ObservableCollection<SourceConnectionViewModel> SourceConnections { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
@@ -55,7 +55,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<string> Activity { get; } = [];
     public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
     public string ProductVersion => "BackupMesh v" + typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3);
-    public IReadOnlyList<LanguageOption> Languages { get; } = [new("", Localization.Text("SystemDefault")), new("ko", "한국어"), new("en", "English")];
+    public IReadOnlyList<LanguageOption> Languages { get; } = [new("", ""), new("ko", "한국어"), new("en", "English")];
     private string _language = "";
     public string Language
     {
@@ -68,6 +68,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 if (_persistLocalState) _store.Save(_store.Load() with { Language = normalized });
                 Set(ref _language, normalized);
+                Localization.Initialize(normalized);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
@@ -127,6 +128,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         else Activity.Add(Localization.Text("Text_StorageAgentUIteststateinitial_49AF15"));
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
         if (loadLocalState || demoMode) RefreshDrives();
+        Localization.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        foreach (var language in Languages) language.RefreshText();
+        foreach (var item in Sources.Cast<ObservableObject>().Concat(SourceConnections).Concat(BackupSets).Concat(Devices).Concat(Mappings).Concat(Jobs))
+            item.RefreshText();
+        NotifyCounts();
+        FooterStatus = Localization.Text("Text_SavedautomaticallyExitBackupMe_6E29AA");
+        RefreshText();
     }
 
     public string OverallStatus { get => _overallStatus; private set { Set(ref _overallStatus, value); StatusChanged?.Invoke(this, Localization.Format("Text_BackupMeshStorageAgent0_8B0304", value)); } }
@@ -142,12 +154,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // The merged Computers grid selects a computer directly; picking one resolves (or clears) the
     // connection the action buttons act on, replacing what used to be a separate tree-selection handler
     // in code-behind now that there is only one list to select from.
-    public SourceAgentViewModel? SelectedSourceAgent
+    public RemoteAgentViewModel? SelectedRemoteAgent
     {
-        get => _selectedSourceAgent;
+        get => _selectedRemoteAgent;
         set
         {
-            if (!Set(ref _selectedSourceAgent, value)) return;
+            if (!Set(ref _selectedRemoteAgent, value)) return;
             SelectedSourceConnection = value is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == value.Id);
             OnPropertyChanged(nameof(SelectedComputerActionHint));
         }
@@ -155,7 +167,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) { OnPropertyChanged(nameof(HasSelectedSourceConnection)); OnPropertyChanged(nameof(SelectedComputerActionHint)); } } }
     public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
     // Explain why connection actions are disabled for the current selection.
-    public string SelectedComputerActionHint => SelectedSourceAgent switch
+    public string SelectedComputerActionHint => SelectedRemoteAgent switch
     {
         null => string.Empty,
         { Id: var id } when id == LocalSourceIdentity.AgentId => Localization.Text("Text_ThisPChasnoSourceAgenttomanage_C05F5C"),
@@ -351,14 +363,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (TaskCanceledException) { }
     }
 
-    // Sources is rebuilt from scratch (new SourceAgentViewModel instances) on every catalog/config
+    // Sources is rebuilt from scratch (new RemoteAgentViewModel instances) on every catalog/config
     // refresh, so each one's Connection must be re-applied every time too, not just when
     // RefreshConnectionsAsync() itself runs - otherwise a catalog refresh 10 seconds later silently wipes
     // every computer's connection info from the merged grid until the next connections poll.
     private void ApplySourceConnections()
     {
         foreach (var source in Sources) source.Connection = SourceConnections.FirstOrDefault(connection => connection.AgentId == source.Id);
-        SelectedSourceConnection = SelectedSourceAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedSourceAgent.Id);
+        SelectedSourceConnection = SelectedRemoteAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedRemoteAgent.Id);
         UpdateMappingLastBackupInfo();
     }
 
@@ -488,21 +500,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         // Sources is rebuilt with brand new instances below, which would otherwise silently drop
         // whatever computer the user has selected in the merged grid every 10-second catalog refresh.
-        var selectedSourceId = SelectedSourceAgent?.Id;
+        var selectedSourceId = SelectedRemoteAgent?.Id;
         Sources.Clear();
         // "This PC" always appears first, even with no local Backup Sets yet.
-        var localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        var localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
         foreach (var set in BackupSets.Where(item => item.Model.SourceAgentId == LocalSourceIdentity.AgentId).OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase))
             localSource.BackupSets.Add(set);
         Sources.Add(localSource);
         foreach (var group in BackupSets.Where(item => item.Model.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.Model.SourceAgentId, set.Model.SourceAgentName }).OrderBy(group => group.Key.SourceAgentName, StringComparer.OrdinalIgnoreCase))
         {
-            var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
+            var source = new RemoteAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
             foreach (var set in group.OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase)) source.BackupSets.Add(set);
             Sources.Add(source);
         }
         SelectedBackupSet ??= BackupSets.FirstOrDefault(set => set.IsAvailable);
-        SelectedSourceAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
+        SelectedRemoteAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
         ApplySourceConnections();
         RefreshDeviceTriggerRoles();
         NotifyCounts();
@@ -612,7 +624,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         foreach (var device in state.Topology.Devices) Devices.Add(new(device));
         foreach (var group in state.Topology.BackupSets.GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
         {
-            var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
+            var source = new RemoteAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
             foreach (var backupSet in group)
             {
                 var item = new BackupSetViewModel(backupSet);
@@ -637,14 +649,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void LoadDemoSources()
     {
-        Sources.Add(new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName));
+        Sources.Add(new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName));
 
-        var home = new SourceAgentViewModel(Guid.Parse("c60280da-a03c-4887-a600-577def417af6"), "Home Server");
+        var home = new RemoteAgentViewModel(Guid.Parse("c60280da-a03c-4887-a600-577def417af6"), "Home Server");
         AddDemoSet(home, new(Guid.Parse("7d750726-97ab-4f81-9f09-f06c34f524d1"), home.Id, home.DisplayName, "Photos", ["/srv/photos", "/srv/videos"]));
         AddDemoSet(home, new(Guid.Parse("e10a4df5-0f71-438d-93f0-34e587357f00"), home.Id, home.DisplayName, "Documents", ["/home/park/Documents"]));
         Sources.Add(home);
 
-        var workstation = new SourceAgentViewModel(Guid.Parse("0cdf358f-4b92-4bb0-b852-460520508952"), "Studio Workstation");
+        var workstation = new RemoteAgentViewModel(Guid.Parse("0cdf358f-4b92-4bb0-b852-460520508952"), "Studio Workstation");
         AddDemoSet(workstation, new(Guid.Parse("bb452fc9-f616-4810-a649-3c37775d43d4"), workstation.Id, workstation.DisplayName, "Projects", ["D:/Projects"]));
         Sources.Add(workstation);
 
@@ -664,7 +676,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NotifyCounts();
     }
 
-    private void AddDemoSet(SourceAgentViewModel source, SourceBackupSet model)
+    private void AddDemoSet(RemoteAgentViewModel source, SourceBackupSet model)
     {
         var backupSet = new BackupSetViewModel(model);
         source.BackupSets.Add(backupSet);
@@ -731,7 +743,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ApplyTopology(StorageAgentConfiguration topology)
     {
-        var selectedSourceId = SelectedSourceAgent?.Id;
+        var selectedSourceId = SelectedRemoteAgent?.Id;
         Devices.Clear();
         BackupSets.Clear();
         Sources.Clear();
@@ -739,7 +751,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         foreach (var device in topology.Devices) Devices.Add(new(device));
         // "This PC" always appears first, even with no local Backup Sets yet: local backups need no
         // Source Agent, pairing, or explicit enable step to be available in the tray.
-        var localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+        var localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
         Sources.Add(localSource);
         foreach (var model in topology.BackupSets.Where(set => set.SourceAgentId == LocalSourceIdentity.AgentId))
         {
@@ -749,7 +761,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         foreach (var group in topology.BackupSets.Where(set => set.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
         {
-            var source = new SourceAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
+            var source = new RemoteAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
             foreach (var model in group)
             {
                 var backupSet = new BackupSetViewModel(model);
@@ -766,7 +778,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         SelectedBackupSet = BackupSets.FirstOrDefault();
         SelectedDevice = Devices.FirstOrDefault();
-        SelectedSourceAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
+        SelectedRemoteAgent = Sources.FirstOrDefault(source => source.Id == selectedSourceId);
         ApplySourceConnections();
         RefreshDrives();
         RefreshDeviceTriggerRoles();
@@ -931,7 +943,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var localSource = Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId);
         if (localSource is null)
         {
-            localSource = new SourceAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
+            localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
             Sources.Insert(0, localSource);
         }
         localSource.BackupSets.Add(backupSet);
@@ -1067,6 +1079,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Localization.LanguageChanged -= OnLanguageChanged;
         _shutdown.Cancel();
         _deviceTimer.Stop();
         _catalogTimer.Stop();
@@ -1084,7 +1097,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 // (no certificate/connection of its own) and for any computer
 // that hasn't connected since Storage started - LastSeenDisplay/StatusDisplay fall back to "-" rather
 // than leaving the cell blank or, worse, putting a non-status value like "This PC" in the Status column.
-public sealed class SourceAgentViewModel(Guid id, string displayName) : ObservableObject
+public sealed class RemoteAgentViewModel(Guid id, string displayName) : ObservableObject
 {
     private SourceConnectionViewModel? _connection;
     public Guid Id { get; } = id;
@@ -1113,7 +1126,7 @@ public sealed class SourceAgentViewModel(Guid id, string displayName) : Observab
     public override string ToString() => DisplayName;
 }
 
-public sealed class SourceConnectionViewModel(SourceConnectionDto model)
+public sealed class SourceConnectionViewModel(SourceConnectionDto model) : ObservableObject
 {
     public Guid AgentId { get; } = model.AgentId;
     public string AgentName { get; } = model.AgentName;
@@ -1365,6 +1378,7 @@ internal sealed class ConfigurationStore
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {
+    public void RefreshText() => OnPropertyChanged(string.Empty);
     public event PropertyChangedEventHandler? PropertyChanged;
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {

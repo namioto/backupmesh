@@ -35,6 +35,13 @@ public partial class App : System.Windows.Application
         menu.Items.Add(Localization.Text("Text_Backupnow_02A284"), null, (_, _) => _window.ViewModel.QueueSelectedBackups());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(Localization.Text("Text_Exit_D17D84"), null, (_, _) => ExitApplication());
+        Localization.LanguageChanged += (_, _) =>
+        {
+            menu.Items[0].Text = Localization.Text("Text_OpenBackupMesh_1E9B33");
+            menu.Items[1].Text = Localization.Text("Text_Backupnow_02A284");
+            menu.Items[3].Text = Localization.Text("Text_Exit_D17D84");
+            UpdateTrayText();
+        };
 
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "backupmesh-tray.ico");
         _trayIcon = new Forms.NotifyIcon

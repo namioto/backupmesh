@@ -24,7 +24,7 @@ public sealed class StringEmptyToCollapsedConverter : IValueConverter
 }
 
 // Hides a detail line that only makes sense once something is selected (e.g. the Source Agents tab's
-// certificate summary line, shown per SelectedSourceAgent).
+// certificate summary line, shown per SelectedRemoteAgent).
 public sealed class NullToCollapsedConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

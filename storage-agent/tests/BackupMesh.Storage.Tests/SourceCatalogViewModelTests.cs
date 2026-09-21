@@ -2,9 +2,10 @@ using BackupMesh.Storage.App;
 
 namespace BackupMesh.Storage.Tests;
 
+[Collection("Localization")]
 public sealed class SourceCatalogViewModelTests
 {
-    public SourceCatalogViewModelTests() => System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
+    public SourceCatalogViewModelTests() => Localization.Initialize("en");
     [Fact]
     public async Task PublishedCatalogPopulatesSourcesAndBackupSets()
     {

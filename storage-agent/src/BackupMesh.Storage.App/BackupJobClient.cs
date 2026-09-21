@@ -82,7 +82,7 @@ public sealed class BackupJobClient : IBackupJobClient, IDisposable
 // job.TargetMappingId and a converter) keeps the join against the currently-loaded Mappings collection a
 // one-time snapshot taken when the job list is refreshed, matching how every other *Name property in
 // this file already works.
-public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? mapping = null)
+public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? mapping = null) : ObservableObject
 {
     public Guid JobId => model.JobId;
     public string State => model.State;

@@ -4,6 +4,16 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-22
+
+### Changed
+
+- Language selection now applies immediately to the UI, computed status labels and tray menu without restarting or replacing active view models.
+- User-facing Source Agent labels are now Remote Agent / 원격 에이전트; Storage Agent is 스토리지 에이전트. The UI view model and selection properties use RemoteAgent names; persisted settings and protocol fields remain compatible.
+- Overview panels share the available window height; long job and activity lists scroll internally instead of expanding the entire page.
+
+- README build instructions moved into English and Korean contribution guides; overview diagrams now use Remote Agent terminology.
+
 ## [0.3.0] - 2026-09-22
 
 ### Changed
@@ -132,4 +142,5 @@ First end-to-end MVP release.
 [0.2.0]: https://github.com/namioto/backupmesh/compare/v0.1.1...v0.2.0
 [0.2.1]: https://github.com/namioto/backupmesh/compare/v0.2.0...v0.2.1
 [0.3.0]: https://github.com/namioto/backupmesh/compare/v0.2.1...v0.3.0
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.0...HEAD
+[0.3.1]: https://github.com/namioto/backupmesh/compare/v0.3.0...v0.3.1
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.1...HEAD

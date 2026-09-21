@@ -2,33 +2,26 @@
 
 **한국어** | [English](USER_GUIDE.md)
 
-이 문서는 현재 MVP인 Windows Storage Agent와 하나 이상의 Linux Source Agent를 설치하고 사용하는 방법을 설명합니다. 실제 환경에서 복원을 검증하기 전까지는 중요한 데이터의 다른 독립 사본을 유지하세요.
+이 문서는 현재 MVP인 Windows Storage Agent와 하나 이상의 Linux Remote Agent를 설치하고 사용하는 방법을 설명합니다. 실제 환경에서 복원을 검증하기 전까지는 중요한 데이터의 다른 독립 사본을 유지하세요.
 
-## 1. 패키지 빌드
+## 1. 설치 패키지 준비
 
-저장소 루트의 PowerShell에서 실행합니다.
-
-```powershell
-pwsh -NoProfile -File scripts/build-windows-test-package.ps1
-pwsh -NoProfile -File scripts/build-windows-installer.ps1
-pwsh -NoProfile -File scripts/build-linux-source-package.ps1
-pwsh -NoProfile -File scripts/build-windows-source-package.ps1
-```
+아래 설치 패키지를 준비하세요. 소스에서 직접 만드는 절차는 [기여 가이드](../CONTRIBUTING.ko.md)를 참고하세요.
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.0-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Source Agent)
+- `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
 
 고정 버전 `restic`과 `rest-server`가 포함되므로 대상 장비에 .NET이나 Go를 별도로 설치할 필요가 없습니다.
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.0-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.0-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.1-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -41,7 +34,7 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 제거할 때는 **설정 보존(아니요)**이 기본값입니다. **예**를 선택하면 Storage의 백업 규칙, 이력, 페어링 정보와 제거를 실행하는 Windows 사용자의 앱 설정을 삭제합니다. 연결된 컴퓨터는 다시 페어링해야 합니다. 무인 제거는 설정을 보존합니다. PowerShell 제거에서는 `Uninstall-BackupMesh.ps1 -RemoveSettings`로 같은 삭제를 요청할 수 있습니다.
 
-실제 백업, `local-repository-passwords`의 암호, 별도 Source Agent 데이터는 삭제하지 않습니다. 설정 파일 옆의 `*.recovery-*`에는 암호 파일의 mapping ID와 백업 경로를 찾기 위한 복구용 정보가 보존되며 재설치 시 자동으로 불러오지 않습니다. 이 암호는 Windows DPAPI로 보호되므로 다른 PC로 파일을 복사하는 것만으로 복구할 수 없습니다. 다른 Windows 사용자의 UI 설정도 보존합니다. 기존 설정이 남아 있으면 재설치의 시작 화면에서 재사용 사실을 안내합니다.
+실제 백업, `local-repository-passwords`의 암호, 별도 Remote Agent 데이터는 삭제하지 않습니다. 설정 파일 옆의 `*.recovery-*`에는 암호 파일의 mapping ID와 백업 경로를 찾기 위한 복구용 정보가 보존되며 재설치 시 자동으로 불러오지 않습니다. 이 암호는 Windows DPAPI로 보호되므로 다른 PC로 파일을 복사하는 것만으로 복구할 수 없습니다. 다른 Windows 사용자의 UI 설정도 보존합니다. 기존 설정이 남아 있으면 재설치의 시작 화면에서 재사용 사실을 안내합니다.
 
 ## 3. 백업 저장 위치 선택
 
@@ -54,13 +47,13 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 연결 후 백업 시작까지의 대기 시간은 **Settings** 탭의 전역 기본값으로 적용됩니다. 이동식 저장장치 분리는 백업 작업이 끝난 뒤 Windows에서 수행합니다.
 
-## 3b. 이 PC 자체의 파일 백업하기 (Source Agent 불필요)
+## 3b. 이 PC 자체의 파일 백업하기 (Remote Agent 불필요)
 
-**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Source Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Source Agent의 Backup Set과 똑같이 원하는 대상으로 보낼 수 있는 Backup Set으로 나타납니다. 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
+**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Remote Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Remote Agent의 Backup Set과 똑같이 원하는 대상으로 보낼 수 있는 Backup Set으로 나타납니다. 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
 
-이 방식으로 폴더 백업을 그만두려면 같은 탭의 **Remove folder**를 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Source Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
+이 방식으로 폴더 백업을 그만두려면 같은 탭의 **Remove folder**를 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Remote Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
 
-## 4. Linux Source Agent 설치와 설정
+## 4. Linux Remote Agent 설치와 설정
 
 `BackupMesh-Source-linux-x64`를 Linux 장비로 복사한 뒤 실행합니다.
 
@@ -69,9 +62,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-각 Backup Set에는 표시 이름, 원본 경로, 필요한 include/exclude 패턴만 설정합니다. Source Agent가 Agent와 Backup Set의 고정 UUID를 자동 생성하고 설정 파일 옆의 소유자 전용 `*.state.json` 파일에 보존합니다. 사용자가 ID를 편집하거나 Source 사이에 복사하면 안 됩니다. 설정 파일을 검증합니다.
+각 Backup Set에는 표시 이름, 원본 경로, 필요한 include/exclude 패턴만 설정합니다. Remote Agent가 Agent와 Backup Set의 고정 UUID를 자동 생성하고 설정 파일 옆의 소유자 전용 `*.state.json` 파일에 보존합니다. 사용자가 ID를 편집하거나 Source 사이에 복사하면 안 됩니다. 설정 파일을 검증합니다.
 
-Source Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths` 목록에는 파일과 디렉터리를 원하는 만큼 지정할 수 있습니다. 다중 경로 예시는 `source-agent/example.config.yaml`을 참고하세요. YAML과 JSON 모두 알 수 없는 필드를 거부하므로 오타가 조용히 무시되지 않습니다.
+Remote Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths` 목록에는 파일과 디렉터리를 원하는 만큼 지정할 수 있습니다. 다중 경로 예시는 `source-agent/example.config.yaml`을 참고하세요. YAML과 JSON 모두 알 수 없는 필드를 거부하므로 오타가 조용히 무시되지 않습니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -82,11 +75,11 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 대화형 터미널에서 `install.sh`를 실행하면(스크립트로 자동 실행하는 대신) 손으로 편집할 일반 템플릿 대신 Agent 이름과 첫 Backup Set을 직접 물어보고, 완료 후 바로 `pair`를 실행할지도 제안합니다.
 
-## 4b. 다른 PC에 Windows Source Agent 설치하기
+## 4b. 다른 PC에 Windows Remote Agent 설치하기
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.0-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Source Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.1-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -96,7 +89,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-트레이의 **Pair a Source Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
+트레이의 **Pair a Remote Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
@@ -110,7 +103,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 
 ## 5. Source 페어링
 
-Windows 트레이 앱에서 **Pair a Source Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
+Windows 트레이 앱에서 **Pair a Remote Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \
@@ -123,7 +116,7 @@ sudo /opt/backupmesh/backupmesh-agent pair \
 
 Source는 코드를 보내기 전에 표시된 인증서 지문을 고정 검증하고, 이후 Source에 결속된 토큰, 클라이언트 인증서와 개인 키, 고정된 Storage 인증서를 소유자 전용 권한으로 설치합니다. 개인 키가 전송 파일에 기록되지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
-Source Agent의 개인 키나 인증서를 잃어버렸다면(예: `pairing` 디렉터리를 삭제한 경우) **Pair a Source Agent** 대신 **Source Agents** 탭의 목록에서 해당 Source를 선택하고 **Re-pair**를 사용하세요. 이 코드는 그 특정 Source의 자격 증명만 재발급할 수 있으며, 새 Source를 만들거나 다른 Source의 신원을 대신 차지할 수 없습니다.
+Remote Agent의 개인 키나 인증서를 잃어버렸다면(예: `pairing` 디렉터리를 삭제한 경우) **Pair a Remote Agent** 대신 **Remote Agents** 탭의 목록에서 해당 Source를 선택하고 **Re-pair**를 사용하세요. 이 코드는 그 특정 Source의 자격 증명만 재발급할 수 있으며, 새 Source를 만들거나 다른 Source의 신원을 대신 차지할 수 없습니다.
 
 명령 감시 서비스를 시작합니다.
 
@@ -136,14 +129,14 @@ sudo systemctl status backupmesh-source-watch.service
 
 Source가 동기화되면 트레이 앱의 **Backups** 탭을 엽니다.
 
-1. **What to back up**에서 Backup Set을 선택합니다 — Source Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
+1. **What to back up**에서 Backup Set을 선택합니다 — Remote Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
 2. **Where to store it**에서 연결된 드라이브를 선택하거나 **Choose folder…**를 누릅니다.
 3. **Full destination path**에서 실제 전체 저장 경로를 확인하거나 수정합니다.
 4. **Add backup…**을 눌러 백업 규칙 창을 작성한 뒤 **Add backup**을 누릅니다. 기존 행을 더블클릭하면 같은 창에서 규칙을 수정할 수 있습니다. 원본·대상 장치·대상 폴더가 모두 같은 규칙은 중복 저장되지 않습니다.
 
 매핑은 다대다입니다. 하나의 장치에 여러 Source를 각기 다른 폴더 또는 공통 상위 폴더 아래 저장할 수 있고, 하나의 Backup Set을 여러 장치에 동시에 백업할 수도 있습니다. 의도적으로 공유하는 경우가 아니라면 독립된 Backup Set마다 별도 repository 하위 폴더를 사용하세요. 표의 **Enabled** 확인란으로 특정 백업만 삭제하지 않고 일시 중단할 수 있습니다.
 
-Source Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용해 같은 PC에서 실행할 수 있습니다. USB뿐 아니라 로컬 고정 드라이브와 등록 폴더도 대상 장치로 사용할 수 있으므로 로컬 데이터→외장 저장장치와 외장 원본→로컬 저장장치 구성을 모두 만들 수 있습니다. 후자의 경우 외장 원본 볼륨을 Storage 장치로 등록합니다. Storage가 도착을 감지하고 그 볼륨 안에 원본 경로가 있는 Backup Set을 찾아 준비된 모든 대상 매핑의 명령을 보냅니다. Source Agent는 Storage가 승인한 명령만 실행하며 장치 감지나 정책을 소유하지 않습니다.
+Remote Agent와 Storage Agent는 Storage Agent의 로컬 HTTPS 주소를 사용해 같은 PC에서 실행할 수 있습니다. USB뿐 아니라 로컬 고정 드라이브와 등록 폴더도 대상 장치로 사용할 수 있으므로 로컬 데이터→외장 저장장치와 외장 원본→로컬 저장장치 구성을 모두 만들 수 있습니다. 후자의 경우 외장 원본 볼륨을 Storage 장치로 등록합니다. Storage가 도착을 감지하고 그 볼륨 안에 원본 경로가 있는 Backup Set을 찾아 준비된 모든 대상 매핑의 명령을 보냅니다. Remote Agent는 Storage가 승인한 명령만 실행하며 장치 감지나 정책을 소유하지 않습니다.
 
 ## 7. 백업 실행과 확인
 
@@ -179,7 +172,7 @@ artifacts\BackupMesh-Storage-win-x64\Service\restic.exe `
 
 ## 언어와 프로젝트 정보
 
-**설정 → 언어**에서 시스템 기본값, 한국어, English를 선택합니다. 선택은 즉시 저장됩니다. 트레이 메뉴에서 **종료**한 뒤 다시 실행하면 적용됩니다. 시스템 기본값은 한국어 Windows에서는 한국어, 그 외에는 영어입니다. 날짜와 숫자는 지역 설정을 유지합니다.
+**설정 → 언어**에서 시스템 기본값, 한국어, English를 선택합니다. 선택은 즉시 저장되고 트레이 메뉴까지 바로 적용됩니다. 재시작하거나 백업을 중단할 필요가 없습니다. 시스템 기본값은 한국어 Windows에서는 한국어, 그 외에는 영어입니다. 날짜와 숫자는 지역 설정을 유지합니다. 기존 활동 기록은 작성 당시 언어를 유지합니다.
 
 화면 하단에는 버전과 GitHub 링크가 항상 표시됩니다. **설정 → BackupMesh 정보**에서 프로젝트 주소, 사용 안내, 문제 신고, 라이선스를 확인할 수 있습니다. 서비스나 외부 도구의 진단 정보는 원문으로 표시될 수 있습니다.
 

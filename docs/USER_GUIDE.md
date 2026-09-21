@@ -2,39 +2,32 @@
 
 [한국어](USER_GUIDE.ko.md) | **English**
 
-This guide covers the current MVP: a Windows Storage Agent and one or more Linux Source Agents. Keep another independent copy of important data until you have tested restoration on your own machines.
+This guide covers the current MVP: a Windows Storage Agent and one or more Linux Remote Agents. Keep another independent copy of important data until you have tested restoration on your own machines.
 
 ## App language and project information
 
-In **Settings → Language**, choose System default, 한국어, or English. The preference saves immediately; choose **Exit** from the tray menu and reopen BackupMesh to apply it. System default uses Korean on Korean Windows and English otherwise. Dates and numbers keep your regional formatting.
+In **Settings → Language**, choose System default, 한국어, or English. The preference saves and applies immediately, including the tray menu, without restarting or interrupting backups. System default uses Korean on Korean Windows and English otherwise. Dates and numbers keep your regional formatting. Existing activity messages retain the language used when recorded.
 
 The footer always shows the app version and GitHub link. **Settings → About BackupMesh** contains the project address, user guide, issue tracker and license. Service and external-tool diagnostic details may remain in their original language.
 
-## 1. Build the packages
+## 1. Prepare installation packages
 
-From PowerShell at the repository root:
-
-```powershell
-pwsh -NoProfile -File scripts/build-windows-test-package.ps1
-pwsh -NoProfile -File scripts/build-windows-installer.ps1
-pwsh -NoProfile -File scripts/build-linux-source-package.ps1
-pwsh -NoProfile -File scripts/build-windows-source-installer.ps1
-```
+Obtain the installation packages listed below. To build them from source, follow the [contribution guide](../CONTRIBUTING.md).
 
 The resulting self-contained packages are written to:
 
-- `artifacts\installer\BackupMesh-Storage-0.3.0-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.1-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\installer\BackupMesh-Source-0.3.0-win-x64-Setup.exe` (Source Agent for backing up this same PC)
+- `artifacts\installer\BackupMesh-Source-0.3.1-win-x64-Setup.exe` (Remote Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For normal use, run `BackupMesh-Storage-0.3.0-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+For normal use, run `BackupMesh-Storage-0.3.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
-The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.0-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.1-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
 
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
@@ -47,7 +40,7 @@ The installer creates the automatically restarting `BackupMeshStorageAgent` Wind
 
 Uninstall defaults to **No: keep settings**. Choose **Yes** to remove Storage backup rules, history, pairing information and the app settings of the Windows user running uninstall. Computers must be paired again. Silent uninstall preserves settings. For PowerShell uninstall, use `Uninstall-BackupMesh.ps1 -RemoveSettings` to request the same cleanup.
 
-Actual backups, passwords in `local-repository-passwords`, and separate Source Agent data are never removed. Files named `*.recovery-*` beside the original settings preserve destination paths and mapping IDs needed to identify password files; setup does not automatically reload these copies. Passwords use Windows DPAPI and cannot be recovered on another PC merely by copying these files. Other Windows users' UI settings are preserved. Setup's welcome page announces when previous settings will be reused.
+Actual backups, passwords in `local-repository-passwords`, and separate Remote Agent data are never removed. Files named `*.recovery-*` beside the original settings preserve destination paths and mapping IDs needed to identify password files; setup does not automatically reload these copies. Passwords use Windows DPAPI and cannot be recovered on another PC merely by copying these files. Other Windows users' UI settings are preserved. Setup's welcome page announces when previous settings will be reused.
 
 ## 3. Choose where backups are stored
 
@@ -63,13 +56,13 @@ Folder devices are useful for evaluation and for storage that is not exposed as 
 
 How long BackupMesh waits after a target connects before starting a backup is a single global default on the **Settings** tab. Use Windows to eject removable storage after its backup job has stopped.
 
-## 3b. Back up this PC's own files (no Source Agent needed)
+## 3b. Back up this PC's own files (no Remote Agent needed)
 
-**This PC** always appears at the top of the **Source Agents** tab's list, with no pairing, no separate installer, and no enable step. Choose **Back up a folder on this PC…**, pick a folder, and it appears as a Backup Set you can send to any target exactly like a paired Source's Backup Set. Storage runs the bundled `restic` directly against the local folder when the mapped target becomes ready - no network hop, no certificates, no repository password to manage.
+**This PC** always appears at the top of the **Remote Agents** tab's list, with no pairing, no separate installer, and no enable step. Choose **Back up a folder on this PC…**, pick a folder, and it appears as a Backup Set you can send to any target exactly like a paired Source's Backup Set. Storage runs the bundled `restic` directly against the local folder when the mapped target becomes ready - no network hop, no certificates, no repository password to manage.
 
-Use **Remove folder** to stop backing up a folder this way; its mappings are removed with it. This is unrelated to the standalone Windows Source Agent described below, which is for a *different* PC with no Storage Agent of its own.
+Use **Remove folder** to stop backing up a folder this way; its mappings are removed with it. This is unrelated to the standalone Windows Remote Agent described below, which is for a *different* PC with no Storage Agent of its own.
 
-## 4. Install and configure a Linux Source Agent
+## 4. Install and configure a Linux Remote Agent
 
 Copy `BackupMesh-Source-linux-x64` to the Linux machine and run:
 
@@ -78,9 +71,9 @@ sudo sh install.sh
 sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-Define each Backup Set with a user-facing name, source paths, and optional include/exclude patterns. The Source Agent generates stable Agent and Backup Set UUIDs automatically and preserves them in an owner-only `*.state.json` file next to the configuration. Do not edit or copy IDs between Sources. Validate the file:
+Define each Backup Set with a user-facing name, source paths, and optional include/exclude patterns. The Remote Agent generates stable Agent and Backup Set UUIDs automatically and preserves them in an owner-only `*.state.json` file next to the configuration. Do not edit or copy IDs between Sources. Validate the file:
 
-The Source Agent accepts strict JSON (`.json`) and YAML (`.yaml` or `.yml`). A Backup Set's `paths` list may contain any number of files or directories; see `source-agent/example.config.yaml` for a multi-path example. Unknown YAML and JSON fields are rejected so spelling mistakes cannot silently disable a setting.
+The Remote Agent accepts strict JSON (`.json`) and YAML (`.yaml` or `.yml`). A Backup Set's `paths` list may contain any number of files or directories; see `source-agent/example.config.yaml` for a multi-path example. Unknown YAML and JSON fields are rejected so spelling mistakes cannot silently disable a setting.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent validate \
@@ -91,11 +84,11 @@ The installer creates `/etc/backupmesh/restic-password` with owner-only permissi
 
 Running `install.sh` from an interactive terminal (rather than a script) prompts for an Agent name and a first Backup Set instead of leaving a generic template to edit by hand, and offers to run `pair` immediately afterward.
 
-## 4b. Install a Windows Source Agent on a different PC
+## 4b. Install a Windows Remote Agent on a different PC
 
 Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **This PC** in the tray instead (section 3b) — no installer needed at all.
 
-Run `BackupMesh-Source-0.3.0-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Source Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
+Run `BackupMesh-Source-0.3.1-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Remote Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 
@@ -105,7 +98,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-Pair it the same way as a Linux Source, using the code, endpoint, and fingerprint the **Pair a Source Agent** dialog shows:
+Pair it the same way as a Linux Source, using the code, endpoint, and fingerprint the **Pair a Remote Agent** dialog shows:
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
@@ -119,7 +112,7 @@ Pair it the same way as a Linux Source, using the code, endpoint, and fingerprin
 
 ## 5. Pair the Source
 
-On the **Source Agents** tab, choose **Pair a Source Agent**. It displays a Storage address, one-time code, and certificate SHA-256 fingerprint; the code expires after ten minutes and can be used once. On the Source run:
+On the **Remote Agents** tab, choose **Pair a Remote Agent**. It displays a Storage address, one-time code, and certificate SHA-256 fingerprint; the code expires after ten minutes and can be used once. On the Source run:
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \
@@ -132,7 +125,7 @@ sudo /opt/backupmesh/backupmesh-agent pair \
 
 The Source verifies the pinned fingerprint before sending the code, then installs an identity-bound token, client certificate, private key, and pinned Storage certificate with owner-only permissions. No private key is placed in a transfer file and no certificate is added to the operating-system trust store.
 
-If a Source Agent loses its private key or certificate (for example, its `pairing` directory was deleted), select it in the **Source Agents** tab's list and choose **Re-pair** instead of **Pair a Source Agent**. That code can only reissue credentials for that specific, already-known Source — it cannot be used to create a new one or claim a different Source's identity.
+If a Remote Agent loses its private key or certificate (for example, its `pairing` directory was deleted), select it in the **Remote Agents** tab's list and choose **Re-pair** instead of **Pair a Remote Agent**. That code can only reissue credentials for that specific, already-known Source — it cannot be used to create a new one or claim a different Source's identity.
 
 Start the Source command watcher:
 
@@ -145,14 +138,14 @@ sudo systemctl status backupmesh-source-watch.service
 
 After the Source synchronizes, open **Backups** in the tray app.
 
-1. Under **What to back up**, select a Backup Set — synced from a paired Source Agent, or a local folder added from **This PC** on the **Source Agents** tab (section 3b).
+1. Under **What to back up**, select a Backup Set — synced from a paired Remote Agent, or a local folder added from **This PC** on the **Remote Agents** tab (section 3b).
 2. Under **Where to store it**, select a connected drive or choose **Choose folder…**.
 3. Confirm or edit the complete path under **Full destination path**.
 4. Choose **Add backup…**, complete the backup-rule window, and select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
 
-Source and Storage Agents may run on the same computer by using the Storage Agent's local HTTPS endpoint. Local fixed drives and registered folders are valid destination devices, not only USB media. This supports both local-data-to-external-storage and external-source-to-local-storage layouts. For the latter, register the external source volume with Storage as a device. Storage detects its arrival, finds Backup Sets whose source paths are inside that volume, and sends commands for every ready mapped destination. The Source Agent only executes Storage-authorized commands; it does not own device detection or policy.
+Source and Storage Agents may run on the same computer by using the Storage Agent's local HTTPS endpoint. Local fixed drives and registered folders are valid destination devices, not only USB media. This supports both local-data-to-external-storage and external-source-to-local-storage layouts. For the latter, register the external source volume with Storage as a device. Storage detects its arrival, finds Backup Sets whose source paths are inside that volume, and sends commands for every ready mapped destination. The Remote Agent only executes Storage-authorized commands; it does not own device detection or policy.
 
 ## 7. Run and monitor a backup
 
