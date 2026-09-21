@@ -757,4 +757,5 @@
   <data name="IdentityApprovalCancelled" xml:space="preserve"><value>Windows approval was cancelled. No connection settings were changed.</value></data>
   <data name="IdentityRestartFailed" xml:space="preserve"><value>Connection preparation could not finish. Wait for backups to finish, then try Repair connection setup again from the installed BackupMesh app.</value></data>
   <data name="IdentityUpdating" xml:space="preserve"><value>Preparing connections. Please wait…</value></data>
+  <data name="ConnectionAutomaticRecovery" xml:space="preserve"><value>Disconnected. An updated Remote Agent automatically reconnects when Storage becomes reachable on the same LAN.</value></data>
 </root>

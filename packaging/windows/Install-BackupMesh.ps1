@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $serviceName = 'BackupMeshStorageAgent'
 $firewallRuleName = 'BackupMesh Storage Agent (mTLS)'
 $repositoryFirewallRuleName = 'BackupMesh Storage Agent (repositories)'
+$discoveryFirewallRuleName = 'BackupMesh Storage Agent (LAN discovery)'
 $packageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $serviceRoot = Join-Path $packageRoot 'Service'
 $serviceExe = Join-Path $serviceRoot 'BackupMesh.Storage.Service.exe'
@@ -70,6 +71,9 @@ Remove-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyConti
 New-NetFirewallRule -DisplayName $firewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 7443 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
 Remove-NetFirewallRule -DisplayName $repositoryFirewallRuleName -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName $repositoryFirewallRuleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 18000-18099 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
+
+Remove-NetFirewallRule -DisplayName $discoveryFirewallRuleName -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName $discoveryFirewallRuleName -Direction Inbound -Action Allow -Protocol UDP -LocalPort 7445 -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
 
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $trayCommand = '"' + (Join-Path $packageRoot 'App\BackupMesh.Storage.App.exe') + '"'

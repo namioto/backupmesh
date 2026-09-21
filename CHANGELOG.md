@@ -2,6 +2,14 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.5 — 2026-09-22
+
+- Rediscover paired Storage over IPv4 LAN after DHCP address changes; authenticate the saved server certificate before reconnecting.
+- Keep the Remote Agent watching while Storage is offline, including initial startup, and republish its catalog after reconnection.
+- Route restic transfers through an authenticated loopback bridge using the same verified TLS connection and address recovery.
+- Keep pairing identity across address changes and resolve default repository addresses when requested instead of caching the startup IP.
+- Install and remove a local-subnet UDP 7445 discovery firewall rule. Both agents must be updated; blocked broadcast and isolated networks cannot be discovered.
+
 ## 0.3.4 — 2026-09-22
 
 - Show only remote computers in Remote Agents; keep local backup sets available internally.

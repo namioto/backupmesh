@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $serviceName = 'BackupMeshStorageAgent'
 $firewallRuleName = 'BackupMesh Storage Agent (mTLS)'
 $repositoryFirewallRuleName = 'BackupMesh Storage Agent (repositories)'
+$discoveryFirewallRuleName = 'BackupMesh Storage Agent (LAN discovery)'
 
 # The tray app hides to the tray instead of exiting on a close request (see App.xaml.cs), so Inno
 # Setup's CloseApplications cannot make it release its own exe/dll files during uninstall. Without
@@ -36,3 +37,5 @@ if ($RemoveSettings) {
 } else {
     Write-Host 'BackupMesh was uninstalled. Configuration and repositories were preserved.'
 }
+
+Remove-NetFirewallRule -DisplayName $discoveryFirewallRuleName -ErrorAction SilentlyContinue

@@ -116,19 +116,33 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task CertificateAddressMismatchDoesNotConsumePairingCode()
+    public void LanDiscoveryOnlyAnswersForTheRequestedStorageIdentity()
+    {
+        var fingerprint = new string('a', 64);
+        var packet = JsonSerializer.SerializeToUtf8Bytes(new { protocol = "backupmesh-discovery-v1", fingerprint, nonce = new string('b', 32), port = 0 });
+        Assert.Null(LanDiscoveryService.Reply(packet, new string('c', 64), 7443));
+        var response = Assert.IsType<byte[]>(LanDiscoveryService.Reply(packet, fingerprint, 7443));
+        var payload = JsonSerializer.Deserialize<JsonElement>(response);
+        Assert.Equal(fingerprint, payload.GetProperty("fingerprint").GetString());
+        Assert.Equal(new string('b', 32), payload.GetProperty("nonce").GetString());
+        Assert.Equal(7443, payload.GetProperty("port").GetInt32());
+        Assert.Null(LanDiscoveryService.Reply(response, fingerprint, 7443));
+    }
+
+    [Fact]
+    public async Task AddressChangeKeepsTheExistingPairingIdentity()
     {
         var options = _host.Services.GetRequiredService<MutualTlsOptions>();
         options.ServerNames = ["192.0.2.200"];
         var session = _sessions.Create();
         var agentId = Guid.NewGuid();
         var creation = await PostAsync("/api/v1/pairing/sessions", IPAddress.Loopback);
-        Assert.Equal(409, creation.Response.StatusCode);
+        Assert.Equal(200, creation.Response.StatusCode);
         var response = await ExchangeAsync(session.Code, agentId, "source-1");
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        options.ServerNames = ["test-storage"];
-        var retry = await ExchangeAsync(session.Code, agentId, "source-1");
-        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var bundle = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("https://192.0.2.200:7443", bundle.GetProperty("control_endpoint").GetString());
+        Assert.Equal(options.ServerTrustPem, bundle.GetProperty("authority_pem").GetString());
     }
 
     [Fact]

@@ -29,7 +29,7 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/restic"
 )
 
-const version = "0.3.4"
+const version = "0.3.5"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -184,9 +184,6 @@ func run(args []string) error {
 			fmt.Fprintf(os.Stderr, "certificate renewal check failed: %v\n", err)
 		} else if renewedClient != nil {
 			api.HTTPClient = renewedClient
-		}
-		if err := publishCatalog(ctx, api, cfg); err != nil {
-			return fmt.Errorf("publish Source catalog: %w", err)
 		}
 		fmt.Printf("watching Storage commands every %s\n", pollInterval.String())
 		return watchSourceCommands(ctx, api, cfg, *resticBinary, *pollInterval)
@@ -469,7 +466,7 @@ func loadMTLSClient(storage config.Storage) (*http.Client, error) {
 	if strings.TrimSpace(storage.TLSCAFile) == "" {
 		return nil, nil
 	}
-	return controlapi.NewMTLSHTTPClient(storage.TLSCAFile, storage.TLSCertificateFile, storage.TLSKeyFile)
+	return controlapi.NewMTLSHTTPClient(storage.TLSCAFile, storage.TLSCertificateFile, storage.TLSKeyFile, storage.ControlEndpoint)
 }
 
 func runBackupTargets(targets []controlapi.BackupTargetAvailability, runTarget func(controlapi.BackupTargetAvailability) error) error {
@@ -565,7 +562,12 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	var sequence int64
 	var reportErr error
 	var result engine.Result
-	backupErr := adapter.EnsureRepository(backupCtx, backupRequest)
+	repository, closeBridge, backupErr := controlapi.RepositoryBridge(api.HTTPClient, admission.RepositoryEndpoint)
+	if backupErr == nil {
+		defer closeBridge()
+		backupRequest.Repository = repository
+		backupErr = adapter.EnsureRepository(backupCtx, backupRequest)
+	}
 	if backupErr == nil {
 		result, backupErr = adapter.Backup(backupCtx, backupRequest, func(p engine.Progress) {
 			sequence++
@@ -621,6 +623,7 @@ func watchSourceCommands(ctx context.Context, api controlapi.Client, cfg config.
 	maxBackoff := 30 * time.Second
 	const renewalCheckInterval = 24 * time.Hour
 	nextRenewalCheck := time.Now()
+	catalogPublished := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -635,8 +638,19 @@ func watchSourceCommands(ctx context.Context, api controlapi.Client, cfg config.
 			}
 			nextRenewalCheck = time.Now().Add(renewalCheckInterval)
 		}
+		if !catalogPublished {
+			if err := publishCatalog(ctx, api, cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "waiting for paired Storage: %v\n", err)
+				if !sleepContext(ctx, maxBackoff) {
+					return nil
+				}
+				continue
+			}
+			catalogPublished = true
+		}
 		command, err := api.ClaimBackupCommand(ctx, cfg.Agent.ID)
 		if err != nil {
+			catalogPublished = false
 			fmt.Fprintf(os.Stderr, "command poll failed: %v\n", err)
 			if !sleepContext(ctx, backoff) {
 				return nil

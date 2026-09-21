@@ -9,7 +9,7 @@ var pairingCertificateAuthority = new PairingCertificateAuthority(pairingCertifi
 var mutualTls = builder.Configuration.GetSection("MutualTls").Get<MutualTlsOptions>() ?? new();
 var repositoryServer = builder.Configuration.GetSection("RepositoryServer").Get<RepositoryServerOptions>() ?? new();
 if (string.IsNullOrWhiteSpace(repositoryServer.PublicHost))
-    repositoryServer.PublicHost = StorageNetworkAddress.Resolve(mutualTls.ServerNames) ?? string.Empty;
+    repositoryServer.PublicHost = StorageNetworkAddress.SelectHost(mutualTls.ServerNames, []) ?? string.Empty;
 RepositoryServerManager.DeleteStaleTlsFiles(repositoryServer.CredentialDirectory);
 if (mutualTls.Enabled)
 {
@@ -99,6 +99,7 @@ builder.Services.AddSingleton<IStorageVolumeInventory, WindowsStorageVolumeInven
 builder.Services.AddSingleton<IStorageDeviceEjector, WindowsStorageDeviceEjector>();
 builder.Services.AddSingleton<IProcessFactory, SystemProcessFactory>();
 builder.Services.AddSingleton<IRestServerLifecycle, RestServerLifecycle>();
+builder.Services.AddHostedService<LanDiscoveryService>();
 builder.Services.AddHostedService<StorageMonitorService>();
 builder.Services.AddHostedService<LocalBackupExecutorService>();
 

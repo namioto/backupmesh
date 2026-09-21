@@ -8,7 +8,7 @@
 
 **연결 초대 복사**를 누른 뒤 원격 에이전트에서 아래 연결 명령을 실행하고 입력 요청이 나오면 초대를 붙여넣으세요. 주소와 인증서 지문은 자동 처리됩니다. 이전 버전 에이전트에 필요한 개별 값은 **연결 상세 정보 (고급)**에 남아 있습니다. 만료 시각은 완료 기한이며 입력하는 값이 아닙니다.
 
-기본 주소는 사용 중인 LAN IPv4 주소이며 게이트웨이가 있는 인터페이스를 우선합니다. 원격 컴퓨터에서 해당 주소로 통신할 경로와 방화벽 포트가 열려 있어야 합니다. 여러 네트워크나 VPN을 사용한다면 서비스 설정의 `MutualTls.ServerNames`에 접근 가능한 이름이나 주소를 명시하고, `RepositoryServer.PublicHost`를 별도 지정했다면 일치시키세요. DNS 이름은 원격 컴퓨터에서도 해석되어야 합니다. 주소를 안정적으로 유지하려면 DHCP 예약이나 관리되는 DNS 이름을 사용하세요.
+최초 연결에는 사용 중인 LAN IPv4 주소를 사용합니다. 양쪽 에이전트를 0.3.5 이상으로 업데이트하면 DHCP 주소 변경 후 스토리지를 자동으로 다시 찾고, 연결이 끊겨도 재접속을 시도합니다. 주소 변경 때문에 인증서를 교체하거나 다시 페어링할 필요가 없습니다. 자동 탐색은 UDP 7445 브로드캐스트를 사용하며, 인증정보 전송 전에 저장된 스토리지 인증서를 검증합니다. 설치 프로그램이 개인·도메인 네트워크의 로컬 서브넷에만 탐색 방화벽 규칙을 등록합니다. 두 PC가 켜져 있고 서로 통신할 수 있어야 하며, 게스트 Wi-Fi 격리·VLAN 분리·브로드캐스트 차단 환경에서는 자동 탐색이 제한됩니다. BackupMesh가 발급한 연결 인증서를 사용하는 IPv4 LAN이 대상입니다. 사용자 지정 CA나 서로 다른 서브넷에서는 접근 가능한 DNS 이름 또는 안정적인 주소가 필요합니다.
 
 연결 준비에 문제가 있으면 앱에서 복구를 제안합니다. **연결 준비 복구**를 승인하면 필요한 변경과 재시작을 자동 처리한 뒤 초대 화면으로 이어집니다. Windows 관리자 승인이 나타날 수 있습니다. 기존에 연결한 컴퓨터는 다시 연결해야 하며 백업 파일은 보존됩니다. 설정에서도 같은 복구 기능을 실행할 수 있습니다.
 
@@ -18,7 +18,7 @@
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.4-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.5-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
@@ -27,9 +27,9 @@
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.4-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.5-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.4-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.5-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -87,7 +87,7 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 **백업 → 백업 추가**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.4-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.5-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -179,7 +179,7 @@ artifacts\BackupMesh-Storage-win-x64\Service\restic.exe `
 
 ## 문제 해결
 
-- **Source가 보이지 않음:** `systemctl status backupmesh-source-watch.service`를 확인하고 TCP 7443 연결과 Storage 인증서의 호스트명/IP를 점검한 뒤 필요하면 다시 페어링합니다.
+- **Source가 보이지 않음:** 양쪽 에이전트가 실행 중이고 업데이트되었는지 확인하세요. 같은 IPv4 LAN에서 UDP 7445 탐색과 TCP 7443 및 저장소 포트 18000–18099 통신이 가능해야 합니다. IP 주소만 바뀐 경우 재페어링은 필요 없습니다.
 - **준비된 대상이 없음:** 장치 연결, 저장된 매핑, Source catalog 동기화, arrival delay 경과 여부를 확인합니다.
 - **인증서 오류:** Storage Agent가 광고하는 호스트명을 수정한 뒤 다시 페어링합니다. BackupMesh 사설 CA를 Windows 시스템 신뢰 저장소에 설치하지 마세요.
 - **공간 부족:** 공간을 확보하거나 다른 매핑 장치를 선택합니다. 한 대상의 실패가 준비된 다른 대상의 시도까지 막지는 않습니다.

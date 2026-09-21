@@ -638,9 +638,9 @@ public static class ControlApi
     {
         host = StorageNetworkAddress.Resolve(options.ServerNames);
         if (host is null) return Problem(503, "NO_NETWORK_ADDRESS", "Connect Storage to a LAN before pairing.");
-        using var certificate = X509Certificate2.CreateFromPem(options.ServerTrustPem);
-        return certificate.MatchesHostname(host, allowWildcards: false, allowCommonName: false) ? null
-            : Problem(409, "PAIRING_ADDRESS_CERTIFICATE_MISMATCH", "The saved Storage certificate does not cover its LAN address. Rotate the Storage identity in Settings, restart the Storage service, and re-pair existing Remote Agents.");
+        // Initial exchange pins the invitation fingerprint; paired clients verify the saved
+        // certificate identity independently of its current DHCP address.
+        return null;
     }
     private static IResult Problem(int status, string code, string detail) => Results.Problem(statusCode: status, title: code, detail: detail, extensions: new Dictionary<string, object?> { ["code"] = code, ["occurred_at"] = DateTimeOffset.UtcNow, ["retryable"] = status >= 500 });
 }

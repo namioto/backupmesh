@@ -171,6 +171,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         null => string.Empty,
         _ when SelectedSourceConnection is null => Localization.Text("Text_ThisSourceAgenthasntconnectedy_34F527"),
+        _ when SelectedSourceConnection.StatusDisplay == Localization.Text("Text_Offline_A17947") => Localization.Text("ConnectionAutomaticRecovery"),
         _ => string.Empty
     };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
