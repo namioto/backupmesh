@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -13,10 +13,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
   </resheader>
   <data name="Text_StorageAgent_0CA177" xml:space="preserve">
-    <value>저장 에이전트</value>
+    <value>스토리지 에이전트</value>
   </data>
   <data name="Text_BackupMeshStorageAgent_CABABF" xml:space="preserve">
-    <value>BackupMesh 저장 에이전트</value>
+    <value>BackupMesh 스토리지 에이전트</value>
   </data>
   <data name="Text_Overview_D4B1EA" xml:space="preserve">
     <value>개요</value>
@@ -157,7 +157,7 @@
     <value>원본 에이전트 연결</value>
   </data>
   <data name="Text_Createaonetime10minutepairingc_67FD9C" xml:space="preserve">
-    <value>10분간 유효한 일회용 연결 코드와 저장 에이전트 인증서 지문을 생성합니다.</value>
+    <value>10분간 유효한 일회용 연결 코드와 스토리지 에이전트 인증서 지문을 생성합니다.</value>
   </data>
   <data name="Text_BackupafolderonthisPC_EF3B34" xml:space="preserve">
     <value>이 PC의 폴더 백업…</value>
@@ -220,7 +220,7 @@
     <value>보안</value>
   </data>
   <data name="Text_RotateStorageidentity_8CA37E" xml:space="preserve">
-    <value>저장 에이전트 인증 정보 교체</value>
+    <value>스토리지 에이전트 인증 정보 교체</value>
   </data>
   <data name="Text_AboutBackupMesh_0F063F" xml:space="preserve">
     <value>BackupMesh 정보</value>
@@ -247,7 +247,7 @@
     <value>연결할 컴퓨터에 아래 정보를 입력하세요. 코드는 10분 후 만료되며 한 번만 사용할 수 있습니다.</value>
   </data>
   <data name="Text_Storageendpoint_919B9C" xml:space="preserve">
-    <value>저장 에이전트 주소</value>
+    <value>스토리지 에이전트 주소</value>
   </data>
   <data name="Text_Pairingcode_1C5EA2" xml:space="preserve">
     <value>연결 코드</value>
@@ -355,7 +355,7 @@
     <value>종료</value>
   </data>
   <data name="Text_BackupMeshStorageAgentstarting_01492B" xml:space="preserve">
-    <value>BackupMesh 저장 에이전트 — 시작 중</value>
+    <value>BackupMesh 스토리지 에이전트 — 시작 중</value>
   </data>
   <data name="Text_Editbackuprule_A40603" xml:space="preserve">
     <value>백업 규칙 수정</value>
@@ -382,10 +382,10 @@
     <value>설정을 불러왔습니다.</value>
   </data>
   <data name="Text_StorageAgentUIstarted_99C199" xml:space="preserve">
-    <value>저장 에이전트 UI를 시작했습니다.</value>
+    <value>스토리지 에이전트 UI를 시작했습니다.</value>
   </data>
   <data name="Text_StorageAgentUIteststateinitial_49AF15" xml:space="preserve">
-    <value>저장 에이전트 UI 테스트 상태를 초기화했습니다.</value>
+    <value>스토리지 에이전트 UI 테스트 상태를 초기화했습니다.</value>
   </data>
   <data name="Text_ThisPChasnoSourceAgenttomanage_C05F5C" xml:space="preserve">
     <value>이 PC에는 관리할 원본 에이전트가 없습니다. 다른 컴퓨터에만 사용할 수 있습니다.</value>
@@ -493,7 +493,7 @@
     <value>{0} 제거 요청 시간이 초과되었습니다.</value>
   </data>
   <data name="Text_ThisregeneratestheStoragescert_1C14DB" xml:space="preserve">
-    <value>저장 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다. 계속하시겠습니까?</value>
+    <value>스토리지 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다. 계속하시겠습니까?</value>
   </data>
   <data name="Text_StorageidentityrotatedRestartt_20367A" xml:space="preserve">
     <value>인증 정보를 교체했습니다. 저장 서비스를 다시 시작하고 각 컴퓨터를 다시 연결하세요.</value>
@@ -727,16 +727,16 @@
     <value>저장 서비스의 설정 응답이 비어 있습니다.</value>
   </data>
   <data name="Text_TheStorageAgentconfigurationch_B0E837" xml:space="preserve">
-    <value>다른 프로그램에서 저장 에이전트 설정을 변경했습니다.</value>
+    <value>다른 프로그램에서 스토리지 에이전트 설정을 변경했습니다.</value>
   </data>
   <data name="Text_BackupMeshStorageAgent0_8B0304" xml:space="preserve">
-    <value>BackupMesh 저장 에이전트 — {0}</value>
+    <value>BackupMesh 스토리지 에이전트 — {0}</value>
   </data>
   <data name="Text_0device1connected_5378A0" xml:space="preserve">
     <value>저장장치 {0}개 연결됨</value>
   </data>
   <data name="Text_RotatingtheStorageidentityrege_47B7C4" xml:space="preserve">
-    <value>저장 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다.</value>
+    <value>스토리지 에이전트의 인증 기관과 서버 인증서를 새로 만듭니다. 연결된 모든 컴퓨터는 다시 연결할 때까지 접근할 수 없습니다. 저장 서비스를 다시 시작하면 적용됩니다.</value>
   </data>
   <data name="SystemDefault">
     <value>시스템 기본값</value>
