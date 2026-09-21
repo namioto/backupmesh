@@ -20,8 +20,7 @@ public sealed class SourceCatalogViewModelTests
 
         await viewModel.RefreshCatalogsOnceAsync();
 
-        // "This PC" is always present alongside whatever Sources report a catalog.
-        Assert.Equal(2, viewModel.SourceCount);
+        Assert.Equal(1, viewModel.SourceCount);
         Assert.Equal(2, viewModel.BackupSets.Count);
         Assert.Contains(viewModel.Sources, source => source.DisplayName == "Integration Source");
         Assert.Contains(viewModel.BackupSets, set => set.Id == firstSetId && set.IsAvailable);
@@ -50,13 +49,13 @@ public sealed class SourceCatalogViewModelTests
     {
         using var viewModel = new MainWindowViewModel(catalogClient: new FakeCatalogClient([]), loadLocalState: false);
         await viewModel.RefreshCatalogsOnceAsync();
-        var localSource = viewModel.Sources.Single(source => source.DisplayName == BackupMesh.Storage.Core.LocalSourceIdentity.DisplayName);
         var localBackupSet = new BackupSetViewModel(new(Guid.NewGuid(), BackupMesh.Storage.Core.LocalSourceIdentity.AgentId, BackupMesh.Storage.Core.LocalSourceIdentity.DisplayName, "Documents", ["C:/Documents"]));
         viewModel.BackupSets.Add(localBackupSet);
-        localSource.BackupSets.Add(localBackupSet);
 
         await viewModel.RefreshCatalogsOnceAsync();
 
+        Assert.Same(localBackupSet, Assert.Single(viewModel.BackupSets));
+        Assert.Empty(viewModel.Sources);
         Assert.True(localBackupSet.IsAvailable);
         Assert.DoesNotContain("not reported", localBackupSet.DisplayName, StringComparison.Ordinal);
     }

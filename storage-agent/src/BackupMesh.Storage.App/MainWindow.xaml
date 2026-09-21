@@ -175,9 +175,6 @@
                                     <DataGridTextColumn Header="{local:Loc Text_Offers_E98BF0}" Binding="{Binding PathsServedDisplay}" Width="1.6*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <!-- "—" in Address/Status for This PC otherwise reads as an error, not as "not
-                                 applicable" - naming the reason directly in the row it's true of avoids
-                                 relying on the reader to already know This PC needs no Source Agent. -->
                             <TextBlock Grid.Row="1" Text="{Binding SelectedComputerActionHint}" TextWrapping="Wrap" Foreground="#8493A6" FontSize="11" Margin="0,6,0,0"/>
                             <WrapPanel Grid.Row="2" Margin="0,6,0,0">
                                 <Button Content="{local:Loc Text_Blockaccess_13C267}" Command="{Binding RevokeSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="{local:Loc Text_ImmediatelyblockthisSourceAgen_49E716}" AutomationProperties.AutomationId="RevokeSourceButton"/>
@@ -188,10 +185,6 @@
                             </WrapPanel>
                             <StackPanel Grid.Row="3" Margin="0,12,0,0">
                                 <Button Content="{local:Loc Text_PairaSourceAgent_379C01}" Command="{Binding PairSourceCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" ToolTip="{local:Loc Text_Createaonetime10minutepairingc_67FD9C}" AutomationProperties.AutomationId="PairSourceButton"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Content="{local:Loc Text_BackupafolderonthisPC_EF3B34}" Command="{Binding AddLocalBackupSetCommand}" ToolTip="{local:Loc Text_BackupafolderonthisPCdirectlyn_11F9C0}" AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
-                                    <Button Content="{local:Loc Text_Removefolder_F2A987}" Command="{Binding RemoveLocalBackupSetCommand}" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" ToolTip="{local:Loc Text_Stopbackinguptheselectedlocalf_1235A1}" AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
-                                </StackPanel>
                                 <TextBlock Text="{local:Loc Text_BackupssyncfrompairedSourceAge_B93A96}" TextWrapping="Wrap" Foreground="#607086" Margin="4,4" FontSize="11"/>
                             </StackPanel>
                         </Grid>

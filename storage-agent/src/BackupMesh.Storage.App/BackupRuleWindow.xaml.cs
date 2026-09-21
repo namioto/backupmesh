@@ -17,7 +17,7 @@ public partial class BackupRuleWindow : Window
         InitializeComponent();
         DataContext = viewModel;
 
-        BackupSetCombo.SelectedItem = existing?.BackupSet ?? viewModel.SelectedBackupSet ?? viewModel.BackupSets.FirstOrDefault();
+        viewModel.SelectedBackupSet = existing?.BackupSet ?? viewModel.SelectedBackupSet ?? viewModel.BackupSets.FirstOrDefault();
         TargetDeviceCombo.SelectedItem = existing is null
             ? viewModel.BackupDestinations.FirstOrDefault()
             : viewModel.BackupDestinations.FirstOrDefault(option => option.Device?.Id == existing.Device.Id);

@@ -18,7 +18,7 @@
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.3-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.4-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
@@ -27,9 +27,9 @@
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.3-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.4-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.3-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.4-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -57,9 +57,9 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 ## 3b. 이 PC 자체의 파일 백업하기 (Remote Agent 불필요)
 
-**This PC**는 페어링도, 별도 설치 프로그램도, 켜는 절차도 없이 **Remote Agents** 탭의 목록에 "This PC (no agent needed)"로 항상 표시됩니다. **Back up a folder on this PC…**를 선택해 폴더를 고르면, 페어링된 Remote Agent의 Backup Set과 똑같이 원하는 대상으로 보낼 수 있는 Backup Set으로 나타납니다. 대상이 준비되면 Storage가 번들된 `restic`을 로컬 폴더에 직접 실행합니다 — 네트워크도, 인증서도, 관리해야 할 repository 암호도 없습니다.
+로컬 폴더는 페어링이나 별도 에이전트 없이 사용할 수 있습니다. **백업 → 백업 추가**에서 **이 PC의 폴더 백업…**을 선택하고, 저장 대상을 지정한 뒤 저장하세요. 로컬 백업은 스토리지 PC에서 직접 실행되며 **원격 에이전트** 목록에는 표시되지 않습니다.
 
-이 방식으로 폴더 백업을 그만두려면 같은 탭의 **Remove folder**를 사용하세요, 매핑도 함께 제거됩니다. 이건 아래에서 설명하는 독립 실행형 Windows Remote Agent와는 무관합니다 — 그건 Storage Agent가 없는 **다른** PC를 위한 것입니다.
+로컬 폴더를 더 이상 사용하지 않으려면 백업 창에서 해당 폴더를 선택하고 **폴더 제거**를 누르세요. 해당 폴더의 백업 규칙도 제거되며 기존 백업 데이터는 보존됩니다.
 
 ## 4. Linux Remote Agent 설치와 설정
 
@@ -85,9 +85,9 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 ## 4b. 다른 PC에 Windows Remote Agent 설치하기
 
-이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
+이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 **백업 → 백업 추가**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.3-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.4-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -130,7 +130,7 @@ sudo systemctl status backupmesh-source-watch.service
 
 Source가 동기화되면 트레이 앱의 **Backups** 탭을 엽니다.
 
-1. **What to back up**에서 Backup Set을 선택합니다 — Remote Agents 탭에서 페어링된 컴퓨터와 This PC가 제공하는 Backup Set 목록입니다.
+1. **What to back up**에서 Backup Set을 선택합니다 — 연결된 원격 컴퓨터의 Backup Set이나 이 창에서 추가한 로컬 폴더를 사용할 수 있습니다.
 2. **Where to store it**에서 연결된 드라이브를 선택하거나 **Choose folder…**를 누릅니다.
 3. **Full destination path**에서 실제 전체 저장 경로를 확인하거나 수정합니다.
 4. **Add backup…**을 눌러 백업 규칙 창을 작성한 뒤 **Add backup**을 누릅니다. 기존 행을 더블클릭하면 같은 창에서 규칙을 수정할 수 있습니다. 원본·대상 장치·대상 폴더가 모두 같은 규칙은 중복 저장되지 않습니다.

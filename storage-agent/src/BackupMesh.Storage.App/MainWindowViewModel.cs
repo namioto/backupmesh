@@ -170,7 +170,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public string SelectedComputerActionHint => SelectedRemoteAgent switch
     {
         null => string.Empty,
-        { Id: var id } when id == LocalSourceIdentity.AgentId => Localization.Text("Text_ThisPChasnoSourceAgenttomanage_C05F5C"),
         _ when SelectedSourceConnection is null => Localization.Text("Text_ThisSourceAgenthasntconnectedy_34F527"),
         _ => string.Empty
     };
@@ -519,11 +518,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         // whatever computer the user has selected in the merged grid every 10-second catalog refresh.
         var selectedSourceId = SelectedRemoteAgent?.Id;
         Sources.Clear();
-        // "This PC" always appears first, even with no local Backup Sets yet.
-        var localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
-        foreach (var set in BackupSets.Where(item => item.Model.SourceAgentId == LocalSourceIdentity.AgentId).OrderBy(item => item.Model.Name, StringComparer.OrdinalIgnoreCase))
-            localSource.BackupSets.Add(set);
-        Sources.Add(localSource);
         foreach (var group in BackupSets.Where(item => item.Model.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.Model.SourceAgentId, set.Model.SourceAgentName }).OrderBy(group => group.Key.SourceAgentName, StringComparer.OrdinalIgnoreCase))
         {
             var source = new RemoteAgentViewModel(group.Key.SourceAgentId, group.Key.SourceAgentName);
@@ -648,7 +642,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 source.BackupSets.Add(item);
                 BackupSets.Add(item);
             }
-            Sources.Add(source);
+            if (source.Id != LocalSourceIdentity.AgentId) Sources.Add(source);
         }
         foreach (var mapping in state.Topology.Mappings)
         {
@@ -666,8 +660,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void LoadDemoSources()
     {
-        Sources.Add(new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName));
-
         var home = new RemoteAgentViewModel(Guid.Parse("c60280da-a03c-4887-a600-577def417af6"), "Home Server");
         AddDemoSet(home, new(Guid.Parse("7d750726-97ab-4f81-9f09-f06c34f524d1"), home.Id, home.DisplayName, "Photos", ["/srv/photos", "/srv/videos"]));
         AddDemoSet(home, new(Guid.Parse("e10a4df5-0f71-438d-93f0-34e587357f00"), home.Id, home.DisplayName, "Documents", ["/home/park/Documents"]));
@@ -677,10 +669,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         AddDemoSet(workstation, new(Guid.Parse("bb452fc9-f616-4810-a649-3c37775d43d4"), workstation.Id, workstation.DisplayName, "Projects", ["D:/Projects"]));
         Sources.Add(workstation);
 
-        // "This PC" is local and has no connection of its own; every other demo Source is a paired
-        // computer, and must appear here too - otherwise the demo (used both by UiTests and for UX
-        // verification) shows a self-contradicting screen: computers with Backup Sets, but "No paired
-        // computers yet" in the same merged grid.
+        // Demo remote computers also provide connection status.
         SourceConnections.Add(new(new(home.Id, home.DisplayName, home.DisplayName, DateTimeOffset.UtcNow.AddSeconds(-30), "192.168.1.42", 2, false, DateTimeOffset.UtcNow.AddDays(75))));
         // Demonstrates the "missed its own renewal window" status: last seen well before the renewal
         // window (30 days before expiry) opened, unlike Home Server above which is seen recently enough
@@ -766,15 +755,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Sources.Clear();
         Mappings.Clear();
         foreach (var device in topology.Devices) Devices.Add(new(device));
-        // "This PC" always appears first, even with no local Backup Sets yet: local backups need no
-        // Source Agent, pairing, or explicit enable step to be available in the tray.
-        var localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
-        Sources.Add(localSource);
         foreach (var model in topology.BackupSets.Where(set => set.SourceAgentId == LocalSourceIdentity.AgentId))
         {
             var backupSet = new BackupSetViewModel(model);
             BackupSets.Add(backupSet);
-            localSource.BackupSets.Add(backupSet);
         }
         foreach (var group in topology.BackupSets.Where(set => set.SourceAgentId != LocalSourceIdentity.AgentId).GroupBy(set => new { set.SourceAgentId, set.SourceAgentName }))
         {
@@ -957,13 +941,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } folderName ? folderName : path;
         var backupSet = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, name, [path]));
         BackupSets.Add(backupSet);
-        var localSource = Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId);
-        if (localSource is null)
-        {
-            localSource = new RemoteAgentViewModel(LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName);
-            Sources.Insert(0, localSource);
-        }
-        localSource.BackupSets.Add(backupSet);
         SelectedBackupSet = backupSet;
         AddActivity(Localization.Format("Text_Addedabackupfor0Chooseadevicef_85F762", path));
         NotifyCounts();
@@ -979,7 +956,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         foreach (var mapping in Mappings.Where(mapping => mapping.BackupSet.Id == backupSet.Id).ToArray()) Mappings.Remove(mapping);
         BackupSets.Remove(backupSet);
-        Sources.FirstOrDefault(source => source.Id == LocalSourceIdentity.AgentId)?.BackupSets.Remove(backupSet);
         SelectedBackupSet = BackupSets.FirstOrDefault();
         RemoveUnreferencedDevices();
         RefreshDeviceTriggerRoles();

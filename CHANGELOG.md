@@ -2,6 +2,11 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.4 — 2026-09-22
+
+- Show only remote computers in Remote Agents; keep local backup sets available internally.
+- Move local folder selection and removal into the backup rule dialog, retaining existing local backup settings.
+
 ## [Unreleased]
 
 ## [0.3.3] - 2026-09-22
