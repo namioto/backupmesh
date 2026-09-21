@@ -60,7 +60,6 @@ public sealed class LocalResticRunnerTests
     /// means real file content survives, not just that a process exited 0. Requires the bundled tool.
     /// </summary>
     [Fact]
-    [Trait("Category", "Integration")]
     public async Task ARealLocalBackupProducesASnapshotThatRestoresTheOriginalFileContent()
     {
         var resticPath = Path.Combine(FindRepositoryRoot(), "artifacts", "tools", "windows-x64", "restic.exe");

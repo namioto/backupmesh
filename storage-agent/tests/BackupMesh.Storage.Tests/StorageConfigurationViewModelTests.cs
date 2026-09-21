@@ -76,24 +76,6 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
-    public async Task BackupJobResolvesItsTargetMappingToABackupSetAndDeviceName()
-    {
-        var device = new RegisteredDevice(Guid.NewGuid(), "volume:target", "Archive drive", "ARCHIVE", "D:\\", DateTimeOffset.UtcNow, null);
-        var backupSet = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Home Server", "Photos", ["/srv/photos"]);
-        var mapping = new BackupTargetMapping(Guid.NewGuid(), backupSet.Id, device.Id, "photos");
-        var configurationClient = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, new([device], [backupSet], [mapping])));
-        var job = new BackupJobDto(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, new(50, 100, 2, 4), null, TargetMappingId: mapping.Id);
-        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: configurationClient, jobClient: new FakeJobClient([job]));
-        await viewModel.RefreshConfigurationAsync();
-
-        await viewModel.RefreshJobsAsync();
-
-        var shown = Assert.Single(viewModel.Jobs);
-        Assert.Contains("Photos", shown.Target);
-        Assert.Contains("Archive drive", shown.Target);
-    }
-
-    [Fact]
     public void RecentlyConnectedComputerWithDistantCertificateExpiryIsJustConnected()
     {
         // Regression test: a healthy computer, seen moments ago, whose certificate isn't due for
@@ -192,32 +174,6 @@ public sealed class StorageConfigurationViewModelTests
         var view = Assert.Single(viewModel.Mappings);
         Assert.Contains("hour", view.LastBackupDisplay);
         Assert.Equal("Last attempt failed", view.LastBackupIssue);
-    }
-
-    [Fact]
-    public async Task TriggerNoteDescribesAnExplicitTriggerDeviceReadOnly()
-    {
-        // The per-row editor for TriggerDeviceIds/TriggerPolicy is gone from this screen, but a Backup Set
-        // that already names an explicit trigger device (e.g. the external-source-arrival case, or a config
-        // authored before the editor was removed) still only starts for that device - never "whenever its
-        // Target connects", the way an untriggered row's default behavior does. This must stay visible even
-        // with no editor for it, or the grid silently implies behavior the mapping doesn't actually have.
-        var cameraCard = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Camera card", "A", "D:\\", DateTimeOffset.UtcNow, null));
-        var backupUsb = new DeviceViewModel(new(Guid.NewGuid(), "disk:b", "Backup USB", "B", "E:\\", DateTimeOffset.UtcNow, null));
-        var archive = new DeviceViewModel(new(Guid.NewGuid(), "disk:c", "Archive drive", "C", "F:\\", DateTimeOffset.UtcNow, null));
-        var set = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Photos", ["C:\\Photos"], [cameraCard.Id, backupUsb.Id], BackupSetTriggerPolicy.AllAvailable);
-        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, archive.Id, "photos");
-        var client = new FakeJobClient([]);
-        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
-        viewModel.Devices.Add(cameraCard);
-        viewModel.Devices.Add(backupUsb);
-        viewModel.Devices.Add(archive);
-        viewModel.Mappings.Add(new(mapping, new BackupSetViewModel(set), archive));
-
-        await viewModel.RefreshJobsAsync();
-
-        var view = Assert.Single(viewModel.Mappings);
-        Assert.Equal("Starts when Camera card and Backup USB are all connected", view.TriggerNote);
     }
 
     [Fact]

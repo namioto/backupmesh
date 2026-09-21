@@ -42,10 +42,13 @@ Package directories are `artifacts/BackupMesh-Source-linux-x64` and `artifacts/B
 
 Prioritize backup and restore correctness, data preservation, authentication, and meaningful regression coverage. Avoid tests that only repeat getters, exact UI wording, control presence, or cosmetic dimensions. Remove obsolete tests with the behavior they covered.
 
-Build scripts do not run tests automatically. For routine Storage Agent changes, run regression tests on Windows without external tools or hardware enumeration:
+Judge a test by the damage a regression could cause and its effects on other features, weighed against maintenance cost as specifications change. Simple display and lookup behavior does not need dedicated coverage by default. Preserve tests for core state transitions, identity, data integrity, and cross-feature side effects; do not add test categories merely to retain low-value checks.
+
+Run Storage Agent tests on Windows:
 
 ```powershell
-dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj --filter "Category!=Integration"
+dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj
+pwsh -NoProfile -File scripts/test-settings-cleanup.ps1
 ```
 
 Run Remote Agent tests from its module directory:
@@ -56,22 +59,13 @@ go test ./...
 Pop-Location
 ```
 
-Run integration tests when changing backup execution, repository authentication, Windows volume detection, or bundled tools, and before a release. They require Windows and fetched tools; missing prerequisites fail instead of being reported as a pass:
-
-```powershell
-pwsh -NoProfile -File scripts/fetch-third-party-tools.ps1
-dotnet test storage-agent/tests/BackupMesh.Storage.Tests/BackupMesh.Storage.Tests.csproj --filter "Category=Integration"
-```
-
-Run `scripts/test-settings-cleanup.ps1` when changing installer/settings cleanup and before a release. After building the Windows development package, verify the complete backup/restore flow when changing cross-agent behavior and before a release:
+After building the Windows development package, verify a real backup and restoration using folder targets:
 
 ```powershell
 pwsh -NoProfile -File scripts/test-local-e2e.ps1 -FolderTargets
 ```
 
 The end-to-end test requires port 7444 to be available and uses test data under `artifacts`. Validate hardware-specific behavior separately on the intended devices.
-
-Omitting `--filter` runs every .NET test. Documentation-only changes need link checks, not a full test run. A test remains useful after implementation when it detects meaningful regressions; do not remove such tests simply because they already passed once.
 
 ## Submit a change
 

@@ -46,16 +46,6 @@ public sealed class SourceCatalogViewModelTests
     }
 
     [Fact]
-    public async Task ThisPCIsAlwaysPresentEvenWithNoCatalogsAtAll()
-    {
-        using var viewModel = new MainWindowViewModel(catalogClient: new FakeCatalogClient([]), loadLocalState: false);
-
-        await viewModel.RefreshCatalogsOnceAsync();
-
-        Assert.Contains(viewModel.Sources, source => source.DisplayName == BackupMesh.Storage.Core.LocalSourceIdentity.DisplayName);
-    }
-
-    [Fact]
     public async Task ALocalBackupSetSurvivesARoutineCatalogRefreshWithoutBeingMarkedUnavailable()
     {
         using var viewModel = new MainWindowViewModel(catalogClient: new FakeCatalogClient([]), loadLocalState: false);

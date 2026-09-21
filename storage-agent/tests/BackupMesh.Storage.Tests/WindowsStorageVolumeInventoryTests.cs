@@ -21,7 +21,6 @@ public sealed class WindowsStorageVolumeInventoryTests
     }
 
     [Fact]
-    [Trait("Category", "Integration")]
     public void IncludesTheRunningWindowsSystemVolume()
     {
         Assert.True(OperatingSystem.IsWindows(), "Integration tests require Windows.");

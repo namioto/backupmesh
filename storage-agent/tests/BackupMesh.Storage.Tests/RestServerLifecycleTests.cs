@@ -11,7 +11,6 @@ namespace BackupMesh.Storage.Tests;
 public sealed class RestServerLifecycleTests
 {
     [Fact]
-    [Trait("Category", "Integration")]
     public async Task BundledRestServerRequiresGeneratedCredentials()
     {
         var repositoryRoot = FindRepositoryRoot();
