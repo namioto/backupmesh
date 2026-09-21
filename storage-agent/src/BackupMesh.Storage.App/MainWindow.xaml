@@ -23,9 +23,8 @@
 
         <TabControl Grid.Row="1" Margin="18" SelectionChanged="OnTabSelectionChanged" AutomationProperties.AutomationId="MainTabControl">
             <TabItem Header="{local:Loc Text_Overview_D4B1EA}" AutomationProperties.AutomationId="OverviewTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <UniformGrid Columns="3" Margin="0,0,0,16">
                         <Border Background="White" CornerRadius="8" Padding="18" Margin="5"><StackPanel><TextBlock Text="{local:Loc Text_Connectedtargets_E2D19F}" Foreground="#607086"/><TextBlock Text="{Binding ConnectedDeviceCount}" FontSize="30" FontWeight="SemiBold" AutomationProperties.AutomationId="ConnectedDeviceCountText"/></StackPanel></Border>
                         <Border Background="White" CornerRadius="8" Padding="18" Margin="5"><StackPanel><TextBlock Text="{local:Loc Text_Pairedsources_0A551C}" Foreground="#607086"/><TextBlock Text="{Binding SourceCount}" FontSize="30" FontWeight="SemiBold" AutomationProperties.AutomationId="SourceCountText"/></StackPanel></Border>
@@ -33,8 +32,8 @@
                     </UniformGrid>
                     <GroupBox Grid.Row="1" Header="{local:Loc Text_Backupjobs_399BA4}" Padding="12" Margin="0,0,0,10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid MinHeight="140" ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
+                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{local:Loc Text_Backup_838557}" Binding="{Binding Target}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="{local:Loc Text_State_A3B50C}" Binding="{Binding StateDisplay}" Width="110"/>
@@ -48,10 +47,9 @@
                         </Grid>
                     </GroupBox>
                     <GroupBox Grid.Row="2" Header="{local:Loc Text_Recentactivity_6CB44B}" Padding="12">
-                        <ListBox ItemsSource="{Binding Activity}" BorderThickness="0" MinHeight="100" AutomationProperties.AutomationId="RecentActivityList"/>
+                        <ListBox ItemsSource="{Binding Activity}" BorderThickness="0" AutomationProperties.AutomationId="RecentActivityList"/>
                     </GroupBox>
                 </Grid>
-                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="{local:Loc Text_Backups_3334FE}" AutomationProperties.AutomationId="BackupsTab">
