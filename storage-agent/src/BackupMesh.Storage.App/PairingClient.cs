@@ -18,6 +18,7 @@ public sealed record PairingSessionDto(
         .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 public sealed record PairingSessionRequestDto([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
+public sealed class PairingSetupRequiredException() : HttpRequestException(Localization.Text("PairingAddressCertificateMismatch"));
 public interface IPairingClient
 {
     Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken);
@@ -34,16 +35,56 @@ public sealed class PairingClient : IPairingClient, IDisposable
         {
             using var problem = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
             var title = problem.RootElement.TryGetProperty("title", out var value) ? value.GetString() : null;
-            if (title is "PAIRING_ADDRESS_CERTIFICATE_MISMATCH" or "NO_NETWORK_ADDRESS")
-                throw new HttpRequestException(Localization.Text(title == "NO_NETWORK_ADDRESS" ? "PairingNoNetworkAddress" : "PairingAddressCertificateMismatch"));
+            if (title == "PAIRING_ADDRESS_CERTIFICATE_MISMATCH") throw new PairingSetupRequiredException();
+            if (title == "NO_NETWORK_ADDRESS") throw new HttpRequestException(Localization.Text("PairingNoNetworkAddress"));
         }
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException(Localization.Text("Text_Pairingresponsewasempty_536774"));
     }
     public async Task RotateAuthorityAsync(CancellationToken cancellationToken)
     {
-        using var response = await _client.PostAsync("pairing/rotate-authority", null, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        // Obtain elevation before changing trust material. Cancelling UAC must leave it intact.
+        var endpoint = _client.BaseAddress!;
+        if (!endpoint.IsLoopback || endpoint.Port != 7444)
+            throw new HttpRequestException(Localization.Text("IdentityRestartFailed"));
+        var servicePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Service", "BackupMesh.Storage.Service.exe"));
+        var script = """
+            $ErrorActionPreference = 'Stop'
+            try {
+                $service = Get-CimInstance Win32_Service -Filter "Name='BackupMeshStorageAgent'"
+                if (!$service -or !$service.PathName.StartsWith('"' + '__SERVICE__' + '"', [StringComparison]::OrdinalIgnoreCase)) { exit 3 }
+                Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:7444/api/v1/pairing/rotate-authority' -TimeoutSec 10 | Out-Null
+                Restart-Service -Name BackupMeshStorageAgent -ErrorAction Stop
+                (Get-Service BackupMeshStorageAgent).WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+                exit 0
+            } catch { exit 1 }
+            """.Replace("__SERVICE__", servicePath.Replace("'", "''"));
+        var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"))
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-EncodedCommand");
+        start.ArgumentList.Add(Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script)));
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(start) ?? throw new HttpRequestException(Localization.Text("IdentityRestartFailed"));
+            await process.WaitForExitAsync(cancellationToken);
+            if (process.ExitCode != 0) throw new HttpRequestException(Localization.Text("IdentityRestartFailed"));
+        }
+        catch (System.ComponentModel.Win32Exception error)
+        {
+            throw new HttpRequestException(Localization.Text(error.NativeErrorCode == 1223 ? "IdentityApprovalCancelled" : "IdentityRestartFailed"), error);
+        }
+        // Running service status alone does not mean HTTPS is ready. Verify pairing preflight too.
+        for (var attempt = 0; ; attempt++)
+        {
+            try { await CreateSessionAsync(null, cancellationToken); break; }
+            catch (HttpRequestException) when (attempt < 9) { await Task.Delay(1000, cancellationToken); }
+        }
     }
     public void Dispose() => _client.Dispose();
 }

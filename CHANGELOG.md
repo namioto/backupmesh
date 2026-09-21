@@ -4,6 +4,12 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-22
+
+### Fixed
+
+- Connection setup offers repair in the Storage app, obtains administrator approval before changing identity, restarts the installed service, and verifies pairing readiness before reporting success. Active backups prevent identity rotation.
+
 ## [0.3.2] - 2026-09-22
 
 ### Fixed
@@ -151,4 +157,5 @@ First end-to-end MVP release.
 [0.3.0]: https://github.com/namioto/backupmesh/compare/v0.2.1...v0.3.0
 [0.3.1]: https://github.com/namioto/backupmesh/compare/v0.3.0...v0.3.1
 [0.3.2]: https://github.com/namioto/backupmesh/compare/v0.3.1...v0.3.2
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.2...HEAD
+[0.3.3]: https://github.com/namioto/backupmesh/compare/v0.3.2...v0.3.3
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.3...HEAD

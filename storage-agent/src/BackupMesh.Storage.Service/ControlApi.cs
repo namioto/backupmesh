@@ -345,10 +345,12 @@ public static class ControlApi
             logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
             return Results.Ok(new { agent_id = request.AgentId, control_endpoint = controlEndpoint, credential = credentials.Issue(request.AgentId), certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt, issued_at = DateTimeOffset.UtcNow });
         });
-        pairing.MapPost("/rotate-authority", (HttpContext http, PairingCertificateAuthority certificates, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
+        pairing.MapPost("/rotate-authority", (HttpContext http, PairingCertificateAuthority certificates, BackupJobStore jobs, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "The Storage identity can only be rotated from the local tray app.");
+            if (jobs.List().Any(job => job.State is "ACCEPTED" or "RUNNING" or "CANCEL_REQUESTED"))
+                return Problem(409, "STORAGE_BUSY", "Wait for active backups to finish before resetting connections.");
             certificates.RotateAuthority();
             logger.LogWarning("Storage pairing CA and server certificate were rotated from the local tray app. Every paired Source Agent must be re-paired after the Storage Service restarts.");
             return Results.Ok(new { restart_required = true });

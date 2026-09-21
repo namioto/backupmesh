@@ -219,9 +219,7 @@
   <data name="Text_Security_8F6FB4" xml:space="preserve">
     <value>Security</value>
   </data>
-  <data name="Text_RotateStorageidentity_8CA37E" xml:space="preserve">
-    <value>Rotate Storage identity</value>
-  </data>
+  <data name="Text_RotateStorageidentity_8CA37E" xml:space="preserve"><value>Repair connection setup</value></data>
   <data name="Text_AboutBackupMesh_0F063F" xml:space="preserve">
     <value>About BackupMesh</value>
   </data>
@@ -492,21 +490,11 @@
   <data name="Text_Therequesttoremove0timedout_B33434" xml:space="preserve">
     <value>The request to remove {0} timed out.</value>
   </data>
-  <data name="Text_ThisregeneratestheStoragescert_1C14DB" xml:space="preserve">
-    <value>This regenerates the Storage's certificate authority and server certificate. Every currently paired computer will lose access until it is re-paired, and this only takes effect after you restart the BackupMesh Storage service. Continue?</value>
-  </data>
-  <data name="Text_StorageidentityrotatedRestartt_20367A" xml:space="preserve">
-    <value>Storage identity rotated. Restart the BackupMesh Storage service, then re-pair every computer.</value>
-  </data>
-  <data name="Text_Storageidentityrotated_D5E024" xml:space="preserve">
-    <value>Storage identity rotated</value>
-  </data>
-  <data name="Text_CouldnotrotatetheStorageidenti_B322A0" xml:space="preserve">
-    <value>Could not rotate the Storage identity: {0}</value>
-  </data>
-  <data name="Text_TheStorageidentityrotationrequ_E2B876" xml:space="preserve">
-    <value>The Storage identity rotation request timed out.</value>
-  </data>
+  <data name="Text_ThisregeneratestheStoragescert_1C14DB" xml:space="preserve"><value>Repair connection setup now? BackupMesh will apply the changes automatically. Previously connected computers must connect again. Backup files are preserved. Windows may ask for administrator approval.</value></data>
+  <data name="Text_StorageidentityrotatedRestartt_20367A" xml:space="preserve"><value>Connection setup is ready. Connect your computers again.</value></data>
+  <data name="Text_Storageidentityrotated_D5E024" xml:space="preserve"><value>Connection setup ready</value></data>
+  <data name="Text_CouldnotrotatetheStorageidenti_B322A0" xml:space="preserve"><value>Connection setup could not be repaired: {0}</value></data>
+  <data name="Text_TheStorageidentityrotationrequ_E2B876" xml:space="preserve"><value>Connection preparation took too long. Try again shortly.</value></data>
   <data name="Text_LoadedStorageServiceconfigurat_E46147" xml:space="preserve">
     <value>Loaded Storage Service configuration revision {0}.</value>
   </data>
@@ -735,9 +723,7 @@
   <data name="Text_0device1connected_5378A0" xml:space="preserve">
     <value>{0} device{1} connected</value>
   </data>
-  <data name="Text_RotatingtheStorageidentityrege_47B7C4" xml:space="preserve">
-    <value>Rotating the Storage identity regenerates its certificate authority and server certificate. Every currently paired computer loses access until it is re-paired, and the change only takes effect after the BackupMesh Storage service is restarted.</value>
-  </data>
+  <data name="Text_RotatingtheStorageidentityrege_47B7C4" xml:space="preserve"><value>Repair connection setup if computers cannot connect. Previously connected computers will need to connect again. Backup files are preserved.</value></data>
   <data name="SystemDefault">
     <value>System default</value>
   </data>
@@ -761,11 +747,14 @@
   <data name="State_CANCELLED"><value>Cancelled</value></data>
   <data name="State_CANCEL_REQUESTED"><value>Cancelling</value></data>
   <data name="PairingCopyValue" xml:space="preserve"><value>Copy</value></data>
-  <data name="PairingAddressCertificateMismatch" xml:space="preserve"><value>The saved certificate does not support the LAN address. In Settings, rotate the Storage identity, restart the Storage service, and re-pair existing Remote Agents.</value></data>
+  <data name="PairingAddressCertificateMismatch" xml:space="preserve"><value>Connection setup needs repair. Use Repair connection setup and try again.</value></data>
   <data name="PairingExpiryHint" xml:space="preserve"><value>{0:g} — complete pairing before this time. Do not enter this value.</value></data>
   <data name="PairingNetworkHint" xml:space="preserve"><value>Copy the three values below into the Remote Agent. This LAN address must be reachable from that computer; a configured DNS name must resolve there.</value></data>
   <data name="PairingNoNetworkAddress" xml:space="preserve"><value>Connect this computer to a LAN before pairing.</value></data>
   <data name="PairingCopyInvitation" xml:space="preserve"><value>Copy connection invitation</value></data>
   <data name="PairingInvitationInstructions" xml:space="preserve"><value>Copy the invitation, run backupmesh-agent pair on the remote computer, and paste it when prompted. The invitation works once and expires in 10 minutes.</value></data>
   <data name="PairingAdvancedDetails" xml:space="preserve"><value>Connection details (advanced)</value></data>
+  <data name="IdentityApprovalCancelled" xml:space="preserve"><value>Windows approval was cancelled. No connection settings were changed.</value></data>
+  <data name="IdentityRestartFailed" xml:space="preserve"><value>Connection preparation could not finish. Wait for backups to finish, then try Repair connection setup again from the installed BackupMesh app.</value></data>
+  <data name="IdentityUpdating" xml:space="preserve"><value>Preparing connections. Please wait…</value></data>
 </root>

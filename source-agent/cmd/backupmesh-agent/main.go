@@ -29,7 +29,7 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/restic"
 )
 
-const version = "0.3.2"
+const version = "0.3.3"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

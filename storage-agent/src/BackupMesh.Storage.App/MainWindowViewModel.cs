@@ -312,8 +312,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (TaskCanceledException) { FooterStatus = Localization.Text("Text_Thecancellationrequesttimedout_2623FB"); }
     }
 
-    private async Task PairSourceAsync(SourceConnectionViewModel? rebind)
+    private bool _updatingStorageIdentity;
+    private async Task PairSourceAsync(SourceConnectionViewModel? rebind, bool repairAttempted = false)
     {
+        if (_updatingStorageIdentity) return;
         try
         {
             var pairing = await _pairingClient.CreateSessionAsync(rebind?.AgentId, _shutdown.Token);
@@ -322,6 +324,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 ? Localization.Text("Text_Onetimepairingdetailsgenerated_6E3566")
                 : Localization.Format("Text_Onetimerepairingdetailsgenerat_0C12FF", rebind.AgentName);
             NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerpairing_53ECA5"), FooterStatus));
+        }
+        catch (PairingSetupRequiredException) when (!repairAttempted)
+        {
+            if (await RotateStorageIdentityAsync()) await PairSourceAsync(rebind, repairAttempted: true);
         }
         catch (HttpRequestException exception)
         {
@@ -440,21 +446,28 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 
-    private async Task RotateStorageIdentityAsync()
+    private async Task<bool> RotateStorageIdentityAsync()
     {
+        if (_updatingStorageIdentity) return false;
         var confirmed = System.Windows.MessageBox.Show(
             Localization.Text("Text_ThisregeneratestheStoragescert_1C14DB"),
             Localization.Text("Text_RotateStorageidentity_8CA37E"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
-        if (!confirmed) return;
+        if (!confirmed) return false;
+        _updatingStorageIdentity = true;
         try
         {
+            FooterStatus = Localization.Text("IdentityUpdating");
             await _pairingClient.RotateAuthorityAsync(_shutdown.Token);
             FooterStatus = Localization.Text("Text_StorageidentityrotatedRestartt_20367A");
             NotificationRequested?.Invoke(this, new(Localization.Text("Text_Storageidentityrotated_D5E024"), FooterStatus));
+            return true;
         }
         catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_CouldnotrotatetheStorageidenti_B322A0", exception.Message); }
         catch (TaskCanceledException) { FooterStatus = Localization.Text("Text_TheStorageidentityrotationrequ_E2B876"); }
-        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return false; }
+        finally { _updatingStorageIdentity = false; }
+        System.Windows.MessageBox.Show(FooterStatus, Localization.Text("Text_Computerpairing_53ECA5"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        return false;
     }
 
     public async Task RefreshConfigurationAsync()

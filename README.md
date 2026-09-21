@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current version: **0.3.2** — the Storage app supports Korean and English, displays project information and GitHub links, and offers optional settings cleanup during uninstall. See the [changelog](CHANGELOG.md).
+Current version: **0.3.3** — the Storage app supports Korean and English, displays project information and GitHub links, and offers optional settings cleanup during uninstall. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 

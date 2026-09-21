@@ -91,6 +91,21 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task ConnectionRepairCannotInvalidateIdentityDuringAnActiveBackup()
+    {
+        using var before = _certificateAuthority.GetAuthorityCertificate();
+        var jobs = _host.Services.GetRequiredService<BackupJobStore>();
+        jobs.Admit(new BackupRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow, []),
+            "repair-active-backup", new Uri("https://test-storage/repository"));
+
+        var response = await PostAsync("/api/v1/pairing/rotate-authority", IPAddress.Loopback);
+
+        Assert.Equal(409, response.Response.StatusCode);
+        using var after = _certificateAuthority.GetAuthorityCertificate();
+        Assert.Equal(before.Thumbprint, after.Thumbprint);
+    }
+
+    [Fact]
     public async Task SessionCreationSucceedsFromLoopback()
     {
         var context = await PostAsync("/api/v1/pairing/sessions", IPAddress.Loopback);
