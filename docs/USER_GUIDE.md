@@ -10,24 +10,32 @@ In **Settings → Language**, choose System default, 한국어, or English. The 
 
 The footer always shows the app version and GitHub link. **Settings → About BackupMesh** contains the project address, user guide, issue tracker and license. Service and external-tool diagnostic details may remain in their original language.
 
+## Pairing address and copied values
+
+Copy the Storage address, one-time code, and certificate fingerprint using their individual **Copy** buttons. **Copy all connection details** includes those three values. Expiration is a deadline for completing pairing, not an input.
+
+Storage defaults to an active LAN IPv4 address, preferring an interface with a gateway. The remote computer must have a route to that address and the required firewall ports. Multiple networks or VPNs may require an explicit reachable name or address in the service's `MutualTls.ServerNames` configuration; set `RepositoryServer.PublicHost` consistently when overriding it. DNS names must resolve on the remote computer. Reserve the chosen IP in DHCP or use a managed DNS name for a stable endpoint.
+
+Older certificates may only cover the computer name. If pairing reports an address/certificate mismatch, use **Settings → Rotate Storage identity**, restart the Storage service, and re-pair every existing Remote Agent. This changes the certificate fingerprint. Backups are preserved. Adding an address to configuration alone does not replace an existing certificate.
+
 ## 1. Prepare installation packages
 
 Obtain the installation packages listed below. To build them from source, follow the [contribution guide](../CONTRIBUTING.md).
 
 The resulting self-contained packages are written to:
 
-- `artifacts\installer\BackupMesh-Storage-0.3.1-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.2-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\installer\BackupMesh-Source-0.3.1-win-x64-Setup.exe` (Remote Agent for backing up this same PC)
+- `artifacts\installer\BackupMesh-Source-0.3.2-win-x64-Setup.exe` (Remote Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For normal use, run `BackupMesh-Storage-0.3.1-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+For normal use, run `BackupMesh-Storage-0.3.2-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
-The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.1-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.2-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
 
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
@@ -88,7 +96,7 @@ Running `install.sh` from an interactive terminal (rather than a script) prompts
 
 Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **This PC** in the tray instead (section 3b) — no installer needed at all.
 
-Run `BackupMesh-Source-0.3.1-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Remote Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
+Run `BackupMesh-Source-0.3.2-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Remote Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 

@@ -323,7 +323,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 : Localization.Format("Text_Onetimerepairingdetailsgenerat_0C12FF", rebind.AgentName);
             NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerpairing_53ECA5"), FooterStatus));
         }
-        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Pairingsessioncouldnotbecreate_168B2A", exception.Message); }
+        catch (HttpRequestException exception)
+        {
+            FooterStatus = Localization.Format("Text_Pairingsessioncouldnotbecreate_168B2A", exception.Message);
+            System.Windows.MessageBox.Show(FooterStatus, Localization.Text("Text_Computerpairing_53ECA5"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
     }
 

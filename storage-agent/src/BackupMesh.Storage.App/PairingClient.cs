@@ -24,6 +24,13 @@ public sealed class PairingClient : IPairingClient, IDisposable
     public async Task<PairingSessionDto> CreateSessionAsync(Guid? rebindAgentId, CancellationToken cancellationToken)
     {
         using var response = await _client.PostAsJsonAsync("pairing/sessions", new PairingSessionRequestDto(rebindAgentId), cancellationToken);
+        if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.ServiceUnavailable)
+        {
+            using var problem = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            var title = problem.RootElement.TryGetProperty("title", out var value) ? value.GetString() : null;
+            if (title is "PAIRING_ADDRESS_CERTIFICATE_MISMATCH" or "NO_NETWORK_ADDRESS")
+                throw new HttpRequestException(Localization.Text(title == "NO_NETWORK_ADDRESS" ? "PairingNoNetworkAddress" : "PairingAddressCertificateMismatch"));
+        }
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<PairingSessionDto>(cancellationToken: cancellationToken) ?? throw new InvalidDataException(Localization.Text("Text_Pairingresponsewasempty_536774"));
     }

@@ -4,13 +4,21 @@
 
 이 문서는 현재 MVP인 Windows Storage Agent와 하나 이상의 Linux Remote Agent를 설치하고 사용하는 방법을 설명합니다. 실제 환경에서 복원을 검증하기 전까지는 중요한 데이터의 다른 독립 사본을 유지하세요.
 
+## 연결 주소와 복사 항목
+
+스토리지 주소, 일회용 연결 코드, 인증서 지문을 각 **복사** 버튼으로 복사해 입력하세요. **연결 정보 모두 복사**도 이 세 값만 포함합니다. 만료 시각은 연결을 완료해야 하는 기한이며 입력하는 값이 아닙니다.
+
+기본 주소는 사용 중인 LAN IPv4 주소이며 게이트웨이가 있는 인터페이스를 우선합니다. 원격 컴퓨터에서 해당 주소로 통신할 경로와 방화벽 포트가 열려 있어야 합니다. 여러 네트워크나 VPN을 사용한다면 서비스 설정의 `MutualTls.ServerNames`에 접근 가능한 이름이나 주소를 명시하고, `RepositoryServer.PublicHost`를 별도 지정했다면 일치시키세요. DNS 이름은 원격 컴퓨터에서도 해석되어야 합니다. 주소를 안정적으로 유지하려면 DHCP 예약이나 관리되는 DNS 이름을 사용하세요.
+
+기존 인증서는 PC 이름만 포함할 수 있습니다. 주소와 인증서가 맞지 않는다는 안내가 나오면 **설정 → 스토리지 에이전트 인증 정보 교체**을 실행하고 스토리지 서비스를 재시작한 뒤 기존 원격 에이전트도 모두 다시 연결하세요. 인증서 지문은 바뀌며 백업 데이터는 보존됩니다. 설정에 주소를 추가하는 것만으로 기존 인증서가 교체되지는 않습니다.
+
 ## 1. 설치 패키지 준비
 
 아래 설치 패키지를 준비하세요. 소스에서 직접 만드는 절차는 [기여 가이드](../CONTRIBUTING.ko.md)를 참고하세요.
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.1-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.2-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
@@ -19,9 +27,9 @@
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.1-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.2-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.1-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.2-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -79,7 +87,7 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 트레이의 **This PC**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.1-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.2-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 

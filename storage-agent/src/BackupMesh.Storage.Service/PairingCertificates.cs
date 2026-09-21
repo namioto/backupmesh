@@ -54,6 +54,7 @@ public sealed class PairingCertificateAuthority(PairingCertificateOptions option
                 return X509CertificateLoader.LoadPkcs12(storedPfx, null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
             }
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "localhost", Environment.MachineName };
+            foreach (var address in StorageNetworkAddress.LocalAddresses()) names.Add(address.ToString());
             if (configuredNames is not null)
                 foreach (var name in configuredNames.Where(value => !string.IsNullOrWhiteSpace(value))) names.Add(name.Trim());
             using var key = RSA.Create(3072);

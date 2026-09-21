@@ -6,6 +6,24 @@ namespace BackupMesh.Storage.Tests;
 public sealed class PairingCertificateAuthorityTests
 {
     [Fact]
+    public void NewCertificateCoversLanAddressesAndReloadKeepsExistingIdentity()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-lan-certificate-{Guid.NewGuid():N}");
+        try
+        {
+            var authority = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = Path.Combine(directory, "authority.dpapi") });
+            using var certificate = authority.IssueServerCertificate(["192.0.2.10"]);
+            Assert.True(certificate.MatchesHostname("192.0.2.10", allowWildcards: false, allowCommonName: false));
+            foreach (var address in StorageNetworkAddress.LocalAddresses())
+                Assert.True(certificate.MatchesHostname(address.ToString(), allowWildcards: false, allowCommonName: false));
+            using var reloaded = authority.IssueServerCertificate(["192.0.2.20"]);
+            Assert.Equal(certificate.Thumbprint, reloaded.Thumbprint);
+            Assert.False(reloaded.MatchesHostname("192.0.2.20", allowWildcards: false, allowCommonName: false));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public void RotateAuthorityDeletesTheAuthorityAndServerCertificateFiles()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"backupmesh-ca-rotate-{Guid.NewGuid():N}");

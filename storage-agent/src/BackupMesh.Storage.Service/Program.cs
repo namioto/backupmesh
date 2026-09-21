@@ -9,7 +9,7 @@ var pairingCertificateAuthority = new PairingCertificateAuthority(pairingCertifi
 var mutualTls = builder.Configuration.GetSection("MutualTls").Get<MutualTlsOptions>() ?? new();
 var repositoryServer = builder.Configuration.GetSection("RepositoryServer").Get<RepositoryServerOptions>() ?? new();
 if (string.IsNullOrWhiteSpace(repositoryServer.PublicHost))
-    repositoryServer.PublicHost = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+    repositoryServer.PublicHost = StorageNetworkAddress.Resolve(mutualTls.ServerNames) ?? string.Empty;
 RepositoryServerManager.DeleteStaleTlsFiles(repositoryServer.CredentialDirectory);
 if (mutualTls.Enabled)
 {

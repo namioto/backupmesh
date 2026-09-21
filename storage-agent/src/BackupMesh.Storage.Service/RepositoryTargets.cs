@@ -199,7 +199,7 @@ public sealed class RepositoryServerManager(RepositoryServerOptions options, IPr
         => BuildEndpoint(ResolvePublicHost(options.PublicHost), session.Port, ".", session.Credential?.Username, session.Credential?.Password, options.UseTls);
 
     internal static string ResolvePublicHost(string? configuredHost)
-        => string.IsNullOrWhiteSpace(configuredHost) ? Environment.MachineName : configuredHost.Trim();
+        => string.IsNullOrWhiteSpace(configuredHost) ? StorageNetworkAddress.Resolve([]) ?? throw new InvalidOperationException("No LAN address is available for the repository endpoint.") : configuredHost.Trim();
 
     internal static Uri BuildEndpoint(string publicHost, int port, string repositoryPath, string? username = null, string? password = null, bool useTls = false)
     {

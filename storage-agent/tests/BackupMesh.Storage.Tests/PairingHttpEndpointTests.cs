@@ -101,6 +101,22 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task CertificateAddressMismatchDoesNotConsumePairingCode()
+    {
+        var options = _host.Services.GetRequiredService<MutualTlsOptions>();
+        options.ServerNames = ["192.0.2.200"];
+        var session = _sessions.Create();
+        var agentId = Guid.NewGuid();
+        var creation = await PostAsync("/api/v1/pairing/sessions", IPAddress.Loopback);
+        Assert.Equal(409, creation.Response.StatusCode);
+        var response = await ExchangeAsync(session.Code, agentId, "source-1");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        options.ServerNames = ["test-storage"];
+        var retry = await ExchangeAsync(session.Code, agentId, "source-1");
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+    }
+
+    [Fact]
     public async Task ExchangeRejectsAnUnknownCode()
     {
         var response = await ExchangeAsync(new string('a', 27), Guid.NewGuid(), "source-1");

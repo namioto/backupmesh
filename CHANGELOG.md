@@ -4,6 +4,13 @@ All notable changes to BackupMesh are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-22
+
+### Fixed
+
+- Pairing and default repository addresses use an active LAN IPv4 address instead of assuming the Windows computer name resolves remotely. Explicit server names remain supported.
+- New server certificates include LAN IP addresses. Pairing rejects addresses not covered by an existing certificate and explains identity rotation and re-pairing, without silently replacing trust material.
+- Pairing fields have individual copy buttons. Expiration is an explanatory label and is excluded from copied connection details.
 ## [0.3.1] - 2026-09-22
 
 ### Changed
@@ -143,4 +150,5 @@ First end-to-end MVP release.
 [0.2.1]: https://github.com/namioto/backupmesh/compare/v0.2.0...v0.2.1
 [0.3.0]: https://github.com/namioto/backupmesh/compare/v0.2.1...v0.3.0
 [0.3.1]: https://github.com/namioto/backupmesh/compare/v0.3.0...v0.3.1
-[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.1...HEAD
+[0.3.2]: https://github.com/namioto/backupmesh/compare/v0.3.1...v0.3.2
+[Unreleased]: https://github.com/namioto/backupmesh/compare/v0.3.2...HEAD

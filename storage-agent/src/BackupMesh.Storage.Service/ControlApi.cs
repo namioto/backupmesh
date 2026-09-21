@@ -304,13 +304,15 @@ public static class ControlApi
         {
             ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing sessions can only be created from the local tray app.");
+            if (PairingAddressError(mutualTls, out var host) is { } addressError) return addressError;
             var session = sessions.Create(request?.RebindAgentId);
-            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+
             return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = CertificateFingerprint(mutualTls.ServerTrustPem), rebind_agent_id = session.RebindAgentId });
         });
         pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, IssuedCertificateStore issuedCertificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
+            if (PairingAddressError(mutualTls, out var host) is { } addressError) return addressError;
             var remote = http.Connection.RemoteIpAddress;
             if (throttle.IsLockedOut(remote))
             {
@@ -338,7 +340,7 @@ public static class ControlApi
             throttle.RecordSuccess(remote);
             var certificate = certificates.Issue(request.AgentId);
             issuedCertificates.Record(request.AgentId, certificate.ExpiresAt, CertificateFingerprint(certificate.CertificatePem));
-            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+
             var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
             logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
             return Results.Ok(new { agent_id = request.AgentId, control_endpoint = controlEndpoint, credential = credentials.Issue(request.AgentId), certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt, issued_at = DateTimeOffset.UtcNow });
@@ -372,9 +374,10 @@ public static class ControlApi
             ct.ThrowIfCancellationRequested();
             if (http.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote)) return Problem(403, "FORBIDDEN", "Pairing credentials can only be issued from the local tray app.");
             logger.LogWarning("Deprecated /pairing/credential was used to issue a file-bundle pairing credential. Migrate to the one-time-code pairing flow.");
+            if (PairingAddressError(mutualTls, out var host) is { } addressError) return addressError;
             var agentId = Guid.NewGuid();
             var certificate = certificates.Issue(agentId);
-            var host = mutualTls.ServerNames.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) ?? Environment.MachineName;
+
             var endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
             return Results.Ok(new
             {
@@ -628,6 +631,14 @@ public static class ControlApi
     {
         var errors = new List<ValidationResult>(); if (Validator.TryValidateObject(request!, new ValidationContext(request!), errors, true)) return null;
         return Results.ValidationProblem(errors.SelectMany(e => e.MemberNames.DefaultIfEmpty(string.Empty), (e, member) => new { member, e.ErrorMessage }).GroupBy(x => x.member).ToDictionary(g => g.Key, g => g.Select(x => x.ErrorMessage ?? "Invalid value.").ToArray()));
+    }
+    private static IResult? PairingAddressError(MutualTlsOptions options, out string? host)
+    {
+        host = StorageNetworkAddress.Resolve(options.ServerNames);
+        if (host is null) return Problem(503, "NO_NETWORK_ADDRESS", "Connect Storage to a LAN before pairing.");
+        using var certificate = X509Certificate2.CreateFromPem(options.ServerTrustPem);
+        return certificate.MatchesHostname(host, allowWildcards: false, allowCommonName: false) ? null
+            : Problem(409, "PAIRING_ADDRESS_CERTIFICATE_MISMATCH", "The saved Storage certificate does not cover its LAN address. Rotate the Storage identity in Settings, restart the Storage service, and re-pair existing Remote Agents.");
     }
     private static IResult Problem(int status, string code, string detail) => Results.Problem(statusCode: status, title: code, detail: detail, extensions: new Dictionary<string, object?> { ["code"] = code, ["occurred_at"] = DateTimeOffset.UtcNow, ["retryable"] = status >= 500 });
 }

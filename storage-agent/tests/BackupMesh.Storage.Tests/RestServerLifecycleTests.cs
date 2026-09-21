@@ -75,9 +75,11 @@ public sealed class RestServerLifecycleTests
     }
 
     [Fact]
-    public void RepositoryPublicHostDefaultsToTheWindowsComputerName()
+    public void RepositoryPublicHostUsesTheSameLanAddressAsPairing()
     {
-        Assert.Equal(Environment.MachineName, RepositoryServerManager.ResolvePublicHost(null));
+        var address = StorageNetworkAddress.Resolve([]);
+        if (address is null) Assert.Throws<InvalidOperationException>(() => RepositoryServerManager.ResolvePublicHost(null));
+        else Assert.Equal(address, RepositoryServerManager.ResolvePublicHost(null));
         Assert.Equal("storage.example", RepositoryServerManager.ResolvePublicHost(" storage.example "));
     }
 
