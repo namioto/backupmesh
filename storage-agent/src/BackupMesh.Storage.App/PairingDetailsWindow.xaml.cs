@@ -17,7 +17,7 @@ public partial class PairingDetailsWindow : Window
         CodeText.Text = pairing.Code;
         FingerprintText.Text = pairing.CertificateSha256;
         ExpiresText.Text = Localization.Format("PairingExpiryHint", pairing.ExpiresAt.LocalDateTime);
-        _clipboardText = $"Storage: {pairing.ControlEndpoint}\nPairing code: {pairing.Code}\nCertificate SHA-256: {pairing.CertificateSha256}";
+        _clipboardText = pairing.Invitation;
     }
 
     private void OnCopyClick(object sender, RoutedEventArgs e) => CopyValue(_clipboardText);

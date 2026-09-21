@@ -7,28 +7,33 @@
         AutomationProperties.AutomationId="PairingDetailsWindow">
     <StackPanel Margin="20">
         <TextBlock Text="{local:Loc Text_Onetimepairingdetails_EA9AF7}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <TextBlock Text="{local:Loc Text_Entertheseonthecomputeryoureco_88AC93}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
+        <TextBlock Text="{local:Loc PairingInvitationInstructions}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,14"/>
         <TextBlock x:Name="IntentText" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,10" AutomationProperties.AutomationId="PairingIntentText"/>
 
-        <TextBlock Text="{local:Loc PairingNetworkHint}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,12"/>
-        <TextBlock Text="{local:Loc Text_Storageendpoint_919B9C}" Foreground="#607086"/>
-        <DockPanel Margin="0,2,0,10">
-            <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=EndpointText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyEndpointButton"/>
-            <TextBox x:Name="EndpointText" IsReadOnly="True" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingEndpointText"/>
-        </DockPanel>
+        <Button Content="{local:Loc PairingCopyInvitation}" Click="OnCopyClick" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" Padding="16,8" Margin="0,0,0,14" AutomationProperties.AutomationId="CopyPairingInvitationButton"/>
+        <Expander Header="{local:Loc PairingAdvancedDetails}" Margin="0,0,0,12">
+            <StackPanel Margin="0,10,0,0">
+                <TextBlock Text="{local:Loc PairingNetworkHint}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,12"/>
+                <TextBlock Text="{local:Loc Text_Storageendpoint_919B9C}" Foreground="#607086"/>
+                <DockPanel Margin="0,2,0,10">
+                    <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=EndpointText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyEndpointButton"/>
+                    <TextBox x:Name="EndpointText" IsReadOnly="True" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingEndpointText"/>
+                </DockPanel>
 
-        <TextBlock Text="{local:Loc Text_Pairingcode_1C5EA2}" Foreground="#607086"/>
-        <DockPanel Margin="0,2,0,10">
-            <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=CodeText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyCodeButton"/>
-            <TextBox x:Name="CodeText" IsReadOnly="True" FontFamily="Consolas" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingCodeText"/>
-        </DockPanel>
+                <TextBlock Text="{local:Loc Text_Pairingcode_1C5EA2}" Foreground="#607086"/>
+                <DockPanel Margin="0,2,0,10">
+                    <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=CodeText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyCodeButton"/>
+                    <TextBox x:Name="CodeText" IsReadOnly="True" FontFamily="Consolas" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingCodeText"/>
+                </DockPanel>
 
-        <TextBlock Text="{local:Loc Text_CertificateSHA256fingerprint_F383F2}" Foreground="#607086"/>
-        <DockPanel Margin="0,2,0,10">
-            <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=FingerprintText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyFingerprintButton"/>
-            <TextBox x:Name="FingerprintText" IsReadOnly="True" FontFamily="Consolas" TextWrapping="Wrap" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingFingerprintText"/>
-        </DockPanel>
+                <TextBlock Text="{local:Loc Text_CertificateSHA256fingerprint_F383F2}" Foreground="#607086"/>
+                <DockPanel Margin="0,2,0,10">
+                    <Button DockPanel.Dock="Right" Content="{local:Loc PairingCopyValue}" Tag="{Binding Text, ElementName=FingerprintText}" Click="OnCopyFieldClick" Margin="8,0,0,0" Padding="10,4" AutomationProperties.AutomationId="CopyFingerprintButton"/>
+                    <TextBox x:Name="FingerprintText" IsReadOnly="True" FontFamily="Consolas" TextWrapping="Wrap" VerticalContentAlignment="Center" AutomationProperties.AutomationId="PairingFingerprintText"/>
+                </DockPanel>
 
+            </StackPanel>
+        </Expander>
         <TextBlock Text="{local:Loc Text_Expires_F6725F}" Foreground="#607086"/>
         <TextBlock x:Name="ExpiresText" TextWrapping="Wrap" Margin="0,2,0,14" AutomationProperties.AutomationId="PairingExpiresText"/>
 
@@ -38,7 +43,6 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="CopyStatus" Foreground="#2E7D32" VerticalAlignment="Center" Margin="0,0,10,0" AutomationProperties.AutomationId="CopyPairingStatusText"/>
-            <Button Content="{local:Loc PairingCopyAll}" Click="OnCopyClick" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,10,0" Padding="10,4" AutomationProperties.AutomationId="CopyPairingCodeButton"/>
             <Button Content="{local:Loc Text_Close_7D9EB7}" Click="OnCloseClick" IsCancel="True" Padding="10,4" AutomationProperties.AutomationId="ClosePairingDialogButton"/>
         </StackPanel>
     </StackPanel>

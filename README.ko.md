@@ -52,7 +52,7 @@ Remote Agent의 평상시 권한을 백업 생성에 필요한 범위로 제한�
 
 Windows 트레이 앱에서 물리 저장장치 또는 일반 로컬·네트워크 폴더를 논리 저장장치로 등록하고, 연동된 Remote Agent와 Backup Set을 확인한 뒤 각 Backup Set을 장치와 상대 repository 경로에 매핑할 수 있습니다. 하나의 장치에 여러 Source를 저장하거나, 하나의 Source를 여러 장치에 백업하는 구성을 모두 지원합니다.
 
-Source를 연결하려면 트레이 앱에서 **Pair Remote Agent**를 선택하고 표시된 Storage 주소, 10분짜리 1회용 코드, 인증서 SHA-256 지문을 `backupmesh-agent pair`에 입력합니다. Source는 코드를 보내기 전에 Storage 인증서를 고정 검증하고 Source 전용 토큰·클라이언트 인증서·개인 키·Storage 신뢰 자료를 소유자 전용 권한으로 설치합니다. 새 연결은 개인 키를 전송 번들에 기록하지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
+Source를 연결하려면 트레이 앱에서 **Pair Remote Agent**를 선택하고 연결 초대를 복사하고 원격 컴퓨터에서 설정 파일 경로와 함께 `backupmesh-agent pair`를 실행한 뒤 초대를 한 번 붙여넣습니다. Source는 코드를 보내기 전에 Storage 인증서를 고정 검증하고 Source 전용 토큰·클라이언트 인증서·개인 키·Storage 신뢰 자료를 소유자 전용 권한으로 설치합니다. 새 연결은 개인 키를 전송 번들에 기록하지 않으며 운영체제 전역 신뢰 저장소도 변경하지 않습니다.
 
 Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/restic-password`를 생성합니다. 이 암호를 잃으면 snapshot을 복원할 수 없으므로 별도의 안전한 위치에 복구 사본을 보관하세요.
 

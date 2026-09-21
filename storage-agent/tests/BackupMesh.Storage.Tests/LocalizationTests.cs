@@ -13,6 +13,20 @@ public sealed class LocalizationCollection;
 public sealed class LocalizationTests
 {
     [Fact]
+    public void PairingInvitationContainsExactlyTheThreeConnectionValues()
+    {
+        var session = new PairingSessionDto("one-time-test-code", "https://192.168.1.20:7443", new string('a', 64), DateTimeOffset.UtcNow.AddMinutes(10), null);
+        Assert.StartsWith("backupmesh:v1:", session.Invitation);
+        var encoded = session.Invitation["backupmesh:v1:".Length..].Replace('-', '+').Replace('_', '/');
+        encoded = encoded.PadRight((encoded.Length + 3) / 4 * 4, '=');
+        using var data = JsonDocument.Parse(Convert.FromBase64String(encoded));
+        Assert.Equal(3, data.RootElement.EnumerateObject().Count());
+        Assert.Equal(session.ControlEndpoint, data.RootElement.GetProperty("endpoint").GetString());
+        Assert.Equal(session.Code, data.RootElement.GetProperty("code").GetString());
+        Assert.Equal(session.CertificateSha256, data.RootElement.GetProperty("fingerprint").GetString());
+    }
+
+    [Fact]
     public void KoreanResourcesCoverEnglishKeysAndFormats()
     {
         var english = Localization.Resources.GetResourceSet(CultureInfo.GetCultureInfo("en"), true, true)!;

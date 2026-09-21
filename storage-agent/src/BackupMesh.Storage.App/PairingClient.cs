@@ -10,7 +10,13 @@ public sealed record PairingSessionDto(
     [property: JsonPropertyName("control_endpoint")] string ControlEndpoint,
     [property: JsonPropertyName("certificate_sha256")] string CertificateSha256,
     [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
-    [property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
+    [property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId)
+{
+    [JsonIgnore]
+    public string Invitation => "backupmesh:v1:" + Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
+        new { endpoint = ControlEndpoint, code = Code, fingerprint = CertificateSha256 }))
+        .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+}
 public sealed record PairingSessionRequestDto([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
 public interface IPairingClient
 {

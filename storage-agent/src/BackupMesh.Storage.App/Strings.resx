@@ -761,9 +761,11 @@
   <data name="State_CANCELLED"><value>Cancelled</value></data>
   <data name="State_CANCEL_REQUESTED"><value>Cancelling</value></data>
   <data name="PairingCopyValue" xml:space="preserve"><value>Copy</value></data>
-  <data name="PairingCopyAll" xml:space="preserve"><value>Copy all connection details</value></data>
   <data name="PairingAddressCertificateMismatch" xml:space="preserve"><value>The saved certificate does not support the LAN address. In Settings, rotate the Storage identity, restart the Storage service, and re-pair existing Remote Agents.</value></data>
   <data name="PairingExpiryHint" xml:space="preserve"><value>{0:g} — complete pairing before this time. Do not enter this value.</value></data>
   <data name="PairingNetworkHint" xml:space="preserve"><value>Copy the three values below into the Remote Agent. This LAN address must be reachable from that computer; a configured DNS name must resolve there.</value></data>
   <data name="PairingNoNetworkAddress" xml:space="preserve"><value>Connect this computer to a LAN before pairing.</value></data>
+  <data name="PairingCopyInvitation" xml:space="preserve"><value>Copy connection invitation</value></data>
+  <data name="PairingInvitationInstructions" xml:space="preserve"><value>Copy the invitation, run backupmesh-agent pair on the remote computer, and paste it when prompted. The invitation works once and expires in 10 minutes.</value></data>
+  <data name="PairingAdvancedDetails" xml:space="preserve"><value>Connection details (advanced)</value></data>
 </root>

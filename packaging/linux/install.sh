@@ -64,16 +64,10 @@ fi
 systemctl daemon-reload
 
 if [ "$JUST_GENERATED" -eq 1 ] && [ -t 0 ] && [ -t 1 ]; then
-  printf 'Pair with the Storage Agent now? The Storage tray shows a one-time code. [y/N]: '
+  printf 'Pair with the Storage Agent now? Copy a connection invitation from the Storage app. [y/N]: '
   read -r DO_PAIR
   if [ "$DO_PAIR" = "y" ] || [ "$DO_PAIR" = "Y" ]; then
-    printf 'Storage HTTPS endpoint (e.g. https://storage-pc:7443): '
-    read -r STORAGE_ENDPOINT
-    printf 'One-time pairing code from the tray: '
-    read -r PAIRING_CODE
-    printf 'Certificate SHA-256 fingerprint from the tray: '
-    read -r FINGERPRINT
-    if /opt/backupmesh/backupmesh-agent pair -config "$CONFIG_PATH" -storage "$STORAGE_ENDPOINT" -code "$PAIRING_CODE" -fingerprint "$FINGERPRINT" -output /etc/backupmesh/pairing; then
+    if /opt/backupmesh/backupmesh-agent pair -config "$CONFIG_PATH" -output /etc/backupmesh/pairing; then
       systemctl enable --now backupmesh-source-watch.service
       echo "Paired and watching for Storage commands. Back up /etc/backupmesh/restic-password securely - losing it makes the encrypted backups unrecoverable."
       echo "Check status any time with: systemctl status backupmesh-source-watch.service"
@@ -84,8 +78,8 @@ if [ "$JUST_GENERATED" -eq 1 ] && [ -t 0 ] && [ -t 1 ]; then
   fi
 fi
 
-echo "Edit $CONFIG_PATH (agent name and backup sets), then pair with the Storage tray app's one-time code and enable the command watcher:"
-echo "  /opt/backupmesh/backupmesh-agent pair -config $CONFIG_PATH -storage https://STORAGE-PC:7443 -code CODE-FROM-TRAY -fingerprint FINGERPRINT-FROM-TRAY -output /etc/backupmesh/pairing"
+echo "Edit $CONFIG_PATH (agent name and backup sets), then run the command below and paste the Storage app's connection invitation when prompted:"
+echo "  /opt/backupmesh/backupmesh-agent pair -config $CONFIG_PATH -output /etc/backupmesh/pairing"
 echo "  /opt/backupmesh/backupmesh-agent validate -config $CONFIG_PATH"
 echo "  systemctl enable --now backupmesh-source-watch.service"
 echo "Back up /etc/backupmesh/restic-password securely. Losing it makes the encrypted backups unrecoverable."

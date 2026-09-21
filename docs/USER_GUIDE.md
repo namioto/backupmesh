@@ -12,7 +12,7 @@ The footer always shows the app version and GitHub link. **Settings → About Ba
 
 ## Pairing address and copied values
 
-Copy the Storage address, one-time code, and certificate fingerprint using their individual **Copy** buttons. **Copy all connection details** includes those three values. Expiration is a deadline for completing pairing, not an input.
+Choose **Copy connection invitation**, run the pairing command below on the Remote Agent, and paste the invitation when prompted. The address and certificate fingerprint are handled automatically. Individual fields remain under **Connection details (advanced)** for older agents. Expiration is a deadline, not an input.
 
 Storage defaults to an active LAN IPv4 address, preferring an interface with a gateway. The remote computer must have a route to that address and the required firewall ports. Multiple networks or VPNs may require an explicit reachable name or address in the service's `MutualTls.ServerNames` configuration; set `RepositoryServer.PublicHost` consistently when overriding it. DNS names must resolve on the remote computer. Reserve the chosen IP in DHCP or use a managed DNS name for a stable endpoint.
 
@@ -101,33 +101,26 @@ Run `BackupMesh-Source-0.3.2-win-x64-Setup.exe` on that PC. Unlike the Storage i
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 
 ```powershell
-pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-Pair it the same way as a Linux Source, using the code, endpoint, and fingerprint the **Pair a Remote Agent** dialog shows:
+Choose **Copy connection invitation** in the Storage app, run this command, and paste the invitation when prompted:
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
-  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml" `
-  -storage https://STORAGE-PC:7443 `
-  -code CODE-FROM-TRAY `
-  -fingerprint 64_HEX_CHARACTERS_FROM_TRAY
+  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml"
 ```
 
 `Uninstall-BackupMeshSource.ps1` removes the scheduled task and binaries while keeping the configuration, paired identity, and repository password under `%LOCALAPPDATA%\BackupMesh\Source`.
 
 ## 5. Pair the Source
 
-On the **Remote Agents** tab, choose **Pair a Remote Agent**. It displays a Storage address, one-time code, and certificate SHA-256 fingerprint; the code expires after ten minutes and can be used once. On the Source run:
+On the **Remote Agents** tab, choose **Pair a Remote Agent**, then **Copy connection invitation**. Run the command below on the Remote Agent and paste the invitation when prompted. It expires after ten minutes and works once:
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -storage https://STORAGE-PC:7443 \
-  -code CODE-FROM-TRAY \
-  -fingerprint 64_HEX_CHARACTERS_FROM_TRAY \
   -output /etc/backupmesh/pairing
 ```
 

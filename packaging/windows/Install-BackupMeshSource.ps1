@@ -61,6 +61,6 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Watches for BackupMesh Storage commands and runs backups for this PC.' | Out-Null
 Start-ScheduledTask -TaskName $taskName
 
-Write-Host "BackupMesh Source Agent installed and watching at sign-in (task: $taskName)."
-Write-Host "Pair it with a Storage Agent (in the tray, choose Pair Source Agent) using:"
-Write-Host "  `"$agentExe`" pair -config `"$configPath`" -storage https://STORAGE-PC:7443 -code CODE-FROM-TRAY -fingerprint FINGERPRINT-FROM-TRAY"
+Write-Host "BackupMesh Remote Agent installed and watching at sign-in (task: $taskName)."
+Write-Host "Copy a connection invitation in the Storage app, run this command, and paste it when prompted:"
+Write-Host "  `"$agentExe`" pair -config `"$configPath`""

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -52,6 +53,7 @@ func run(args []string) error {
 	pairingBundle := fs.String("bundle", "backupmesh-pairing.json", "path to pairing bundle")
 	pairingOutput := fs.String("output", "", "directory for protected pairing files")
 	pairingCode := fs.String("code", "", "one-time pairing code")
+	pairingInvitation := fs.String("invite", "", "connection invitation copied from the Storage app")
 	storageEndpoint := fs.String("storage", "", "Storage HTTPS endpoint shown by the tray app")
 	storageFingerprint := fs.String("fingerprint", "", "Storage certificate SHA-256 shown by the tray app")
 	pollInterval := fs.Duration("poll-interval", 5*time.Second, "Storage command polling interval")
@@ -63,6 +65,27 @@ func run(args []string) error {
 		return applyPairing(*configPath, *pairingBundle, *pairingOutput)
 	}
 	if args[0] == "pair" {
+		if *pairingInvitation != "" && (*pairingCode != "" || *storageEndpoint != "" || *storageFingerprint != "") {
+			return errors.New("use an invitation or individual pairing fields, not both")
+		}
+		if *pairingInvitation == "" && *pairingCode == "" && *storageEndpoint == "" && *storageFingerprint == "" {
+			fmt.Fprint(os.Stderr, "Paste the connection invitation from the Storage app: ")
+			line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil && len(line) == 0 {
+				return errors.New("a connection invitation is required")
+			}
+			*pairingInvitation = strings.TrimSpace(line)
+			if *pairingInvitation == "" {
+				return errors.New("a connection invitation is required")
+			}
+		}
+		if *pairingInvitation != "" {
+			invitation, err := parsePairingInvitation(*pairingInvitation)
+			if err != nil {
+				return err
+			}
+			*storageEndpoint, *pairingCode, *storageFingerprint = invitation.Endpoint, invitation.Code, invitation.Fingerprint
+		}
 		return pairWithCode(*configPath, *storageEndpoint, *pairingCode, *storageFingerprint, *pairingOutput)
 	}
 	if args[0] == "validate" {

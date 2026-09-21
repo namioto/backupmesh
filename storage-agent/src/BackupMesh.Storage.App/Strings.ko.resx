@@ -761,9 +761,11 @@
   <data name="State_CANCELLED"><value>취소됨</value></data>
   <data name="State_CANCEL_REQUESTED"><value>취소 중</value></data>
   <data name="PairingCopyValue" xml:space="preserve"><value>복사</value></data>
-  <data name="PairingCopyAll" xml:space="preserve"><value>연결 정보 모두 복사</value></data>
   <data name="PairingAddressCertificateMismatch" xml:space="preserve"><value>기존 인증서가 LAN 주소를 지원하지 않습니다. 설정에서 스토리지 에이전트 인증 정보를 교체하고 스토리지 서비스를 재시작한 뒤, 기존 원격 에이전트도 다시 연결하세요.</value></data>
   <data name="PairingExpiryHint" xml:space="preserve"><value>{0:g}까지 연결을 완료하세요. 입력하는 값이 아닙니다.</value></data>
   <data name="PairingNetworkHint" xml:space="preserve"><value>아래 세 값을 원격 에이전트에 복사해 입력하세요. 원격 컴퓨터에서 이 LAN 주소에 접근할 수 있어야 하며, 별도로 설정한 DNS 이름은 해당 컴퓨터에서 해석되어야 합니다.</value></data>
   <data name="PairingNoNetworkAddress" xml:space="preserve"><value>이 컴퓨터를 LAN에 연결한 뒤 에이전트를 연결하세요.</value></data>
+  <data name="PairingCopyInvitation" xml:space="preserve"><value>연결 초대 복사</value></data>
+  <data name="PairingInvitationInstructions" xml:space="preserve"><value>초대를 복사한 뒤 원격 컴퓨터에서 backupmesh-agent pair를 실행하고 입력 요청이 나오면 붙여넣으세요. 초대는 10분 동안 한 번만 사용할 수 있습니다.</value></data>
+  <data name="PairingAdvancedDetails" xml:space="preserve"><value>연결 상세 정보 (고급)</value></data>
 </root>

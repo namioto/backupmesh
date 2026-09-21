@@ -10,7 +10,7 @@ All notable changes to BackupMesh are documented in this file.
 
 - Pairing and default repository addresses use an active LAN IPv4 address instead of assuming the Windows computer name resolves remotely. Explicit server names remain supported.
 - New server certificates include LAN IP addresses. Pairing rejects addresses not covered by an existing certificate and explains identity rotation and re-pairing, without silently replacing trust material.
-- Pairing fields have individual copy buttons. Expiration is an explanatory label and is excluded from copied connection details.
+- Pairing uses one copied connection invitation; Remote Agents accept it at an interactive prompt or through --invite. Address, code, and certificate fingerprint remain available in collapsed advanced details. Expiration is an explanatory label.
 ## [0.3.1] - 2026-09-22
 
 ### Changed

@@ -6,7 +6,7 @@
 
 ## 연결 주소와 복사 항목
 
-스토리지 주소, 일회용 연결 코드, 인증서 지문을 각 **복사** 버튼으로 복사해 입력하세요. **연결 정보 모두 복사**도 이 세 값만 포함합니다. 만료 시각은 연결을 완료해야 하는 기한이며 입력하는 값이 아닙니다.
+**연결 초대 복사**를 누른 뒤 원격 에이전트에서 아래 연결 명령을 실행하고 입력 요청이 나오면 초대를 붙여넣으세요. 주소와 인증서 지문은 자동 처리됩니다. 이전 버전 에이전트에 필요한 개별 값은 **연결 상세 정보 (고급)**에 남아 있습니다. 만료 시각은 완료 기한이며 입력하는 값이 아닙니다.
 
 기본 주소는 사용 중인 LAN IPv4 주소이며 게이트웨이가 있는 인터페이스를 우선합니다. 원격 컴퓨터에서 해당 주소로 통신할 경로와 방화벽 포트가 열려 있어야 합니다. 여러 네트워크나 VPN을 사용한다면 서비스 설정의 `MutualTls.ServerNames`에 접근 가능한 이름이나 주소를 명시하고, `RepositoryServer.PublicHost`를 별도 지정했다면 일치시키세요. DNS 이름은 원격 컴퓨터에서도 해석되어야 합니다. 주소를 안정적으로 유지하려면 DHCP 예약이나 관리되는 DNS 이름을 사용하세요.
 
@@ -92,33 +92,26 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
 ```powershell
-pwsh -NoProfile -File scripts/build-windows-source-package.ps1
 Set-Location artifacts\BackupMesh-Source-win-x64
 .\Install-BackupMeshSource.ps1
 ```
 
-트레이의 **Pair a Remote Agent** 대화상자가 보여주는 코드·주소·지문으로 Linux Source와 동일하게 페어링하면 됩니다.
+스토리지 앱에서 **연결 초대 복사**를 누르고 다음 명령의 입력 요청에 초대를 붙여넣으세요.
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
-  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml" `
-  -storage https://STORAGE-PC:7443 `
-  -code TRAY에_표시된_코드 `
-  -fingerprint TRAY에_표시된_64자리_16진수_지문
+  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml"
 ```
 
 `Uninstall-BackupMeshSource.ps1`은 예약 작업과 바이너리만 제거하고, `%LOCALAPPDATA%\BackupMesh\Source` 아래의 설정·페어링된 신원·repository 암호는 그대로 유지합니다.
 
 ## 5. Source 페어링
 
-Windows 트레이 앱에서 **Pair a Remote Agent**를 선택합니다. Storage 주소, 1회용 코드, 인증서 SHA-256 지문이 표시됩니다. 코드는 10분 후 만료되고 한 번만 사용할 수 있습니다. Source에서 다음 명령을 실행합니다.
+스토리지 앱에서 **원격 에이전트 연결**을 선택하고 **연결 초대 복사**를 누르세요. 원격 컴퓨터에서 다음 명령을 실행하고 초대를 붙여넣으세요. 초대는 10분 후 만료되며 한 번만 사용할 수 있습니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \
   -config /etc/backupmesh/backupmesh.json \
-  -storage https://STORAGE-PC:7443 \
-  -code TRAY에_표시된_코드 \
-  -fingerprint TRAY에_표시된_64자리_16진수_지문 \
   -output /etc/backupmesh/pairing
 ```
 
