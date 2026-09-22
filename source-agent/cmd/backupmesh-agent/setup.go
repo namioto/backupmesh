@@ -127,7 +127,8 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 		}
 	}
 
-	fmt.Fprintln(output, "No completed nearby pairing. You can rerun setup, or paste a connection invitation now.")
+	fmt.Fprintln(output, "Nearby pairing did not complete. Check that both computers are on the same LAN. On Ubuntu, rerun the latest installer so it can allow LAN discovery through active UFW (UDP 7445-7446).")
+	fmt.Fprintln(output, "You can rerun setup after fixing LAN access, or bypass discovery with a connection invitation.")
 	fmt.Fprint(output, "Connection invitation (Enter to finish): ")
 	line, readErr = reader.ReadString('\n')
 	invitationText := strings.TrimSpace(line)

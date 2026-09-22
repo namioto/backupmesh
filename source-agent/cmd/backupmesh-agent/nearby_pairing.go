@@ -64,6 +64,7 @@ func runNearbyWatch(ctx context.Context, configPath, outputDirectory string, cfg
 	}
 	approvals := make(chan approvalResult, 1)
 	prompted := map[string]bool{}
+	claimFailureReported := map[string]bool{}
 	promptActive := false
 	for {
 		_ = retryDeniedNearby(ctx, configPath, outputDirectory)
@@ -84,7 +85,16 @@ func runNearbyWatch(ctx context.Context, configPath, outputDirectory string, cfg
 				port, _ := strconv.Atoi(parsed.Port())
 				storage := controlapi.NearbyStorage{Host: parsed.Hostname(), Port: port, StorageIdentity: result.pending.StorageFingerprint}
 				fresh, code, err := claimNearbyRequest(ctx, storage, result.pending.RequestID, cfg.Agent.ID, identity, privateKey)
-				if err != nil || fresh.ComparisonCode != result.pending.ComparisonCode {
+				if err != nil {
+					if !claimFailureReported[result.pending.RequestID] {
+						fmt.Fprintf(os.Stderr, "nearby pairing request could not be claimed: %v; check TCP access to Storage and retry\n", err)
+						claimFailureReported[result.pending.RequestID] = true
+					}
+					_ = denyPendingNearby(configPath, outputDirectory, result.pending.RequestID)
+					continue
+				}
+				delete(claimFailureReported, result.pending.RequestID)
+				if fresh.ComparisonCode != result.pending.ComparisonCode {
 					_ = denyPendingNearby(configPath, outputDirectory, result.pending.RequestID)
 					continue
 				}
@@ -111,8 +121,13 @@ func runNearbyWatch(ctx context.Context, configPath, outputDirectory string, cfg
 				}
 				pending, code, err := claimNearbyRequest(ctx, storage, requestID, cfg.Agent.ID, identity, privateKey)
 				if err != nil {
+					if !claimFailureReported[requestID] {
+						fmt.Fprintf(os.Stderr, "nearby pairing request could not be claimed: %v; check TCP access to Storage and retry\n", err)
+						claimFailureReported[requestID] = true
+					}
 					continue
 				}
+				delete(claimFailureReported, requestID)
 				if err := savePendingNearby(configPath, pending); err != nil {
 					return err
 				}

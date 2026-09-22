@@ -18,6 +18,10 @@ curl -fsSL https://raw.githubusercontent.com/namioto/backupmesh/main/packaging/l
 
 부트스트랩은 최신 GitHub 릴리스를 확인하고 버전이 포함된 Linux 압축 파일과 SHA-256 파일을 내려받아 검증한 뒤 기존 설정 마법사를 시작합니다. `curl | sh`로 실행해도 터미널 입력을 유지합니다.
 
+UFW가 설치되어 활성 상태이면 설치 프로그램이 private 또는 link-local IPv4 네트워크에서 오는 스토리지 탐색 응답만 허용합니다. UDP 출발지 포트 7445에서 원격 에이전트 포트 7446으로 오는 응답만 열며 기존 UFW 정책은 유지합니다.
+
+BackupMesh 설치 후 UFW를 활성화했다면 설치 프로그램을 한 번 다시 실행해 탐색 규칙을 추가하세요.
+
 설정 마법사에서 백업할 폴더를 하나씩 입력하세요. `/home/minsu/Documents`처럼 절대 경로를 사용합니다. 입력을 끝내려면 빈 입력에서 Enter를 누르고, 연결 질문에는 Enter를 누르거나 `y`를 입력합니다.
 
 Windows 스토리지 앱에서 **원격 에이전트**를 열고 **근처 컴퓨터**의 Ubuntu 컴퓨터를 선택한 뒤 **연결 요청**을 누릅니다. Ubuntu에 Windows와 같은 6자리 번호가 표시되는지 확인한 뒤 `y`로 승인합니다.
@@ -32,6 +36,10 @@ sudo backupmesh-setup
 
 페어링 후 Windows에서 **백업 → 백업 추가**를 여세요. Ubuntu 폴더와 대상 드라이브 또는 폴더를 선택하고 규칙을 저장합니다. 페어링만으로는 백업 대상이 만들어지지 않습니다.
 
+### Ubuntu 원격 에이전트 업그레이드
+
+0.3.7에서 업그레이드할 때는 0.3.8 설치 프로그램을 다시 실행합니다. 설정, 페어링 파일, repository 암호를 보존하고, UFW가 활성 상태이면 제한된 탐색 규칙을 추가한 뒤 감시 서비스를 다시 시작합니다. 페어링을 마치거나 폴더를 추가하려면 `sudo backupmesh-setup`을 실행하세요.
+
 ## 3. Windows에 원격 에이전트 설치
 
 다른 Windows PC에서 `BackupMesh-Source-0.3.7-win-x64-Setup.exe`를 실행합니다. 현재 사용자용으로 설치하고 빈 JSON 설정을 만든 뒤 로그인할 때 감시 프로그램을 시작합니다. 대화형 설정 콘솔은 열지 않습니다.
@@ -43,7 +51,7 @@ sudo backupmesh-setup
 내려받은 압축 파일을 직접 설치하려면 다음 명령을 사용합니다.
 
 ```sh
-tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
+tar -xzf BackupMesh-Source-0.3.8-linux-x64.tar.gz
 cd BackupMesh-Source-linux-x64
 sudo sh install.sh
 ```

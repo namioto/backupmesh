@@ -39,11 +39,11 @@ type nearbyMessage struct {
 // AnnounceNearby sends public identity only. Returned addresses remain untrusted until HTTPS
 // presents the advertised certificate fingerprint.
 func AnnounceNearby(ctx context.Context, announcement NearbyAnnouncement) ([]NearbyStorage, error) {
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	socket, closeSocket, err := openDiscoverySocket(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer socket.Close()
+	defer closeSocket()
 	stop := context.AfterFunc(ctx, func() { _ = socket.Close() })
 	defer stop()
 	nonce := make([]byte, 16)

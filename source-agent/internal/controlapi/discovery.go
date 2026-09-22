@@ -9,12 +9,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
 )
 
-const discoveryPort = 7445
+const (
+	discoveryPort      = 7445
+	linuxDiscoveryPort = 7446
+)
+
+var linuxDiscoveryTurn = make(chan struct{}, 1)
+
+func openDiscoverySocket(ctx context.Context) (*net.UDPConn, func(), error) {
+	address := &net.UDPAddr{}
+	if runtime.GOOS != "linux" {
+		socket, err := net.ListenUDP("udp4", address)
+		return socket, func() { _ = socket.Close() }, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case linuxDiscoveryTurn <- struct{}{}:
+	}
+	address.Port = linuxDiscoveryPort
+	socket, err := net.ListenUDP("udp4", address)
+	if err != nil {
+		<-linuxDiscoveryTurn
+		return nil, nil, err
+	}
+	return socket, func() { _ = socket.Close(); <-linuxDiscoveryTurn }, nil
+}
 
 type discoveryMessage struct {
 	Protocol    string `json:"protocol"`
@@ -66,11 +95,11 @@ func (d *lanDialer) DialTLSContext(ctx context.Context, network, address string)
 }
 
 func discoverStorage(ctx context.Context, fingerprint, controlPort string, destinations []net.UDPAddr, connect func(string) (net.Conn, error)) (net.Conn, error) {
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	socket, closeSocket, err := openDiscoverySocket(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer socket.Close()
+	defer closeSocket()
 	stop := context.AfterFunc(ctx, func() { socket.Close() })
 	defer stop()
 	nonce := make([]byte, 16)

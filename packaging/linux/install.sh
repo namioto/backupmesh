@@ -44,6 +44,12 @@ if [ ! -f /etc/backupmesh/restic-password ]; then
 fi
 systemctl daemon-reload
 
+if command -v ufw >/dev/null 2>&1 && LC_ALL=C ufw status | grep -q '^Status: active'; then
+  for network in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16; do
+    ufw allow in proto udp from "$network" port 7445 to any port 7446 comment 'BackupMesh discovery replies'
+  done
+fi
+
 DROPIN_DIR=/etc/systemd/system/backupmesh-source-watch.service.d
 install -d -m 0755 "$DROPIN_DIR"
 cat > "$DROPIN_DIR/config.conf" <<EOF

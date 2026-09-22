@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/big"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -122,6 +124,30 @@ func TestLANDiscoveryAcceptsOnlyMatchingReplyAndAuthenticatedStorage(t *testing.
 	if leaked.Load() != 0 {
 		t.Fatal("request reached an unpaired Storage")
 	}
+}
+
+func TestLinuxDiscoveryUsesFirewallFriendlyReplyPort(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux socket behavior")
+	}
+	socket, release, err := openDiscoverySocket(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := socket.LocalAddr().(*net.UDPAddr).Port; got != 7446 {
+		t.Fatalf("Linux discovery port = %d, want 7446", got)
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := openDiscoverySocket(canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("second discovery while busy returned %v, want cancellation", err)
+	}
+	release()
+	socket, release, err = openDiscoverySocket(context.Background())
+	if err != nil {
+		t.Fatalf("discovery port was not released: %v", err)
+	}
+	release()
 }
 
 func TestRepositoryBridgeKeepsTLSIdentityAndRequiresLocalCredentials(t *testing.T) {
