@@ -1063,6 +1063,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     internal static string? RelativeDestinationPath(DeviceViewModel device, string destination)
     {
         var root = device.CurrentRoot ?? device.LastKnownRoot;
+        return RelativeDestinationPath(root, destination);
+    }
+
+    internal static string? RelativeDestinationPath(string? root, string destination)
+    {
         if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(destination)) return null;
         try
         {
@@ -1176,14 +1181,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshBackupDestinations()
     {
-        BackupDestinations.Clear();
+        var desired = new List<BackupDestinationOptionViewModel>();
         foreach (var drive in AvailableDrives)
         {
             var registered = Devices.FirstOrDefault(device => string.Equals(device.StableId, drive.StableId, StringComparison.OrdinalIgnoreCase));
-            BackupDestinations.Add(new(registered, drive));
+            desired.Add(new(registered, drive));
         }
-        foreach (var device in Devices.Where(device => BackupDestinations.All(option => option.Device?.Id != device.Id)))
-            BackupDestinations.Add(new(device, null));
+        foreach (var device in Devices.Where(device => desired.All(option => option.Device?.Id != device.Id)))
+            desired.Add(new(device, null));
+        foreach (var draft in BackupDestinations.Where(option => option.Device is null
+            && FolderStorageIdentity.TryGetPath(option.StableId, out _)
+            && desired.All(candidate => !string.Equals(candidate.StableId, option.StableId, StringComparison.OrdinalIgnoreCase))))
+            desired.Add(draft);
+
+        for (var index = 0; index < desired.Count; index++)
+        {
+            var candidate = desired[index];
+            var currentIndex = BackupDestinations.ToList().FindIndex(option => string.Equals(option.StableId, candidate.StableId, StringComparison.OrdinalIgnoreCase));
+            if (currentIndex < 0) BackupDestinations.Insert(index, candidate);
+            else
+            {
+                var current = BackupDestinations[currentIndex];
+                current.Update(candidate.Device, candidate.AvailableDrive);
+                if (currentIndex != index) BackupDestinations.Move(currentIndex, index);
+            }
+        }
+        while (BackupDestinations.Count > desired.Count) BackupDestinations.RemoveAt(BackupDestinations.Count - 1);
     }
 
     private void AddActivity(string text)
@@ -1380,13 +1403,22 @@ public sealed class BackupSetViewModel : ObservableObject
     public override string ToString() => DisplayName;
 }
 
-public sealed class BackupDestinationOptionViewModel(DeviceViewModel? device, AvailableDriveViewModel? availableDrive)
+public sealed class BackupDestinationOptionViewModel(DeviceViewModel? device, AvailableDriveViewModel? availableDrive) : ObservableObject
 {
-    public DeviceViewModel? Device { get; } = device;
-    public AvailableDriveViewModel? AvailableDrive { get; } = availableDrive;
+    public DeviceViewModel? Device { get; private set; } = device;
+    public AvailableDriveViewModel? AvailableDrive { get; private set; } = availableDrive;
     public string StableId => Device?.StableId ?? AvailableDrive!.StableId;
     public string Root => AvailableDrive?.Root ?? Device?.CurrentRoot ?? Device?.LastKnownRoot ?? string.Empty;
     public string DisplayName => AvailableDrive?.DisplayName ?? Localization.Format("Text_0notconnected_78FCB7", Device!.DisplayNameWithDetails);
+    public void Update(DeviceViewModel? updatedDevice, AvailableDriveViewModel? updatedDrive)
+    {
+        var stableId = StableId;
+        Device = updatedDevice;
+        AvailableDrive = updatedDrive;
+        if (!string.Equals(stableId, StableId, StringComparison.OrdinalIgnoreCase)) OnPropertyChanged(nameof(StableId));
+        OnPropertyChanged(nameof(Root));
+        OnPropertyChanged(nameof(DisplayName));
+    }
     public override string ToString() => DisplayName;
 }
 

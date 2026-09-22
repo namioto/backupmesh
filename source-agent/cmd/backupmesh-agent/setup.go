@@ -74,7 +74,9 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 	}
 
 	fmt.Fprintln(output, "Waiting up to 2 minutes for a Storage pairing request. Start pairing in the Storage app.")
-	deadline := time.Now().Add(setupPairingWait)
+	started := time.Now()
+	deadline := started.Add(setupPairingWait)
+	nextFeedback := started.Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := config.Load(configPath); err == nil {
 			fmt.Fprintln(output, "Storage pairing settings saved. Setup complete.")
@@ -116,13 +118,17 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 					fmt.Fprintln(output, "Storage pairing settings saved. Setup complete.")
 					return nil
 				}
-				if !sleepContext(ctx, time.Second) {
+				if !sleepContext(ctx, 500*time.Millisecond) {
 					return nil
 				}
 			}
 			break
 		}
-		if !sleepContext(ctx, 2*time.Second) {
+		if time.Now().After(nextFeedback) {
+			fmt.Fprintf(output, "Still waiting for Storage (%s elapsed).\n", time.Since(started).Round(time.Second))
+			nextFeedback = time.Now().Add(5 * time.Second)
+		}
+		if !sleepContext(ctx, 500*time.Millisecond) {
 			return nil
 		}
 	}

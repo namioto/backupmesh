@@ -87,6 +87,9 @@ func AnnounceNearby(ctx context.Context, announcement NearbyAnnouncement) ([]Nea
 		}
 		seen[key] = true
 		found = append(found, NearbyStorage{Host: sender.IP.String(), Port: reply.Port, StorageIdentity: reply.StorageIdentity, RequestIDs: reply.RequestIDs})
+		if len(reply.RequestIDs) > 0 {
+			return found, nil
+		}
 		if len(found) == 16 {
 			return found, nil
 		}

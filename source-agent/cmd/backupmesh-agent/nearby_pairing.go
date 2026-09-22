@@ -139,7 +139,7 @@ func runNearbyWatch(ctx context.Context, configPath, outputDirectory string, cfg
 				}
 			}
 		}
-		if !sleepContext(ctx, 5*time.Second) {
+		if !sleepContext(ctx, time.Second) {
 			return nil
 		}
 		if paired, _ := config.Load(configPath); paired.Agent.ID != "" {

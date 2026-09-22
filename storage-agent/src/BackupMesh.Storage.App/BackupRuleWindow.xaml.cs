@@ -79,7 +79,25 @@ public partial class BackupRuleWindow : Window
             ShowNewFolderButton = true
         };
         if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath)) return;
-        TargetDeviceCombo.SelectedItem = _viewModel.AddFolderDestination(dialog.SelectedPath);
+        var destination = Path.GetFullPath(dialog.SelectedPath);
+        var option = _viewModel.BackupDestinations
+            .Where(candidate => MainWindowViewModel.RelativeDestinationPath(candidate.Root, destination) is not null)
+            .OrderByDescending(candidate => candidate.Root.Length)
+            .FirstOrDefault();
+        if (option is null)
+        {
+            var parent = Directory.GetParent(destination)?.FullName;
+            if (parent is null)
+            {
+                ValidationText.Text = Localization.Text("Text_Chooseadestinationfolderinside_ACC42F");
+                return;
+            }
+            option = _viewModel.AddFolderDestination(parent);
+        }
+        _initializing = true;
+        TargetDeviceCombo.SelectedItem = option;
+        _initializing = false;
+        DestinationInput.Text = destination;
     }
 
     private void OnBackupSetChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>

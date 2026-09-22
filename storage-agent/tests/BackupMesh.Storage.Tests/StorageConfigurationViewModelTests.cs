@@ -19,6 +19,30 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public void RefreshDrivesKeepsSelectedAndDraftDestinationOptions()
+    {
+        var inventory = new MutableDeviceInventory
+        {
+            Drives = [new("disk:first", "D:\\", "FIRST", 1, 2, "First disk", 1)]
+        };
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, deviceInventory: inventory);
+        viewModel.RefreshDrivesCommand.Execute(null);
+        var selected = Assert.Single(viewModel.BackupDestinations);
+        var folder = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "backupmesh-destination-" + Guid.NewGuid())).FullName;
+        try
+        {
+            var draft = viewModel.AddFolderDestination(folder);
+            inventory.Drives = [new("disk:first", "D:\\", "FIRST", 2, 3, "First disk", 1)];
+
+            viewModel.RefreshDrivesCommand.Execute(null);
+
+            Assert.Same(selected, viewModel.BackupDestinations[0]);
+            Assert.Same(draft, viewModel.BackupDestinations[1]);
+        }
+        finally { Directory.Delete(folder); }
+    }
+
+    [Fact]
     public void RelativeDestinationFolderIsAcceptedInsideTheSelectedDevice()
     {
         var model = new RegisteredDevice(Guid.NewGuid(), "disk:usb", "USB disk", "USB", "D:\\", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
@@ -27,6 +51,24 @@ public sealed class StorageConfigurationViewModelTests
         var result = MainWindowViewModel.RelativeDestinationPath(device, "BackupMesh\\Documents");
 
         Assert.Equal("BackupMesh\\Documents", result);
+    }
+
+    [Fact]
+    public async Task ChosenFolderIsSavedAsTheExactRepositoryDestination()
+    {
+        var drive = new AvailableDriveViewModel("disk:target", "D:\\", "TARGET", 100, 200, "Target disk", 1);
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "This PC", "Immich", ["C:\\Photos"]));
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client, deviceInventory: new FakeDeviceInventory([drive]));
+        viewModel.BackupSets.Add(set);
+        viewModel.RefreshDrivesCommand.Execute(null);
+
+        var error = await viewModel.SaveMappingAsync(null, set, Assert.Single(viewModel.BackupDestinations), "D:\\immich test", true);
+
+        Assert.Null(error);
+        var mapping = Assert.Single(viewModel.Mappings);
+        Assert.Equal("immich test", mapping.RepositoryPath);
+        Assert.Equal("D:\\immich test", mapping.DestinationFolder);
     }
 
     [Fact]

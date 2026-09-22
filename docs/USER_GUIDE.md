@@ -147,7 +147,7 @@ After the Source synchronizes, open **Backups** in the tray app.
 
 1. Under **What to back up**, select a Backup Set — synced from a paired Remote Agent, or a local folder chosen in this dialog (section 3b).
 2. Under **Where to store it**, select a connected drive or choose **Choose folder…**.
-3. Confirm or edit the complete path under **Full destination path**.
+3. Confirm or edit the complete path under **Full destination path**. BackupMesh uses the chosen folder exactly and does not append an automatic subfolder.
 4. Choose **Add backup…**, complete the backup-rule window, and select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
