@@ -58,6 +58,12 @@ Linux 설치 프로그램은 repository 암호화를 위한 `/etc/backupmesh/res
 
 ## 설치와 기여
 
+Ubuntu 패키지와 체크섬이 포함된 릴리스(0.3.7 이상)는 다음 명령으로 최신 원격 에이전트를 설치합니다. 일치하는 릴리스 파일과 부트스트랩 스크립트가 게시된 뒤 사용할 수 있습니다.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/namioto/backupmesh/main/packaging/linux/get-backupmesh.sh | sh
+```
+
 먼저 [설치 가이드](docs/INSTALLATION.ko.md)를 따라 설치한 뒤, 백업 규칙·복원 시험·문제 해결은 [사용자 가이드](docs/USER_GUIDE.ko.md)를 참고하세요. 개발 환경, 빌드 명령, 테스트와 기여 절차는 [기여 가이드](CONTRIBUTING.ko.md)에 정리되어 있습니다.
 
 ## 현재 상태

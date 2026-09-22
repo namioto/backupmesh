@@ -63,7 +63,9 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 ## 4. Ubuntu Remote Agent 설치와 설정
 
-패키지 압축을 풀고 설치합니다.
+Ubuntu 패키지가 포함된 릴리스(0.3.7 이상)의 일반 설치 명령과 게시 전제 조건은 [설치 가이드](INSTALLATION.ko.md)를 참고하세요. 부트스트랩이 호환되는 최신 릴리스를 내려받아 검증한 뒤 설정을 시작합니다.
+
+압축 파일 직접 설치는 고급 대체 방법으로 계속 사용할 수 있습니다.
 
 ```sh
 tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz

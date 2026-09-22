@@ -74,3 +74,5 @@ Keep changes focused and explain the problem, resulting behavior, and validation
 Preserve compatibility with existing settings and protocol fields, or provide an explicit migration. Never commit credentials, pairing material, private keys, or real backup data.
 
 For a release, update `VERSION`, .NET version properties, Remote Agent version, installer defaults, and the changelog together. Rebuild the packages and check their embedded versions and generated checksums before distributing them.
+
+Publish the Linux assets `BackupMesh-Source-VERSION-linux-x64.tar.gz` and `BackupMesh-Source-VERSION-linux-x64.tar.gz.sha256` on the GitHub release tagged `vVERSION`. Names and version must match exactly because `packaging/linux/get-backupmesh.sh` resolves them from the latest release. Push that bootstrap script to the repository's `main` branch before documenting the raw URL as available. Test the published checksum and `curl | sh` path from a clean Ubuntu environment.

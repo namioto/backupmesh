@@ -10,13 +10,13 @@ BackupMesh는 Windows PC를 스토리지로 사용하고 Windows 또는 Ubuntu �
 
 ## 2. Ubuntu에 원격 에이전트 설치
 
-Ubuntu 컴퓨터에서 다음 명령을 실행합니다.
+Ubuntu 패키지가 포함된 릴리스(0.3.7 이상)는 일치하는 릴리스 파일과 부트스트랩 스크립트가 게시된 후 다음 명령을 실행합니다.
 
 ```sh
-tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
-cd BackupMesh-Source-linux-x64
-sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/namioto/backupmesh/main/packaging/linux/get-backupmesh.sh | sh
 ```
+
+부트스트랩은 최신 GitHub 릴리스를 확인하고 버전이 포함된 Linux 압축 파일과 SHA-256 파일을 내려받아 검증한 뒤 기존 설정 마법사를 시작합니다. `curl | sh`로 실행해도 터미널 입력을 유지합니다.
 
 설정 마법사에서 백업할 폴더를 하나씩 입력하세요. `/home/minsu/Documents`처럼 절대 경로를 사용합니다. 입력을 끝내려면 빈 입력에서 Enter를 누르고, 연결 질문에는 Enter를 누르거나 `y`를 입력합니다.
 
@@ -39,5 +39,13 @@ sudo backupmesh-setup
 스토리지 앱의 **근처 컴퓨터**에서 연결을 요청하세요. 6자리 번호를 비교하고 원격 에이전트 PC에서 승인합니다. 백업 폴더는 `%LOCALAPPDATA%\BackupMesh\Source\backupmesh.json`의 JSON 설정에 추가합니다.
 
 ## 고급 대체 방법
+
+내려받은 압축 파일을 직접 설치하려면 다음 명령을 사용합니다.
+
+```sh
+tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
+cd BackupMesh-Source-linux-x64
+sudo sh install.sh
+```
 
 UDP 7445 브로드캐스트가 차단되면 스토리지 앱에서 **연결 초대 복사**를 선택하고 `backupmesh-agent pair`를 실행합니다. 수동 JSON/YAML 설정과 자세한 명령은 [사용자 가이드](USER_GUIDE.ko.md)를 참고하세요.

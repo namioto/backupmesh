@@ -72,7 +72,9 @@ To stop using a local folder, select it in the backup dialog and choose **Remove
 
 ## 4. Install and configure an Ubuntu Remote Agent
 
-Extract and install the package:
+For releases containing the Ubuntu package (0.3.7+), see the normal command and publication prerequisite in the [installation guide](INSTALLATION.md). The bootstrap downloads and verifies the latest compatible published release before setup.
+
+Manual archive installation remains available as an advanced fallback:
 
 ```sh
 tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz

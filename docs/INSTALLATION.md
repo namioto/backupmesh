@@ -10,13 +10,13 @@ Open BackupMesh after installation. The installer starts the Storage service and
 
 ## 2. Install a Remote Agent on Ubuntu
 
-On the Ubuntu computer, run:
+For releases containing the Ubuntu package (0.3.7+), run this after the matching release assets and bootstrap script are published:
 
 ```sh
-tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
-cd BackupMesh-Source-linux-x64
-sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/namioto/backupmesh/main/packaging/linux/get-backupmesh.sh | sh
 ```
+
+The bootstrap resolves the latest GitHub release, downloads its versioned Linux archive and SHA-256 file, verifies the archive, and starts the existing setup wizard. It keeps terminal input available when invoked through `curl | sh`.
 
 Installation opens the setup wizard. Enter each folder you want to back up, using an absolute path such as `/home/alex/Documents`. Press Enter on an empty prompt when finished, then press Enter or type `y` when asked to connect.
 
@@ -39,5 +39,13 @@ On another Windows PC, run `BackupMesh-Source-0.3.7-win-x64-Setup.exe`. It insta
 Request the connection from **Nearby computers** in the Storage app. Compare the six-digit number and approve on the Remote Agent PC. Add backup folders in its JSON configuration under `%LOCALAPPDATA%\BackupMesh\Source\backupmesh.json`.
 
 ## Advanced fallback
+
+To install a downloaded archive manually:
+
+```sh
+tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
+cd BackupMesh-Source-linux-x64
+sudo sh install.sh
+```
 
 If UDP 7445 broadcast is blocked, choose **Copy connection invitation** in the Storage app and run `backupmesh-agent pair`. Manual JSON/YAML configuration and command details are in the [user guide](USER_GUIDE.md).

@@ -74,3 +74,5 @@ pwsh -NoProfile -File scripts/test-local-e2e.ps1 -FolderTargets
 기존 설정과 프로토콜 필드의 호환성을 유지하거나 명시적인 마이그레이션을 제공하세요. 자격 증명, 페어링 자료, 개인 키, 실제 백업 데이터는 커밋하지 마세요.
 
 릴리스 시 `VERSION`, .NET 버전 속성, 원격 에이전트 버전, 설치 프로그램 기본 버전, 변경 이력을 함께 갱신하세요. 패키지를 다시 빌드하고 포함된 버전과 체크섬을 확인한 뒤 배포하세요.
+
+`vVERSION` 태그의 GitHub 릴리스에 `BackupMesh-Source-VERSION-linux-x64.tar.gz`와 `BackupMesh-Source-VERSION-linux-x64.tar.gz.sha256`을 게시합니다. `packaging/linux/get-backupmesh.sh`가 최신 릴리스에서 정확한 이름을 찾으므로 파일명과 버전이 반드시 일치해야 합니다. raw URL을 사용 가능하다고 안내하기 전에 부트스트랩 스크립트를 저장소 `main` 브랜치에 push하세요. 깨끗한 Ubuntu 환경에서 게시된 체크섬과 `curl | sh` 경로를 시험합니다.

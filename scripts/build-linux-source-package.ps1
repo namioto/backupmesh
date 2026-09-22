@@ -75,4 +75,9 @@ foreach ($relativePath in $requiredPackageFiles | Where-Object { $_ -match '\.(s
 if (Test-Path -LiteralPath $packageArchive) { Remove-Item -LiteralPath $packageArchive -Force }
 & tar -czf $packageArchive -C (Split-Path $outputRoot) (Split-Path $outputRoot -Leaf)
 if ($LASTEXITCODE -ne 0) { throw 'Could not create Linux Source Agent archive.' }
+if (-not (Test-Path -LiteralPath $packageArchive -PathType Leaf)) { throw "Linux Source Agent archive was not created: $packageArchive" }
+$checksumPath = "$packageArchive.sha256"
+$hash = (Get-FileHash -LiteralPath $packageArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath $checksumPath -Value "$hash *$(Split-Path -Leaf $packageArchive)" -Encoding ascii -NoNewline
 Write-Host "Linux Source Agent package: $packageArchive"
+Write-Host "SHA-256 checksum: $checksumPath ($hash)"

@@ -58,6 +58,12 @@ The Linux installer creates `/etc/backupmesh/restic-password` for repository enc
 
 ## Installation and contributing
 
+For releases containing the Ubuntu package and checksum (0.3.7+), install the latest Remote Agent with the command below. It becomes usable after the matching release assets and bootstrap script are published.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/namioto/backupmesh/main/packaging/linux/get-backupmesh.sh | sh
+```
+
 Start with the [installation guide](docs/INSTALLATION.md), then use the [user guide](docs/USER_GUIDE.md) for backup rules, restore testing, and troubleshooting. Development prerequisites, build commands, tests, and contribution guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Project status
