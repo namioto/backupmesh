@@ -181,17 +181,28 @@ func SaveIdentityState(configPath string, c Config) error {
 	if err := os.MkdirAll(filepath.Dir(statePath), 0700); err != nil {
 		return fmt.Errorf("create identity state directory: %w", err)
 	}
-	temporary := statePath + ".tmp"
-	if err := os.WriteFile(temporary, contents, 0600); err != nil {
+	temporaryFile, err := os.CreateTemp(filepath.Dir(statePath), filepath.Base(statePath)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create identity state temporary file: %w", err)
+	}
+	temporary := temporaryFile.Name()
+	defer os.Remove(temporary)
+	if err := temporaryFile.Chmod(0600); err != nil {
+		_ = temporaryFile.Close()
+		return fmt.Errorf("protect identity state temporary file: %w", err)
+	}
+	if _, err := temporaryFile.Write(contents); err != nil {
+		_ = temporaryFile.Close()
 		return fmt.Errorf("write identity state: %w", err)
+	}
+	if err := temporaryFile.Close(); err != nil {
+		return fmt.Errorf("close identity state: %w", err)
 	}
 	if err := os.Rename(temporary, statePath); err != nil {
 		if removeErr := os.Remove(statePath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-			_ = os.Remove(temporary)
 			return fmt.Errorf("replace identity state: %w", removeErr)
 		}
 		if retryErr := os.Rename(temporary, statePath); retryErr != nil {
-			_ = os.Remove(temporary)
 			return fmt.Errorf("replace identity state: %w", retryErr)
 		}
 	}

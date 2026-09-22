@@ -2,6 +2,12 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.7 — 2026-09-22
+
+- Add guided Ubuntu Remote Agent setup with explicit backup-folder prompts and nearby pairing approval by six-digit comparison code.
+- Install a `backupmesh-setup` command so setup can be rerun safely and the watcher restarted automatically.
+- Keep manual JSON/YAML configuration and copied pairing invitations available as advanced fallbacks.
+
 ## 0.3.6 — 2026-09-22
 
 - Discover unpaired Remote Agents on the local network and request pairing from the Storage app without copying certificates, service details, or commands.

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+CONFIG_PATH=/etc/backupmesh/backupmesh.json
+if [ -f /etc/backupmesh/backupmesh.json ]; then
+  :
+elif [ -f /etc/backupmesh/backupmesh.yaml ]; then
+  CONFIG_PATH=/etc/backupmesh/backupmesh.yaml
+elif [ -f /etc/backupmesh/backupmesh.yml ]; then
+  CONFIG_PATH=/etc/backupmesh/backupmesh.yml
+fi
+
+if [ -f "$CONFIG_PATH" ]; then before=$(cksum < "$CONFIG_PATH"); else before=missing; fi
+/opt/backupmesh/backupmesh-agent setup -config "$CONFIG_PATH"
+status=$?
+if [ -f "$CONFIG_PATH" ]; then after=$(cksum < "$CONFIG_PATH"); else after=missing; fi
+if [ "$before" != "$after" ]; then
+  echo "Applying your changes..."
+  if ! systemctl restart backupmesh-source-watch.service; then
+    echo "Could not apply the saved changes." >&2
+    if [ "$status" -eq 0 ]; then status=1; fi
+  fi
+fi
+exit "$status"

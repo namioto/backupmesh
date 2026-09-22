@@ -6,11 +6,17 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+case "$(uname -m)" in
+  x86_64|amd64) ;;
+  *) echo "This package requires a 64-bit x86 Ubuntu computer." >&2; exit 1 ;;
+esac
+
 PACKAGE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 systemctl stop backupmesh-source-watch.service 2>/dev/null || true
 install -d -m 0755 /opt/backupmesh /etc/backupmesh /var/cache/backupmesh
 install -m 0755 "$PACKAGE_DIR/backupmesh-agent" /opt/backupmesh/backupmesh-agent
 install -m 0755 "$PACKAGE_DIR/restic" /opt/backupmesh/restic
+install -m 0755 "$PACKAGE_DIR/backupmesh-setup" /usr/local/sbin/backupmesh-setup
 install -m 0644 "$PACKAGE_DIR/backupmesh-source-watch.service" /etc/systemd/system/backupmesh-source-watch.service
 install -m 0644 "$PACKAGE_DIR/backupmesh-source@.service" /etc/systemd/system/backupmesh-source@.service
 install -m 0644 "$PACKAGE_DIR/backupmesh-source@.timer" /etc/systemd/system/backupmesh-source@.timer
@@ -51,12 +57,8 @@ systemctl daemon-reload
 systemctl enable backupmesh-source-watch.service
 systemctl restart backupmesh-source-watch.service
 
-echo "Remote Agent installed and discoverable. Storage can request pairing; approve locally with:"
-echo "  /opt/backupmesh/backupmesh-agent nearby pending -config $CONFIG_PATH"
-echo "  /opt/backupmesh/backupmesh-agent nearby approve -config $CONFIG_PATH -request REQUEST_ID"
-echo "Manual invitation pairing remains available:"
-echo "  /opt/backupmesh/backupmesh-agent pair -config $CONFIG_PATH -output /etc/backupmesh/pairing"
-echo "  /opt/backupmesh/backupmesh-agent validate -config $CONFIG_PATH"
-echo "Back up /etc/backupmesh/restic-password securely. Losing it makes the encrypted backups unrecoverable."
-echo "Optional scheduled fallback:"
-echo "  systemctl enable --now backupmesh-source@BACKUP_SET_NAME.timer"
+if [ -t 0 ] && [ -t 1 ]; then
+  /usr/local/sbin/backupmesh-setup || true
+else
+  echo "BackupMesh Remote Agent installed. Run 'sudo backupmesh-setup' to choose a folder and approve connection requests."
+fi

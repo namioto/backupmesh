@@ -18,18 +18,18 @@
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.6-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.7-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
+- `artifacts\installer\BackupMesh-Source-0.3.7-win-x64-Setup.exe` (다른 Windows PC용 Remote Agent)
 
 고정 버전 `restic`과 `rest-server`가 포함되므로 대상 장비에 .NET이나 Go를 별도로 설치할 필요가 없습니다.
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.6-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.7-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.6-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.7-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -61,33 +61,35 @@ Set-Location artifacts\BackupMesh-Storage-win-x64
 
 로컬 폴더를 더 이상 사용하지 않으려면 백업 창에서 해당 폴더를 선택하고 **폴더 제거**를 누르세요. 해당 폴더의 백업 규칙도 제거되며 기존 백업 데이터는 보존됩니다.
 
-## 4. Linux Remote Agent 설치와 설정
+## 4. Ubuntu Remote Agent 설치와 설정
 
-`BackupMesh-Source-linux-x64`를 Linux 장비로 복사한 뒤 실행합니다.
+패키지 압축을 풀고 설치합니다.
 
 ```sh
+tar -xzf BackupMesh-Source-0.3.7-linux-x64.tar.gz
+cd BackupMesh-Source-linux-x64
 sudo sh install.sh
-sudoedit /etc/backupmesh/backupmesh.json
 ```
 
-각 Backup Set에는 표시 이름, 원본 경로, 필요한 include/exclude 패턴만 설정합니다. Remote Agent가 Agent와 Backup Set의 고정 UUID를 자동 생성하고 설정 파일 옆의 소유자 전용 `*.state.json` 파일에 보존합니다. 사용자가 ID를 편집하거나 Source 사이에 복사하면 안 됩니다. 설정 파일을 검증합니다.
+대화형 터미널에서 백업할 절대 폴더 경로를 하나씩 입력합니다. 폴더 입력을 끝내려면 빈 입력에서 Enter를 누릅니다. 연결 질문에는 Enter를 누르거나 `y`를 입력하고, 스토리지 앱의 **근처 컴퓨터**에서 연결을 요청하세요. 같은 6자리 비교 번호가 표시되는지 확인한 뒤 `y`로 승인합니다.
 
-Remote Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths` 목록에는 파일과 디렉터리를 원하는 만큼 지정할 수 있습니다. 다중 경로 예시는 `source-agent/example.config.yaml`을 참고하세요. YAML과 JSON 모두 알 수 없는 필드를 거부하므로 오타가 조용히 무시되지 않습니다.
+나중에 폴더를 추가하거나 페어링을 마치려면 다시 실행합니다.
 
 ```sh
-sudo /opt/backupmesh/backupmesh-agent validate \
-  -config /etc/backupmesh/backupmesh.json
+sudo backupmesh-setup
 ```
 
-설치 프로그램은 소유자 전용 권한의 `/etc/backupmesh/restic-password`를 만듭니다. 이 암호를 잃으면 암호화된 snapshot을 복구할 수 없으므로 보호된 복구 사본을 별도로 보관하세요.
+기존 설정을 보존하며 설정에서 변경 사항을 저장하면 감시 서비스를 다시 시작합니다. `/etc/backupmesh/restic-password`의 보호된 사본을 보관하세요. 이 암호 없이는 암호화된 snapshot을 복원할 수 없습니다.
 
-대화형 터미널에서 `install.sh`를 실행하면(스크립트로 자동 실행하는 대신) 손으로 편집할 일반 템플릿 대신 Agent 이름과 첫 Backup Set을 직접 물어보고, 완료 후 바로 `pair`를 실행할지도 제안합니다.
+### 고급 수동 설정
+
+Remote Agent는 엄격한 JSON(`.json`)과 YAML(`.yaml`, `.yml`)을 지원합니다. Backup Set의 `paths`에는 여러 파일과 디렉터리를 지정할 수 있습니다. `source-agent/example.config.yaml`을 참고하고 수동 변경 후 `sudo /opt/backupmesh/backupmesh-agent validate -config /etc/backupmesh/backupmesh.json`을 실행하세요.
 
 ## 4b. 다른 PC에 Windows Remote Agent 설치하기
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 **백업 → 백업 추가**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.6-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.7-win-x64-Setup.exe`를 실행하세요. 사용자 프로필 아래에 대화형 콘솔 없이 설치되고, 기존 설정이 없으면 빈 `backupmesh.json`을 만들며, 백그라운드 감시용 사용자별 예약 작업을 등록합니다. 제거 프로그램은 설정·페어링된 신원·repository 암호를 보존합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -100,14 +102,16 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 
 ```powershell
 & "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh-agent.exe" pair `
-  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.yaml"
+  -config "$env:LOCALAPPDATA\BackupMesh\Source\backupmesh.json"
 ```
 
 `Uninstall-BackupMeshSource.ps1`은 예약 작업과 바이너리만 제거하고, `%LOCALAPPDATA%\BackupMesh\Source` 아래의 설정·페어링된 신원·repository 암호는 그대로 유지합니다.
 
 ## 5. Source 페어링
 
-양쪽 에이전트가 0.3.6 이상이면 같은 LAN에서 근처 연결을 사용할 수 있습니다. Windows에서는 로그인하면 설치된 원격 에이전트 감시 프로그램이 자동으로 시작됩니다. **근처 컴퓨터**에서 **연결 요청**을 누르고 양쪽 컴퓨터의 6자리 번호가 같을 때만 원격 컴퓨터에서 승인합니다. 첫 인증 카탈로그가 도착하면 연결된 목록으로 이동합니다. 대기 중인 요청을 거부·취소하거나 만료되게 두면 접근 권한을 주지 않습니다. Linux에서는 감시 프로그램과 같은 `-config` 경로로 `backupmesh-agent nearby pending`을 실행한 뒤 `backupmesh-agent nearby approve -request UUID` 또는 `backupmesh-agent nearby deny -request UUID`를 실행합니다. 컴퓨터가 나타나지 않으면 **원격 에이전트 연결**, **연결 초대 복사**를 선택하고 다음 명령을 실행한 뒤 초대를 붙여넣으세요.
+양쪽 에이전트가 0.3.6 이상이면 **근처 컴퓨터**에서 **연결 요청**을 누르고 양쪽 컴퓨터의 6자리 번호가 같을 때만 승인합니다. Ubuntu 0.3.7 설정은 요청 UUID를 노출하지 않고 비교 번호를 보여 준 뒤 승인을 묻습니다. 여러 요청이 있으면 먼저 번호 목록의 순번으로 하나를 선택합니다. Windows는 로컬 확인 창을 사용합니다. 첫 인증 카탈로그가 도착하면 연결된 목록으로 이동합니다. 요청을 거부·취소하거나 만료되게 두면 접근 권한을 주지 않습니다.
+
+탐색이 차단되면 **원격 에이전트 연결**, **연결 초대 복사**를 선택하고 다음 고급 대체 명령에 초대를 붙여넣으세요. 초대는 10분 후 만료되며 한 번만 사용할 수 있습니다.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \

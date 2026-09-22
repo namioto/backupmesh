@@ -29,7 +29,7 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/restic"
 )
 
-const version = "0.3.6"
+const version = "0.3.7"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -40,7 +40,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <pair|nearby|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
+		return fmt.Errorf("usage: backupmesh-agent <setup|pair|nearby|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
@@ -68,6 +68,9 @@ func run(args []string) error {
 	nearbyRequest := fs.String("request", "", "nearby pairing request ID")
 	if err := fs.Parse(flagArgs); err != nil {
 		return err
+	}
+	if args[0] == "setup" {
+		return runSetup(context.Background(), os.Stdin, os.Stdout, *configPath, *pairingOutput)
 	}
 	if args[0] == "apply-pairing" {
 		fmt.Fprintln(os.Stderr, "warning: apply-pairing is deprecated and kept only for migrating pairings created before one-time-code pairing; use 'backupmesh-agent pair' instead.")

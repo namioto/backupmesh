@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current version: **0.3.6** — pair nearby Remote Agents from the Storage app with explicit approval and a comparison number. See the [changelog](CHANGELOG.md).
+Current version: **0.3.7** — guided Ubuntu Remote Agent setup now adds backup folders and approves nearby pairing without editing JSON or copying a request ID. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
@@ -52,13 +52,13 @@ The first version builds on the proven Restic ecosystem. BackupMesh itself is an
 
 The Windows tray app keeps backup storage understandable without turning it into an always-on server. On the **Backups** tab, choose what to back up and where it goes: register a physical device or an ordinary local/network folder as a logical storage device inline with **New…** next to the target-device picker, then map each Backup Set to that device and a relative repository path. The **Remote Agents** tab lists paired Remote Agents and the Backup Sets they offer; **Overview** shows connected storage, free space, and when it is safe to remove a device. The mapping model supports multiple Remote Agents per device and multiple devices per Remote Agent.
 
-With both agents on 0.3.6 or later, sign in to Windows so its installed Remote Agent watcher starts, then select it under **Nearby computers** on the **Remote Agents** tab. Choose **Request connection**, verify the same six-digit comparison number on both computers, then approve on the remote computer. Nearby names are unverified until pairing finishes. The copied connection invitation remains available for blocked discovery and cross-subnet setups.
+With both agents on 0.3.6 or later, select the computer under **Nearby computers** on the **Remote Agents** tab. Choose **Request connection**, verify the same six-digit comparison number on both computers, then approve on the remote computer. Nearby names are unverified until pairing finishes. The copied connection invitation remains available for blocked discovery and cross-subnet setups.
 
 The Linux installer creates `/etc/backupmesh/restic-password` for repository encryption. Store a protected recovery copy: BackupMesh cannot restore snapshots if this password is lost.
 
 ## Installation and contributing
 
-See the [user guide](docs/USER_GUIDE.md) for installation and setup. Development prerequisites, build commands, tests, and contribution guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Start with the [installation guide](docs/INSTALLATION.md), then use the [user guide](docs/USER_GUIDE.md) for backup rules, restore testing, and troubleshooting. Development prerequisites, build commands, tests, and contribution guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Project status
 
