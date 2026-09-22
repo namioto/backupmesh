@@ -152,7 +152,7 @@
             <TabItem Header="{local:Loc Text_SourceAgents_016D07}" AutomationProperties.AutomationId="SourceAgentsTab">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{local:Loc Text_EachcomputeryoupairrunsaSource_32AFD1}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
                     <GroupBox Grid.Row="1" Header="{local:Loc Text_SourceAgents_016D07}" Padding="10">
                         <Grid>
@@ -187,6 +187,32 @@
                                 <Button Content="{local:Loc Text_PairaSourceAgent_379C01}" Command="{Binding PairSourceCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" ToolTip="{local:Loc Text_Createaonetime10minutepairingc_67FD9C}" AutomationProperties.AutomationId="PairSourceButton"/>
                                 <TextBlock Text="{local:Loc Text_BackupssyncfrompairedSourceAge_B93A96}" TextWrapping="Wrap" Foreground="#607086" Margin="4,4" FontSize="11"/>
                             </StackPanel>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Grid.Row="2" Header="{local:Loc NearbyComputers}" Padding="10" Margin="0,12,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <TextBlock Text="{local:Loc NearbyDiscoveryWarning}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"/>
+                            <DataGrid Grid.Row="1" MinHeight="110" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="NearbyComputersGrid">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{local:Loc NearbyName}" Binding="{Binding DisplayName}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                                <TextBlock Text="{Binding NearbyPairingStatus}" TextWrapping="Wrap"/>
+                                <Border Background="#FFF7D6" BorderBrush="#D69E2E" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,8,0,0" Visibility="{Binding HasNearbyComparisonCode, Converter={StaticResource BoolToVisibleConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="{local:Loc NearbyComparisonInstructions}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding NearbyComparisonCode}" FontSize="30" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center" Margin="0,6,0,0" AutomationProperties.AutomationId="NearbyComparisonCode"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <WrapPanel Grid.Row="3" Margin="0,8,0,0">
+                                <Button Content="{local:Loc NearbyRequestPairing}" Command="{Binding RequestNearbyPairingCommand}" IsEnabled="{Binding HasSelectedNearbyComputer}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="RequestNearbyPairingButton"/>
+                                <Button Content="{local:Loc NearbyCancelPairing}" Command="{Binding CancelNearbyPairingCommand}" IsEnabled="{Binding CanCancelNearbyPairing}" Margin="6,0,0,0" AutomationProperties.AutomationId="CancelNearbyPairingButton"/>
+                                <Button Content="{local:Loc NearbyRefresh}" Command="{Binding RefreshNearbyComputersCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="RefreshNearbyComputersButton"/>
+                            </WrapPanel>
                         </Grid>
                     </GroupBox>
                 </Grid>

@@ -7,6 +7,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 PACKAGE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+systemctl stop backupmesh-source-watch.service 2>/dev/null || true
 install -d -m 0755 /opt/backupmesh /etc/backupmesh /var/cache/backupmesh
 install -m 0755 "$PACKAGE_DIR/backupmesh-agent" /opt/backupmesh/backupmesh-agent
 install -m 0755 "$PACKAGE_DIR/restic" /opt/backupmesh/restic
@@ -15,44 +16,18 @@ install -m 0644 "$PACKAGE_DIR/backupmesh-source@.service" /etc/systemd/system/ba
 install -m 0644 "$PACKAGE_DIR/backupmesh-source@.timer" /etc/systemd/system/backupmesh-source@.timer
 
 CONFIG_PATH=/etc/backupmesh/backupmesh.json
-JUST_GENERATED=0
-if [ ! -f /etc/backupmesh/backupmesh.json ] && [ ! -f /etc/backupmesh/backupmesh.yaml ] && [ ! -f /etc/backupmesh/backupmesh.yml ]; then
-  if [ -t 0 ] && [ -t 1 ]; then
-    echo "No existing configuration found. Answer a few questions to create a minimal one (Ctrl+C to skip)."
-    DEFAULT_NAME=$(hostname 2>/dev/null || echo "this-computer")
-    printf 'Name for this Source Agent [%s]: ' "$DEFAULT_NAME"
-    read -r AGENT_NAME
-    AGENT_NAME=${AGENT_NAME:-$DEFAULT_NAME}
-    printf 'Name for the first Backup Set [documents]: '
-    read -r SET_NAME
-    SET_NAME=${SET_NAME:-documents}
-    SET_PATH=""
-    while [ -z "$SET_PATH" ] || [ "${SET_PATH#/}" = "$SET_PATH" ]; do
-      printf 'Absolute path to back up (e.g. /home/you/Documents): '
-      read -r SET_PATH
-    done
-    CONFIG_PATH=/etc/backupmesh/backupmesh.yaml
-    umask 077
-    cat > "$CONFIG_PATH" <<EOF
-agent:
-  name: $AGENT_NAME
-storage:
-  repositoryPasswordFile: /etc/backupmesh/restic-password
-backupSets:
-  - name: $SET_NAME
-    paths:
-      - $SET_PATH
-EOF
-    chmod 0600 "$CONFIG_PATH"
-    JUST_GENERATED=1
-    echo "Wrote $CONFIG_PATH. Add more backupSets entries by hand any time; no ID or Storage connection field is required until you pair."
-  else
-    install -m 0600 "$PACKAGE_DIR/backupmesh.json.example" /etc/backupmesh/backupmesh.json
-  fi
+if [ -f /etc/backupmesh/backupmesh.json ]; then
+  :
 elif [ -f /etc/backupmesh/backupmesh.yaml ]; then
   CONFIG_PATH=/etc/backupmesh/backupmesh.yaml
 elif [ -f /etc/backupmesh/backupmesh.yml ]; then
   CONFIG_PATH=/etc/backupmesh/backupmesh.yml
+else
+  AGENT_NAME=$(hostname 2>/dev/null | tr -cd 'A-Za-z0-9._-' || true)
+  AGENT_NAME=${AGENT_NAME:-this-computer}
+  umask 077
+  printf '{"agent":{"name":"%s"},"storage":{"repositoryPasswordFile":"/etc/backupmesh/restic-password"},"backupSets":[]}\n' "$AGENT_NAME" > "$CONFIG_PATH"
+  chmod 0600 "$CONFIG_PATH"
 fi
 
 if [ ! -f /etc/backupmesh/restic-password ]; then
@@ -63,25 +38,25 @@ if [ ! -f /etc/backupmesh/restic-password ]; then
 fi
 systemctl daemon-reload
 
-if [ "$JUST_GENERATED" -eq 1 ] && [ -t 0 ] && [ -t 1 ]; then
-  printf 'Pair with the Storage Agent now? Copy a connection invitation from the Storage app. [y/N]: '
-  read -r DO_PAIR
-  if [ "$DO_PAIR" = "y" ] || [ "$DO_PAIR" = "Y" ]; then
-    if /opt/backupmesh/backupmesh-agent pair -config "$CONFIG_PATH" -output /etc/backupmesh/pairing; then
-      systemctl enable --now backupmesh-source-watch.service
-      echo "Paired and watching for Storage commands. Back up /etc/backupmesh/restic-password securely - losing it makes the encrypted backups unrecoverable."
-      echo "Check status any time with: systemctl status backupmesh-source-watch.service"
-      exit 0
-    else
-      echo "Pairing failed. You can retry later with the command below." >&2
-    fi
-  fi
-fi
+DROPIN_DIR=/etc/systemd/system/backupmesh-source-watch.service.d
+install -d -m 0755 "$DROPIN_DIR"
+cat > "$DROPIN_DIR/config.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=/opt/backupmesh/backupmesh-agent watch -config $CONFIG_PATH -restic /opt/backupmesh/restic
+EOF
+chmod 0644 "$DROPIN_DIR/config.conf"
+systemctl daemon-reload
 
-echo "Edit $CONFIG_PATH (agent name and backup sets), then run the command below and paste the Storage app's connection invitation when prompted:"
+systemctl enable backupmesh-source-watch.service
+systemctl restart backupmesh-source-watch.service
+
+echo "Remote Agent installed and discoverable. Storage can request pairing; approve locally with:"
+echo "  /opt/backupmesh/backupmesh-agent nearby pending -config $CONFIG_PATH"
+echo "  /opt/backupmesh/backupmesh-agent nearby approve -config $CONFIG_PATH -request REQUEST_ID"
+echo "Manual invitation pairing remains available:"
 echo "  /opt/backupmesh/backupmesh-agent pair -config $CONFIG_PATH -output /etc/backupmesh/pairing"
 echo "  /opt/backupmesh/backupmesh-agent validate -config $CONFIG_PATH"
-echo "  systemctl enable --now backupmesh-source-watch.service"
 echo "Back up /etc/backupmesh/restic-password securely. Losing it makes the encrypted backups unrecoverable."
 echo "Optional scheduled fallback:"
 echo "  systemctl enable --now backupmesh-source@BACKUP_SET_NAME.timer"

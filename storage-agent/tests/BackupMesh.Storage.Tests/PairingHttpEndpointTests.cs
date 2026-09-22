@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -24,12 +26,14 @@ public sealed class PairingHttpEndpointTests : IDisposable
     private readonly PairingCertificateAuthority _certificateAuthority;
     private readonly IssuedCertificateStore _issuedCertificates = new();
     private readonly SourceDisplayNameStore _displayNames = new();
+    private readonly RemotePairingRequestStore _remoteRequests;
     private readonly IHost _host;
     private readonly TestServer _server;
 
     public PairingHttpEndpointTests()
     {
         _sessions = new PairingSessionStore(_clock);
+        _remoteRequests = new RemotePairingRequestStore(_clock);
         _certificateAuthority = new PairingCertificateAuthority(new() { ProtectedAuthorityPath = Path.Combine(_directory, "authority.dpapi") });
         using var serverCertificate = _certificateAuthority.IssueServerCertificate(["test-storage"]);
         var mutualTls = new MutualTlsOptions { ServerNames = ["test-storage"], Port = 7443, ServerTrustPem = serverCertificate.ExportCertificatePem() };
@@ -47,6 +51,7 @@ public sealed class PairingHttpEndpointTests : IDisposable
                 services.AddSingleton(mutualTls);
                 services.AddSingleton(_sessions);
                 services.AddSingleton(new PairingAttemptThrottle(_clock));
+                services.AddSingleton(_remoteRequests);
                 services.AddSingleton(_credentials);
                 services.AddSingleton(_revocations);
                 services.AddSingleton(_certificateAuthority);
@@ -173,6 +178,60 @@ public sealed class PairingHttpEndpointTests : IDisposable
 
         var replay = await ExchangeAsync(session.Code, agentId, "source-1");
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+    }
+
+    [Fact]
+    public async Task NearbyExchangeRetryReturnsExactBundleOnlyOverHttps()
+    {
+        using var key = RSA.Create(2048);
+        var agentId = Guid.NewGuid();
+        var publicKey = key.ExportSubjectPublicKeyInfo();
+        var identity = Convert.ToHexString(SHA256.HashData(publicKey)).ToLowerInvariant();
+        Assert.True(_remoteRequests.Announce(agentId, "source-1", identity, Convert.ToBase64String(publicKey)));
+        var request = Assert.IsType<RemotePairingRequest>(_remoteRequests.Create(agentId, identity, new string('a', 64), _sessions));
+        var claim = JsonSerializer.SerializeToElement(_remoteRequests.Claim(request.RequestId, agentId, identity));
+        var code = Encoding.UTF8.GetString(key.Decrypt(Convert.FromBase64String(claim.GetProperty("encrypted_code").GetString()!), RSAEncryptionPadding.OaepSHA256));
+
+        using var first = await ExchangeAsync(code, agentId, "source-1");
+        var expected = await first.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var insecureRetry = await ExchangeAsync(code, agentId, "source-1");
+        Assert.Equal(HttpStatusCode.BadRequest, insecureRetry.StatusCode);
+        using var retry = await ExchangeAsync(code, agentId, "source-1", IPAddress.Parse("203.0.113.10"), true);
+        Assert.Equal(expected, await retry.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task AuthenticatedEmptyCatalogCompletesNearbyPairing()
+    {
+        using var key = RSA.Create(2048);
+        var agentId = Guid.NewGuid();
+        var publicKey = key.ExportSubjectPublicKeyInfo();
+        var identity = Convert.ToHexString(SHA256.HashData(publicKey)).ToLowerInvariant();
+        Assert.True(_remoteRequests.Announce(agentId, "source-1", identity, Convert.ToBase64String(publicKey)));
+        var request = Assert.IsType<RemotePairingRequest>(_remoteRequests.Create(agentId, identity, new string('a', 64), _sessions));
+        var claim = JsonSerializer.SerializeToElement(_remoteRequests.Claim(request.RequestId, agentId, identity));
+        var code = Encoding.UTF8.GetString(key.Decrypt(Convert.FromBase64String(claim.GetProperty("encrypted_code").GetString()!), RSAEncryptionPadding.OaepSHA256));
+        using var exchange = await ExchangeAsync(code, agentId, "source-1");
+        var bundle = await exchange.Content.ReadFromJsonAsync<PairingExchangeResponse>();
+        using var certificate = X509Certificate2.CreateFromPem(bundle!.CertificatePem);
+
+        using var handler = _server.CreateHandler(ctx =>
+        {
+            ctx.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+            ctx.Connection.ClientCertificate = certificate;
+        });
+        using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
+        client.DefaultRequestHeaders.Add("X-BackupMesh-Agent-ID", agentId.ToString());
+        client.DefaultRequestHeaders.Authorization = new("Bearer", bundle.Credential);
+        client.DefaultRequestHeaders.Add("X-Request-ID", Guid.NewGuid().ToString());
+        client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        client.DefaultRequestHeaders.Add("X-BackupMesh-Sent-At", DateTimeOffset.UtcNow.ToString("O"));
+        using var catalog = await client.PostAsJsonAsync("/api/v1/source/catalog", new SourceCatalog(agentId, "source-1", DateTimeOffset.UtcNow, []));
+
+        Assert.Equal(HttpStatusCode.NoContent, catalog.StatusCode);
+        Assert.Equal("PAIRED", _remoteRequests.Get(request.RequestId)!.Status);
+        Assert.Null(_remoteRequests.GetIssued(code, agentId));
     }
 
     [Fact]
@@ -521,8 +580,15 @@ public sealed class PairingHttpEndpointTests : IDisposable
     private Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName) => ExchangeAsync(code, agentId, agentName, IPAddress.Parse("203.0.113.10"));
 
     private async Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName, IPAddress remoteAddress)
+        => await ExchangeAsync(code, agentId, agentName, remoteAddress, false);
+
+    private async Task<HttpResponseMessage> ExchangeAsync(string code, Guid agentId, string agentName, IPAddress remoteAddress, bool https)
     {
-        using var handler = _server.CreateHandler(ctx => ctx.Connection.RemoteIpAddress = remoteAddress);
+        using var handler = _server.CreateHandler(ctx =>
+        {
+            ctx.Connection.RemoteIpAddress = remoteAddress;
+            if (https) ctx.Request.Scheme = "https";
+        });
         using var client = new HttpClient(handler) { BaseAddress = _server.BaseAddress };
         return await client.PostAsJsonAsync("/api/v1/pairing/exchange", new { code, agent_id = agentId, agent_name = agentName });
     }

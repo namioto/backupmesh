@@ -2,6 +2,13 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.6 — 2026-09-22
+
+- Discover unpaired Remote Agents on the local network and request pairing from the Storage app without copying certificates, service details, or commands.
+- Require approval on the remote computer and show the same six-digit comparison number on both computers before trust is established.
+- Keep discovered names explicitly unverified, separate nearby computers from authenticated connections, and retain copied invitations as a fallback.
+- Report pending, approved, denied, expired, cancelled, and failed requests without freezing the UI or requiring a manual service restart.
+
 ## 0.3.5 — 2026-09-22
 
 - Rediscover paired Storage over IPv4 LAN after DHCP address changes; authenticate the saved server certificate before reconnecting.

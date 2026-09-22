@@ -29,7 +29,7 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/restic"
 )
 
-const version = "0.3.5"
+const version = "0.3.6"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -40,11 +40,19 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: backupmesh-agent <pair|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
+		return fmt.Errorf("usage: backupmesh-agent <pair|nearby|validate|sync|backup|watch|version> (apply-pairing is a deprecated migration-only command; see CHANGELOG)")
 	}
 	if args[0] == "version" {
 		fmt.Println(version)
 		return nil
+	}
+	nearbyAction := ""
+	flagArgs := args[1:]
+	if args[0] == "nearby" {
+		if len(args) < 2 {
+			return errors.New("usage: backupmesh-agent nearby <pending|approve|deny> -config PATH [-request UUID]")
+		}
+		nearbyAction, flagArgs = args[1], args[2:]
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	configPath := fs.String("config", "backupmesh.json", "path to configuration")
@@ -57,7 +65,8 @@ func run(args []string) error {
 	storageEndpoint := fs.String("storage", "", "Storage HTTPS endpoint shown by the tray app")
 	storageFingerprint := fs.String("fingerprint", "", "Storage certificate SHA-256 shown by the tray app")
 	pollInterval := fs.Duration("poll-interval", 5*time.Second, "Storage command polling interval")
-	if err := fs.Parse(args[1:]); err != nil {
+	nearbyRequest := fs.String("request", "", "nearby pairing request ID")
+	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
 	if args[0] == "apply-pairing" {
@@ -88,6 +97,18 @@ func run(args []string) error {
 		}
 		return pairWithCode(*configPath, *storageEndpoint, *pairingCode, *storageFingerprint, *pairingOutput)
 	}
+	if args[0] == "nearby" {
+		switch nearbyAction {
+		case "pending":
+			return printPendingNearby(*configPath)
+		case "approve":
+			return approvePendingNearby(*configPath, *pairingOutput, *nearbyRequest)
+		case "deny":
+			return denyPendingNearby(*configPath, *pairingOutput, *nearbyRequest)
+		default:
+			return errors.New("usage: backupmesh-agent nearby <pending|approve|deny> -config PATH [-request UUID]")
+		}
+	}
 	if args[0] == "validate" {
 		// Uses the lenient check so a freshly authored config can be validated before pairing, not just after.
 		cfg, err := config.LoadUserConfig(*configPath)
@@ -101,6 +122,20 @@ func run(args []string) error {
 		}
 		fmt.Println("configuration is valid and paired")
 		return nil
+	}
+	if args[0] == "watch" {
+		userConfig, err := config.LoadUserConfig(*configPath)
+		if err != nil {
+			return err
+		}
+		if userConfig.Validate() != nil {
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+			defer stop()
+			fmt.Println("unpaired Remote Agent is discoverable on this LAN")
+			if err := runNearbyWatch(ctx, *configPath, *pairingOutput, userConfig); err != nil {
+				return err
+			}
+		}
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -222,6 +257,15 @@ func applyPairing(configPath, bundlePath, outputDirectory string) error {
 }
 
 func pairWithCode(configPath, endpoint, code, fingerprint, outputDirectory string) error {
+	unlock, err := lockPairing(configPath)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return pairWithCodeLocked(configPath, endpoint, code, fingerprint, outputDirectory)
+}
+
+func pairWithCodeLocked(configPath, endpoint, code, fingerprint, outputDirectory string) error {
 	cfg, err := config.LoadUserConfig(configPath)
 	if err != nil {
 		return err
@@ -442,17 +486,28 @@ func renewCertificateIfNeeded(ctx context.Context, api controlapi.Client, cfg co
 }
 
 func writePrivateFile(path string, contents []byte) error {
-	temporary := path + ".tmp"
-	if err := os.WriteFile(temporary, contents, 0600); err != nil {
+	temporary, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+"-*")
+	if err != nil {
+		return fmt.Errorf("create temporary %s: %w", filepath.Base(path), err)
+	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(0600); err != nil {
+		temporary.Close()
+		return fmt.Errorf("protect temporary %s: %w", filepath.Base(path), err)
+	}
+	if _, err := temporary.Write(contents); err != nil {
+		temporary.Close()
 		return fmt.Errorf("write %s: %w", filepath.Base(path), err)
 	}
-	if err := os.Rename(temporary, path); err != nil {
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", filepath.Base(path), err)
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
 		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-			_ = os.Remove(temporary)
 			return fmt.Errorf("replace %s: %w", filepath.Base(path), err)
 		}
-		if retryErr := os.Rename(temporary, path); retryErr != nil {
-			_ = os.Remove(temporary)
+		if retryErr := os.Rename(temporaryPath, path); retryErr != nil {
 			return fmt.Errorf("replace %s: %w", filepath.Base(path), retryErr)
 		}
 	}

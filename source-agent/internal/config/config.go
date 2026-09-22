@@ -298,9 +298,6 @@ func (c Config) validateUserAuthored() []error {
 	if c.UploadLimitBPS < 0 {
 		problems = append(problems, errors.New("uploadLimitBps cannot be negative"))
 	}
-	if len(c.BackupSets) == 0 {
-		problems = append(problems, errors.New("at least one backupSet is required"))
-	}
 	seen := map[string]bool{}
 	for i, set := range c.BackupSets {
 		prefix := fmt.Sprintf("backupSets[%d]", i)

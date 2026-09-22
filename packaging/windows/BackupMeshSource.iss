@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.3.5"
+#define AppVersion "0.3.6"
 #endif
 #ifndef SourcePackage
   #define SourcePackage "..\..\artifacts\BackupMesh-Source-win-x64"
@@ -63,9 +63,7 @@ Source: "{#SourcePackage}\restic-BSD-2-Clause.txt"; DestDir: "{app}"; Flags: ign
 Name: "{group}\Uninstall BackupMesh Source Agent"; Filename: "{uninstallexe}"
 
 [Run]
-; Not run hidden, and no ImplicitSkipIfSilent: Install-BackupMeshSource.ps1 interactively asks for an
-; Agent name and first Backup Set path, the same way packaging/linux/install.sh now does.
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-BackupMeshSource.ps1"""; StatusMsg: "Setting up the Source Agent..."; Flags: waituntilterminated
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\Install-BackupMeshSource.ps1"""; StatusMsg: "Setting up the Source Agent..."; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\Uninstall-BackupMeshSource.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "BackupMeshSourceCleanup"

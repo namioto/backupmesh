@@ -21,11 +21,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _deviceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _catalogTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly DispatcherTimer _jobTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _nearbyTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly ISourceCatalogClient _catalogClient;
     private readonly IStorageConfigurationClient _configurationClient;
     private readonly IBackupJobClient _jobClient;
     private readonly IPairingClient _pairingClient;
     private readonly ISourceConnectionsClient _connectionsClient;
+    private readonly INearbyPairingClient _nearbyPairingClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
     // Mappings this session paused via the tray flyout's "Skip this time" - tracked separately from a
@@ -36,6 +38,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private BackupSetViewModel? _selectedBackupSet;
     private RemoteAgentViewModel? _selectedRemoteAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
+    private NearbyComputerViewModel? _selectedNearbyComputer;
     private DeviceViewModel? _selectedDevice;
     private MappingViewModel? _selectedMapping;
     private BackupJobViewModel? _selectedJob;
@@ -47,6 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<RemoteAgentViewModel> Sources { get; } = [];
     public ObservableCollection<SourceConnectionViewModel> SourceConnections { get; } = [];
+    public ObservableCollection<NearbyComputerViewModel> NearbyComputers { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public ObservableCollection<BackupDestinationOptionViewModel> BackupDestinations { get; } = [];
@@ -94,8 +98,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RenameSourceCommand { get; }
     public ICommand ForgetSourceCommand { get; }
     public ICommand RotateStorageIdentityCommand { get; }
+    public ICommand RefreshNearbyComputersCommand { get; }
+    public ICommand RequestNearbyPairingCommand { get; }
+    public ICommand CancelNearbyPairingCommand { get; }
 
-    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null)
+    public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null, INearbyPairingClient? nearbyPairingClient = null)
     {
         _demoMode = demoMode;
         _persistLocalState = loadLocalState;
@@ -105,6 +112,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _jobClient = jobClient ?? new BackupJobClient();
         _pairingClient = pairingClient ?? new PairingClient();
         _connectionsClient = connectionsClient ?? new SourceConnectionsClient();
+        _nearbyPairingClient = nearbyPairingClient ?? new NearbyPairingClient();
         RemoveMappingCommand = new RelayCommand(() => _ = RemoveMappingAsync());
         RefreshDrivesCommand = new RelayCommand(RefreshDrives);
         AddLocalBackupSetCommand = new RelayCommand(() => _ = AddLocalBackupSetAsync());
@@ -118,12 +126,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RenameSourceCommand = new RelayCommand(() => _ = RenameSelectedSourceAsync());
         ForgetSourceCommand = new RelayCommand(() => _ = ForgetSelectedSourceAsync());
         RotateStorageIdentityCommand = new RelayCommand(() => _ = RotateStorageIdentityAsync());
+        RefreshNearbyComputersCommand = new RelayCommand(() => _ = RefreshNearbyComputersAsync());
+        RequestNearbyPairingCommand = new RelayCommand(() => _ = RequestNearbyPairingAsync());
+        CancelNearbyPairingCommand = new RelayCommand(() => _ = CancelNearbyPairingAsync());
         // Recomputed from Mappings itself, not from each call site that mutates it, so a test (or any
         // future caller) that adds/removes a mapping directly never needs to know this bookkeeping exists.
         Mappings.CollectionChanged += (_, _) => UpdateMappingRepeatMarkers();
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
+        _nearbyTimer.Tick += async (_, _) => await RefreshNearbyPairingStateAsync();
         if (loadLocalState) Load();
         else Activity.Add(Localization.Text("Text_StorageAgentUIteststateinitial_49AF15"));
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
@@ -166,6 +178,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
     public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) { OnPropertyChanged(nameof(HasSelectedSourceConnection)); OnPropertyChanged(nameof(SelectedComputerActionHint)); } } }
     public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
+    public NearbyComputerViewModel? SelectedNearbyComputer { get => _selectedNearbyComputer; set { if (Set(ref _selectedNearbyComputer, value)) OnPropertyChanged(nameof(HasSelectedNearbyComputer)); } }
+    public bool HasSelectedNearbyComputer => SelectedNearbyComputer is not null && !_requestingNearbyPairing && _nearbyPairingRequest is null;
+    private bool _requestingNearbyPairing;
+    private bool _refreshingNearbyPairing;
+    private NearbyPairingRequestDto? _nearbyPairingRequest;
+    private string _nearbyPairingStatus = string.Empty;
+    public string NearbyPairingStatus { get => _nearbyPairingStatus; private set => Set(ref _nearbyPairingStatus, value); }
+    public string NearbyComparisonCode => _nearbyPairingRequest?.ComparisonCode ?? string.Empty;
+    public bool HasNearbyComparisonCode => _nearbyPairingRequest is not null;
+    public bool CanCancelNearbyPairing => _nearbyPairingRequest?.Status == "PENDING";
     // Explain why connection actions are disabled for the current selection.
     public string SelectedComputerActionHint => SelectedRemoteAgent switch
     {
@@ -205,6 +227,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             _catalogTimer.Start();
             _jobTimer.Start();
+            _nearbyTimer.Start();
             _ = InitializeServiceStateAsync();
         }
     }
@@ -215,6 +238,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await RefreshCatalogsAsync();
         await RefreshConnectionsAsync();
         await RefreshJobsAsync();
+        await RefreshNearbyComputersAsync();
     }
 
     public async Task RefreshJobsAsync()
@@ -373,12 +397,163 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (TaskCanceledException) { }
     }
 
+    public Task RefreshConnectionsOnceAsync() => RefreshConnectionsAsync();
+
+    public async Task RefreshNearbyComputersAsync(bool preserveStatus = false)
+    {
+        if (_demoMode) return;
+        try
+        {
+            var selectedId = SelectedNearbyComputer?.AgentId;
+            var connectedIds = SourceConnections.Select(connection => connection.AgentId).ToHashSet();
+            var nearby = await _nearbyPairingClient.ListAsync(_shutdown.Token);
+            NearbyComputers.Clear();
+            foreach (var computer in nearby.Where(computer => !connectedIds.Contains(computer.AgentId)).OrderBy(computer => computer.AgentName, StringComparer.OrdinalIgnoreCase))
+                NearbyComputers.Add(new(computer));
+            SelectedNearbyComputer = NearbyComputers.FirstOrDefault(computer => computer.AgentId == selectedId);
+            if (_nearbyPairingRequest is null && (!preserveStatus || string.IsNullOrEmpty(NearbyPairingStatus)))
+                NearbyPairingStatus = NearbyComputers.Count == 0 ? Localization.Text("NearbyNone") : Localization.Format("NearbyFound", NearbyComputers.Count);
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException) { if (!preserveStatus || string.IsNullOrEmpty(NearbyPairingStatus)) NearbyPairingStatus = Localization.Text("NearbyRefreshFailed"); }
+        catch (TaskCanceledException) { if (!preserveStatus || string.IsNullOrEmpty(NearbyPairingStatus)) NearbyPairingStatus = Localization.Text("NearbyRefreshFailed"); }
+        catch (JsonException) { if (!preserveStatus || string.IsNullOrEmpty(NearbyPairingStatus)) NearbyPairingStatus = Localization.Text("NearbyRefreshFailed"); }
+    }
+
+    private async Task RequestNearbyPairingAsync()
+    {
+        var computer = SelectedNearbyComputer;
+        if (computer is null || _requestingNearbyPairing) return;
+        _requestingNearbyPairing = true;
+        OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+        try
+        {
+            _nearbyPairingRequest = await _nearbyPairingClient.RequestAsync(computer.AgentId, computer.Identity, _shutdown.Token);
+            OnPropertyChanged(nameof(NearbyComparisonCode));
+            OnPropertyChanged(nameof(HasNearbyComparisonCode));
+            OnPropertyChanged(nameof(CanCancelNearbyPairing));
+            OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+            NearbyPairingStatus = Localization.Format("NearbyPairingPending", computer.DisplayName);
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (HttpRequestException) { NearbyPairingStatus = Localization.Text("NearbyPairingFailed"); }
+        catch (TaskCanceledException) { NearbyPairingStatus = Localization.Text("NearbyPairingFailed"); }
+        catch (InvalidDataException) { NearbyPairingStatus = Localization.Text("NearbyPairingFailed"); }
+        catch (JsonException) { NearbyPairingStatus = Localization.Text("NearbyPairingFailed"); }
+        finally
+        {
+            _requestingNearbyPairing = false;
+            OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+        }
+    }
+
+    private async Task CancelNearbyPairingAsync()
+    {
+        var pending = _nearbyPairingRequest;
+        if (pending is null) return;
+        try
+        {
+            await _nearbyPairingClient.CancelAsync(pending.RequestId, _shutdown.Token);
+            if (_nearbyPairingRequest?.RequestId != pending.RequestId) return;
+            _nearbyPairingRequest = null;
+            OnPropertyChanged(nameof(HasNearbyComparisonCode));
+            OnPropertyChanged(nameof(CanCancelNearbyPairing));
+            OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+            NearbyPairingStatus = Localization.Text("NearbyPairingCancelled");
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        {
+            NearbyPairingStatus = Localization.Text("NearbyPairingCancelFailed");
+        }
+    }
+
+    private async Task RefreshNearbyPairingStateAsync()
+    {
+        if (_refreshingNearbyPairing) return;
+        _refreshingNearbyPairing = true;
+        try
+        {
+            await RefreshNearbyComputersAsync(preserveStatus: true);
+            var pending = _nearbyPairingRequest;
+            if (pending is null) return;
+            if (pending.ExpiresAt <= DateTimeOffset.UtcNow)
+            {
+                if (_nearbyPairingRequest?.RequestId != pending.RequestId) return;
+                _nearbyPairingRequest = null;
+                OnPropertyChanged(nameof(HasNearbyComparisonCode));
+                OnPropertyChanged(nameof(CanCancelNearbyPairing));
+                OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+                NearbyPairingStatus = Localization.Text("NearbyPairingExpired");
+                return;
+            }
+            try
+            {
+                var current = await _nearbyPairingClient.GetAsync(pending.RequestId, _shutdown.Token);
+                if (_nearbyPairingRequest?.RequestId != pending.RequestId) return;
+                _nearbyPairingRequest = current;
+                OnPropertyChanged(nameof(NearbyComparisonCode));
+                OnPropertyChanged(nameof(CanCancelNearbyPairing));
+                NearbyPairingStatus = current.Status switch
+                {
+                    "PENDING" => Localization.Format("NearbyPairingPending", current.AgentName),
+                    "EXCHANGING" => Localization.Format("NearbyPairingFinishing", current.AgentName),
+                    "ISSUED" => Localization.Format("NearbyPairingIssued", current.AgentName),
+                    "PAIRED" => Localization.Format("NearbyPairingPaired", current.AgentName),
+                    "EXPIRED" => Localization.Text("NearbyPairingExpired"),
+                    "REPLACED" => Localization.Text("NearbyPairingReplaced"),
+                    "REJECTED" => Localization.Text("NearbyPairingRejected"),
+                    _ => Localization.Text("NearbyPairingFailed")
+                };
+                if (current.Status == "PAIRED")
+                {
+                    _nearbyPairingRequest = null;
+                    OnPropertyChanged(nameof(HasNearbyComparisonCode));
+                    OnPropertyChanged(nameof(CanCancelNearbyPairing));
+                    OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+                    await RefreshConnectionsAsync();
+                    await RefreshCatalogsAsync();
+                    await RefreshNearbyComputersAsync(preserveStatus: true);
+                }
+                else if (current.Status is not ("PENDING" or "EXCHANGING" or "ISSUED"))
+                {
+                    _nearbyPairingRequest = null;
+                    OnPropertyChanged(nameof(HasNearbyComparisonCode));
+                    OnPropertyChanged(nameof(CanCancelNearbyPairing));
+                    OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+                }
+            }
+            catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
+            catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+            {
+                if (_nearbyPairingRequest?.RequestId != pending.RequestId) return;
+                NearbyPairingStatus = Localization.Text("NearbyPairingUnavailable");
+            }
+            catch (Exception error) when (error is InvalidDataException or JsonException)
+            {
+                if (_nearbyPairingRequest?.RequestId != pending.RequestId) return;
+                _nearbyPairingRequest = null;
+                OnPropertyChanged(nameof(HasNearbyComparisonCode));
+                OnPropertyChanged(nameof(CanCancelNearbyPairing));
+                OnPropertyChanged(nameof(HasSelectedNearbyComputer));
+                NearbyPairingStatus = Localization.Text("NearbyPairingFailed");
+            }
+        }
+        finally { _refreshingNearbyPairing = false; }
+    }
+
+    public Task RefreshNearbyPairingStateOnceAsync() => RefreshNearbyPairingStateAsync();
+
     // Sources is rebuilt from scratch (new RemoteAgentViewModel instances) on every catalog/config
     // refresh, so each one's Connection must be re-applied every time too, not just when
     // RefreshConnectionsAsync() itself runs - otherwise a catalog refresh 10 seconds later silently wipes
     // every computer's connection info from the merged grid until the next connections poll.
     private void ApplySourceConnections()
     {
+        // A newly paired Remote Agent may intentionally publish an empty catalog. Keep it visible from
+        // the authenticated connection record instead of requiring a fake Backup Set to create its row.
+        foreach (var connection in SourceConnections.Where(connection => Sources.All(source => source.Id != connection.AgentId)))
+            Sources.Add(new(connection.AgentId, connection.AgentName));
         foreach (var source in Sources) source.Connection = SourceConnections.FirstOrDefault(connection => connection.AgentId == source.Id);
         SelectedSourceConnection = SelectedRemoteAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedRemoteAgent.Id);
         UpdateMappingLastBackupInfo();
@@ -1078,11 +1253,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _deviceTimer.Stop();
         _catalogTimer.Stop();
         _jobTimer.Stop();
+        _nearbyTimer.Stop();
         if (_catalogClient is IDisposable disposable) disposable.Dispose();
         if (_configurationClient is IDisposable configurationDisposable) configurationDisposable.Dispose();
         if (_jobClient is IDisposable jobDisposable) jobDisposable.Dispose();
         if (_pairingClient is IDisposable pairingDisposable) pairingDisposable.Dispose();
         if (_connectionsClient is IDisposable connectionsDisposable) connectionsDisposable.Dispose();
+        if (_nearbyPairingClient is IDisposable nearbyDisposable) nearbyDisposable.Dispose();
         _shutdown.Dispose();
     }
 }
@@ -1167,6 +1344,16 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model) : Obser
     public string DisplayName => Localization.Format("Text_01lastseen2_55F71D", AgentName, StatusDisplay, LastSeenDisplay);
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
     public override string ToString() => DisplayName;
+}
+
+// Discovery supplies an unverified label and address hint only. Trust starts after remote approval and
+// authenticated pairing, when this row moves to the connected list above.
+public sealed class NearbyComputerViewModel(NearbyComputerDto model)
+{
+    public Guid AgentId => model.AgentId;
+    public string Identity => model.Identity;
+    public string DisplayName => model.AgentName;
+    public string LastSeenDisplay => MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
 }
 
 public sealed class BackupSetViewModel : ObservableObject

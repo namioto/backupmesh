@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current version: **0.3.5** — the Storage app supports Korean and English, displays project information and GitHub links, and offers optional settings cleanup during uninstall. See the [changelog](CHANGELOG.md).
+Current version: **0.3.6** — pair nearby Remote Agents from the Storage app with explicit approval and a comparison number. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 
@@ -52,7 +52,7 @@ The first version builds on the proven Restic ecosystem. BackupMesh itself is an
 
 The Windows tray app keeps backup storage understandable without turning it into an always-on server. On the **Backups** tab, choose what to back up and where it goes: register a physical device or an ordinary local/network folder as a logical storage device inline with **New…** next to the target-device picker, then map each Backup Set to that device and a relative repository path. The **Remote Agents** tab lists paired Remote Agents and the Backup Sets they offer; **Overview** shows connected storage, free space, and when it is safe to remove a device. The mapping model supports multiple Remote Agents per device and multiple devices per Remote Agent.
 
-To pair a Remote Agent, choose **Pair a Remote Agent** on the **Remote Agents** tab. Copy the connection invitation, run `backupmesh-agent pair` with your configuration path, and paste the invitation when prompted. The Remote Agent pins the Storage certificate before transmitting the code and installs its identity-bound token, client certificate, private key, and Storage trust material with owner-only permissions. New pairing never places a private key in a transfer bundle or modifies the operating-system trust store.
+With both agents on 0.3.6 or later, sign in to Windows so its installed Remote Agent watcher starts, then select it under **Nearby computers** on the **Remote Agents** tab. Choose **Request connection**, verify the same six-digit comparison number on both computers, then approve on the remote computer. Nearby names are unverified until pairing finishes. The copied connection invitation remains available for blocked discovery and cross-subnet setups.
 
 The Linux installer creates `/etc/backupmesh/restic-password` for repository encryption. Store a protected recovery copy: BackupMesh cannot restore snapshots if this password is lost.
 

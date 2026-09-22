@@ -13,7 +13,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/cache/backupmesh
+ReadWritePaths=/var/cache/backupmesh /etc/backupmesh
 
 [Install]
 WantedBy=multi-user.target

@@ -22,7 +22,8 @@ public partial class MainWindow : Window
             configurationClient: effectiveServiceEndpoint is null ? null : new StorageConfigurationClient(effectiveServiceEndpoint),
             jobClient: effectiveServiceEndpoint is null ? null : new BackupJobClient(effectiveServiceEndpoint),
             pairingClient: effectiveServiceEndpoint is null ? null : new PairingClient(effectiveServiceEndpoint),
-            connectionsClient: effectiveServiceEndpoint is null ? null : new SourceConnectionsClient(effectiveServiceEndpoint));
+            connectionsClient: effectiveServiceEndpoint is null ? null : new SourceConnectionsClient(effectiveServiceEndpoint),
+            nearbyPairingClient: effectiveServiceEndpoint is null ? null : new NearbyPairingClient(effectiveServiceEndpoint));
         InitializeComponent();
         DataContext = ViewModel;
     }

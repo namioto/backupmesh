@@ -82,6 +82,7 @@ builder.Services.AddSingleton<PairingCredentialStore>();
 builder.Services.AddSingleton<RevokedSourceStore>();
 builder.Services.AddSingleton<PairingSessionStore>();
 builder.Services.AddSingleton<PairingAttemptThrottle>();
+builder.Services.AddSingleton<RemotePairingRequestStore>();
 builder.Services.AddSingleton(pairingCertificateAuthority);
 builder.Services.AddSingleton<IssuedCertificateStore>();
 builder.Services.AddSingleton<SourceDisplayNameStore>();

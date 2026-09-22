@@ -758,4 +758,25 @@
   <data name="IdentityRestartFailed" xml:space="preserve"><value>Connection preparation could not finish. Wait for backups to finish, then try Repair connection setup again from the installed BackupMesh app.</value></data>
   <data name="IdentityUpdating" xml:space="preserve"><value>Preparing connections. Please wait…</value></data>
   <data name="ConnectionAutomaticRecovery" xml:space="preserve"><value>Disconnected. An updated Remote Agent automatically reconnects when Storage becomes reachable on the same LAN.</value></data>
+  <data name="NearbyComputers"><value>Nearby computers</value></data>
+  <data name="NearbyDiscoveryWarning"><value>Names below are advertised on your local network and are not verified. Select the intended computer, then verify the same comparison number on that computer before approving.</value></data>
+  <data name="NearbyName"><value>Unverified name</value></data>
+  <data name="NearbyNone"><value>No unpaired computers found nearby.</value></data>
+  <data name="NearbyFound"><value>Found {0} unpaired computer(s).</value></data>
+  <data name="NearbyRefreshFailed"><value>Could not refresh nearby computers. Check that the Storage Service is running.</value></data>
+  <data name="NearbyRequestPairing"><value>Request connection</value></data>
+  <data name="NearbyRefresh"><value>Refresh</value></data>
+  <data name="NearbyComparisonInstructions"><value>Verify this same number on the remote computer before approving the connection:</value></data>
+  <data name="NearbyPairingPending"><value>Waiting for approval on {0}. The request expires automatically.</value></data>
+  <data name="NearbyPairingFinishing"><value>{0} approved. Finishing the secure connection…</value></data>
+  <data name="NearbyPairingIssued"><value>{0} approved. Waiting for its authenticated catalog…</value></data>
+  <data name="NearbyPairingPaired"><value>{0} approved the connection and is now connected.</value></data>
+  <data name="NearbyPairingExpired"><value>The connection request expired. Select the computer and try again.</value></data>
+  <data name="NearbyPairingReplaced"><value>A newer connection request replaced this one. Select the computer and try again.</value></data>
+  <data name="NearbyPairingFailed"><value>The connection request failed. Refresh nearby computers and try again.</value></data>
+  <data name="NearbyPairingRejected"><value>The remote computer denied the connection request.</value></data>
+  <data name="NearbyPairingUnavailable"><value>Waiting for the Storage Service. The request remains active until cancelled or expired.</value></data>
+  <data name="NearbyCancelPairing"><value>Cancel request</value></data>
+  <data name="NearbyPairingCancelled"><value>Connection request cancelled.</value></data>
+  <data name="NearbyPairingCancelFailed"><value>Could not cancel the connection request. It will still expire automatically.</value></data>
 </root>

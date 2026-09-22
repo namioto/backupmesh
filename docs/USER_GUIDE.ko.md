@@ -6,7 +6,7 @@
 
 ## 연결 주소와 복사 항목
 
-**연결 초대 복사**를 누른 뒤 원격 에이전트에서 아래 연결 명령을 실행하고 입력 요청이 나오면 초대를 붙여넣으세요. 주소와 인증서 지문은 자동 처리됩니다. 이전 버전 에이전트에 필요한 개별 값은 **연결 상세 정보 (고급)**에 남아 있습니다. 만료 시각은 완료 기한이며 입력하는 값이 아닙니다.
+같은 LAN에서는 원격 에이전트 감시 프로그램을 시작하세요. **근처 컴퓨터**에서 연결할 컴퓨터를 선택하고 **연결 요청**을 누릅니다. 양쪽 컴퓨터에 같은 6자리 번호가 표시되는지 확인한 뒤 원격 컴퓨터에서 승인하세요. 근처 이름은 연결 성공 전까지 확인되지 않은 정보입니다. 탐색이 차단되면 **연결 초대 복사**와 아래 명령을 사용하세요.
 
 최초 연결에는 사용 중인 LAN IPv4 주소를 사용합니다. 양쪽 에이전트를 0.3.5 이상으로 업데이트하면 DHCP 주소 변경 후 스토리지를 자동으로 다시 찾고, 연결이 끊겨도 재접속을 시도합니다. 주소 변경 때문에 인증서를 교체하거나 다시 페어링할 필요가 없습니다. 자동 탐색은 UDP 7445 브로드캐스트를 사용하며, 인증정보 전송 전에 저장된 스토리지 인증서를 검증합니다. 설치 프로그램이 개인·도메인 네트워크의 로컬 서브넷에만 탐색 방화벽 규칙을 등록합니다. 두 PC가 켜져 있고 서로 통신할 수 있어야 하며, 게스트 Wi-Fi 격리·VLAN 분리·브로드캐스트 차단 환경에서는 자동 탐색이 제한됩니다. BackupMesh가 발급한 연결 인증서를 사용하는 IPv4 LAN이 대상입니다. 사용자 지정 CA나 서로 다른 서브넷에서는 접근 가능한 DNS 이름 또는 안정적인 주소가 필요합니다.
 
@@ -18,7 +18,7 @@
 
 자체 포함 패키지는 다음 위치에 생성됩니다.
 
-- `artifacts\installer\BackupMesh-Storage-0.3.5-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.6-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (개발·시험용 패키지)
 - `artifacts\BackupMesh-Source-linux-x64`
 - `artifacts\BackupMesh-Source-win-x64` (같은 PC를 백업하기 위한 Remote Agent)
@@ -27,9 +27,9 @@
 
 ## 2. Windows Storage Agent 설치
 
-일반 사용자는 `BackupMesh-Storage-0.3.5-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
+일반 사용자는 `BackupMesh-Storage-0.3.6-win-x64-Setup.exe`를 실행해 라이선스에 동의하고 **설치**를 선택합니다. 마법사가 Windows 서비스를 설치·시작하고, 로그인 시 트레이 앱 실행과 로컬 서브넷 방화벽 규칙 및 제거 프로그램을 등록합니다. 업그레이드할 때 기존 설정을 보존하며 완료 후 BackupMesh를 실행합니다.
 
-설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.5-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
+설치 프로그램은 아직 Authenticode 코드 서명이 없어 실행 전 Windows에 **알 수 없는 게시자**로 표시되고 SmartScreen 경고가 뜰 수 있습니다 — 정상적인 현상이며 변조의 증거가 아닙니다. `build-windows-installer.ps1`이 설치 프로그램 옆에 `.sha256` 파일을 함께 생성하니, 설치를 승인하기 전에 `Get-FileHash BackupMesh-Storage-0.3.6-win-x64-Setup.exe -Algorithm SHA256` 결과를 이 파일과 비교해 확인하세요.
 
 개발 중 임시 평가에는 `Start-BackupMesh.ps1`을 실행합니다. 문제 해결을 위한 PowerShell 설치 방식도 유지됩니다.
 
@@ -87,7 +87,7 @@ sudo /opt/backupmesh/backupmesh-agent validate \
 
 이건 Storage Agent가 없는 **다른** Windows PC가 네트워크의 다른 곳에 있는 Storage Agent에 백업해야 할 때 씁니다 — 예를 들어 다른 방에 있는 Storage PC에 노트북을 백업하는 경우입니다. Storage Agent 자체의 PC를 백업하려면 대신 **백업 → 백업 추가**(3b 항목)를 쓰세요 — 설치 프로그램이 아예 필요 없습니다.
 
-그 PC에서 `BackupMesh-Source-0.3.5-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
+그 PC에서 `BackupMesh-Source-0.3.6-win-x64-Setup.exe`를 실행하세요. Storage 설치 프로그램과 달리 관리자 권한을 전혀 요구하지 않습니다 — 사용자 프로필 아래에 설치되고, 파일 복사 직후 콘솔 창이 열려 Agent 이름과 첫 Backup Set 경로를 물어본 뒤 최소한의 `backupmesh.yaml`을 작성합니다(`backupSets` 항목은 이후 직접 추가 가능). 또한 Remote Agent를 백그라운드에서 계속 감시 상태로 유지하는 사용자별 예약 작업을 등록하고, 설정·페어링된 신원·repository 암호는 유지한 채 예약 작업과 바이너리만 제거하는 제거 프로그램도 포함합니다.
 
 스크립트 기반 설치나 문제 해결이 필요하면 패키지와 설치 스크립트를 직접 사용할 수 있습니다.
 
@@ -107,7 +107,7 @@ Set-Location artifacts\BackupMesh-Source-win-x64
 
 ## 5. Source 페어링
 
-스토리지 앱에서 **원격 에이전트 연결**을 선택하고 **연결 초대 복사**를 누르세요. 원격 컴퓨터에서 다음 명령을 실행하고 초대를 붙여넣으세요. 초대는 10분 후 만료되며 한 번만 사용할 수 있습니다.
+양쪽 에이전트가 0.3.6 이상이면 같은 LAN에서 근처 연결을 사용할 수 있습니다. Windows에서는 로그인하면 설치된 원격 에이전트 감시 프로그램이 자동으로 시작됩니다. **근처 컴퓨터**에서 **연결 요청**을 누르고 양쪽 컴퓨터의 6자리 번호가 같을 때만 원격 컴퓨터에서 승인합니다. 첫 인증 카탈로그가 도착하면 연결된 목록으로 이동합니다. 대기 중인 요청을 거부·취소하거나 만료되게 두면 접근 권한을 주지 않습니다. Linux에서는 감시 프로그램과 같은 `-config` 경로로 `backupmesh-agent nearby pending`을 실행한 뒤 `backupmesh-agent nearby approve -request UUID` 또는 `backupmesh-agent nearby deny -request UUID`를 실행합니다. 컴퓨터가 나타나지 않으면 **원격 에이전트 연결**, **연결 초대 복사**를 선택하고 다음 명령을 실행한 뒤 초대를 붙여넣으세요.
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \

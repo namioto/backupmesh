@@ -12,7 +12,7 @@ The footer always shows the app version and GitHub link. **Settings → About Ba
 
 ## Pairing address and copied values
 
-Choose **Copy connection invitation**, run the pairing command below on the Remote Agent, and paste the invitation when prompted. The address and certificate fingerprint are handled automatically. Individual fields remain under **Connection details (advanced)** for older agents. Expiration is a deadline, not an input.
+With both agents on 0.3.6 or later, computers on the same LAN can pair nearby. The Windows installer starts the Remote Agent watcher after sign-in. Under **Nearby computers**, select the intended computer and choose **Request connection**. Verify the same six-digit number on both computers before approving remotely. Nearby names are unverified until pairing succeeds. If discovery is blocked, use **Copy connection invitation** and the command below.
 
 Storage initially uses an active LAN IPv4 address. With both agents on 0.3.5 or later, paired Remote Agents automatically rediscover Storage after DHCP address changes and retry after outages. Address changes do not require certificate replacement or re-pairing. LAN discovery uses UDP 7445 broadcast and verifies the saved Storage certificate before sending credentials. The installer permits discovery only from the local subnet on Private/Domain networks. Both computers must be awake and able to communicate; guest Wi-Fi isolation, VLAN boundaries, or blocked broadcasts can prevent discovery. This covers IPv4 LANs using BackupMesh-managed pairing certificates. Custom CA configurations and cross-subnet connections still require a reachable DNS name or stable address.
 
@@ -24,18 +24,18 @@ Obtain the installation packages listed below. To build them from source, follow
 
 The resulting self-contained packages are written to:
 
-- `artifacts\installer\BackupMesh-Storage-0.3.5-win-x64-Setup.exe`
+- `artifacts\installer\BackupMesh-Storage-0.3.6-win-x64-Setup.exe`
 - `artifacts\BackupMesh-Storage-win-x64` (developer/test package)
 - `artifacts\BackupMesh-Source-linux-x64`
-- `artifacts\installer\BackupMesh-Source-0.3.5-win-x64-Setup.exe` (Remote Agent for backing up this same PC)
+- `artifacts\installer\BackupMesh-Source-0.3.6-win-x64-Setup.exe` (Remote Agent for backing up this same PC)
 
 The packages include pinned versions of `restic` and `rest-server`; a separate .NET or Go installation is not required.
 
 ## 2. Install the Windows Storage Agent
 
-For normal use, run `BackupMesh-Storage-0.3.5-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
+For normal use, run `BackupMesh-Storage-0.3.6-win-x64-Setup.exe`, accept the license, and choose **Install**. The wizard installs and starts the Windows service, registers the tray app for sign-in, creates local-subnet firewall rules, and adds an uninstaller. It preserves existing settings during upgrades and launches BackupMesh when setup finishes.
 
-The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.5-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
+The installer is not yet Authenticode-signed, so Windows will show **Unknown publisher** (and SmartScreen may warn) before you can run it — this is expected, not a sign of tampering. `build-windows-installer.ps1` writes a matching `.sha256` file next to the installer; verify with `Get-FileHash BackupMesh-Storage-0.3.6-win-x64-Setup.exe -Algorithm SHA256` and compare the result against that file before approving installation.
 
 For a temporary developer evaluation, run `Start-BackupMesh.ps1`. The PowerShell installation path remains available for troubleshooting:
 
@@ -96,7 +96,7 @@ Running `install.sh` from an interactive terminal (rather than a script) prompts
 
 Use this when a *separate* Windows PC (with no Storage Agent of its own) should back up to a Storage Agent running elsewhere on the network — for example, a laptop backing up to a Storage PC in another room. To back up the Storage Agent's own PC, use **Backups → Add backup** instead (section 3b) — no installer needed at all.
 
-Run `BackupMesh-Source-0.3.5-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Remote Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
+Run `BackupMesh-Source-0.3.6-win-x64-Setup.exe` on that PC. Unlike the Storage installer, it never asks for administrator rights: it installs under your own user profile and, right after copying files, opens a console window asking for an Agent name and a first Backup Set path to write a minimal `backupmesh.yaml` (add more `backupSets` entries by hand any time). It also registers a per-user Scheduled Task that keeps the Remote Agent watching in the background, and an uninstaller that removes the task and binaries while keeping your configuration, paired identity, and repository password.
 
 For scripted or troubleshooting use, the underlying package and installer script remain available directly:
 
@@ -116,7 +116,7 @@ Choose **Copy connection invitation** in the Storage app, run this command, and 
 
 ## 5. Pair the Source
 
-On the **Remote Agents** tab, choose **Pair a Remote Agent**, then **Copy connection invitation**. Run the command below on the Remote Agent and paste the invitation when prompted. It expires after ten minutes and works once:
+With both agents on 0.3.6 or later, sign in to Windows so its installed Remote Agent watcher starts. Under **Nearby computers**, choose **Request connection**, compare the six-digit number on both computers, and approve only when both match. Storage moves the authenticated computer to the connected list after its first authenticated catalog. Denying, cancelling, or letting a pending request expire grants no access. On Linux, use `backupmesh-agent nearby pending`, then `backupmesh-agent nearby approve -request UUID` or `backupmesh-agent nearby deny -request UUID` with the same `-config` path as the watcher. If the computer does not appear, choose **Pair a Remote Agent** and **Copy connection invitation**, then run the command below and paste the invitation. It expires after ten minutes and works once:
 
 ```sh
 sudo /opt/backupmesh/backupmesh-agent pair \

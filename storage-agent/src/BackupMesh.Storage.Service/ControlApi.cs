@@ -57,6 +57,9 @@ public sealed record SourceCatalog([property: JsonPropertyName("source_agent_id"
 }
 public sealed record PairingExchangeRequest([property: JsonPropertyName("code"), Required, StringLength(64, MinimumLength = 20)] string Code, [property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("agent_name"), Required, StringLength(128, MinimumLength = 1)] string AgentName);
 public sealed record PairingSessionRequest([property: JsonPropertyName("rebind_agent_id")] Guid? RebindAgentId);
+public sealed record RemotePairingCreateRequest([property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("identity")] string? Identity);
+public sealed record RemotePairingClaimRequest([property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("identity")] string? Identity);
+public sealed record RemotePairingRejectRequest([property: JsonPropertyName("agent_id")] Guid AgentId, [property: JsonPropertyName("identity")] string? Identity, [property: JsonPropertyName("code")] string? Code);
 public sealed record SourceRenameRequest([property: JsonPropertyName("display_name"), StringLength(128)] string? DisplayName);
 public enum StoreOutcome { Accepted, Replayed, NotFound, Conflict, InvalidSequence, Terminal }
 public sealed class BackupJobOptions
@@ -309,22 +312,63 @@ public static class ControlApi
 
             return Results.Ok(new { code = session.Code, expires_at = session.ExpiresAt, control_endpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority), certificate_sha256 = CertificateFingerprint(mutualTls.ServerTrustPem), rebind_agent_id = session.RebindAgentId });
         });
-        pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, IssuedCertificateStore issuedCertificates, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
+        pairing.MapGet("/nearby", (HttpContext http, RemotePairingRequestStore requests) =>
+            IsLoopback(http) ? Results.Ok(requests.ListNearby()) : Problem(403, "FORBIDDEN", "Nearby computers can only be listed from the local tray app."));
+        pairing.MapPost("/requests", (HttpContext http, RemotePairingCreateRequest request, RemotePairingRequestStore requests, PairingSessionStore sessions, PairingCredentialStore credentials, RevokedSourceStore revocations, MutualTlsOptions mutualTls) =>
+        {
+            if (!IsLoopback(http)) return Problem(403, "FORBIDDEN", "Pairing requests can only be created from the local tray app.");
+            if (request.AgentId == Guid.Empty || request.Identity is not { Length: 64 } || !request.Identity.All(char.IsAsciiHexDigit)) return Problem(400, "INVALID_REQUEST", "A Remote Agent identity is required.");
+            if (credentials.HasIssuedTo(request.AgentId) || revocations.IsRevoked(request.AgentId)) return Problem(409, "AGENT_ID_NOT_AVAILABLE", "This Remote Agent identity is already known. Use the existing re-pair flow.");
+            var created = requests.Create(request.AgentId, request.Identity, CertificateFingerprint(mutualTls.ServerTrustPem), sessions);
+            return created is null ? Problem(404, "REMOTE_AGENT_NOT_FOUND", "The Remote Agent is no longer nearby.") : Results.Ok(created);
+        });
+        pairing.MapGet("/requests/{requestId:guid}", (Guid requestId, HttpContext http, RemotePairingRequestStore requests) =>
+            !IsLoopback(http) ? Problem(403, "FORBIDDEN", "Pairing request status can only be read from the local tray app.") :
+            requests.Get(requestId) is { } request ? Results.Ok(request) : Problem(404, "PAIRING_REQUEST_NOT_FOUND", "The pairing request was not found."));
+        pairing.MapDelete("/requests/{requestId:guid}", (Guid requestId, HttpContext http, RemotePairingRequestStore requests) =>
+            !IsLoopback(http) ? Problem(403, "FORBIDDEN", "Pairing requests can only be rejected from the local tray app.") :
+            requests.Reject(requestId) ? Results.NoContent() : Problem(404, "PAIRING_REQUEST_NOT_FOUND", "The pairing request was not found or is no longer pending."));
+        // Remote polls only IDs announced back to its UDP socket. Pairing code stays encrypted to the
+        // announced RSA identity and travels over the Storage certificate-pinned HTTPS connection.
+        pairing.MapPost("/requests/{requestId:guid}/claim", (Guid requestId, HttpContext http, RemotePairingClaimRequest request, RemotePairingRequestStore requests) =>
+            !http.Request.IsHttps ? Problem(400, "HTTPS_REQUIRED", "Pairing requests must be claimed over HTTPS.") :
+            request.AgentId == Guid.Empty || request.Identity is not { Length: 64 } || !request.Identity.All(char.IsAsciiHexDigit) ? Problem(400, "INVALID_REQUEST", "A Remote Agent identity is required.") :
+            requests.Claim(requestId, request.AgentId, request.Identity) is { } claim ? Results.Ok(claim) : Problem(404, "PAIRING_REQUEST_NOT_FOUND", "The pairing request was not found, expired, or replaced."));
+        pairing.MapPost("/requests/{requestId:guid}/reject", (Guid requestId, HttpContext http, RemotePairingRejectRequest request, RemotePairingRequestStore requests) =>
+            !http.Request.IsHttps ? Problem(400, "HTTPS_REQUIRED", "Pairing requests must be rejected over HTTPS.") :
+            request.AgentId == Guid.Empty || request.Identity is not { Length: 64 } || !request.Identity.All(char.IsAsciiHexDigit) || string.IsNullOrWhiteSpace(request.Code) ? Problem(400, "INVALID_REQUEST", "Remote Agent identity and pairing proof are required.") :
+            requests.Reject(requestId, request.AgentId, request.Identity, request.Code) ? Results.NoContent() : Problem(404, "PAIRING_REQUEST_NOT_FOUND", "The pairing request was not found, expired, or already completed."));
+        pairing.MapPost("/exchange", (HttpContext http, PairingExchangeRequest request, PairingSessionStore sessions, PairingAttemptThrottle throttle, PairingCredentialStore credentials, PairingCertificateAuthority certificates, IssuedCertificateStore issuedCertificates, RevokedSourceStore revocations, MutualTlsOptions mutualTls, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (PairingAddressError(mutualTls, out var host) is { } addressError) return addressError;
             var remote = http.Connection.RemoteIpAddress;
+            var remoteRequests = http.RequestServices.GetRequiredService<RemotePairingRequestStore>();
+            if (request.AgentId == Guid.Empty || request.Code is not { Length: >= 20 and <= 64 } || string.IsNullOrWhiteSpace(request.AgentName) || request.AgentName.Length > 128 || request.AgentName.Any(char.IsControl))
+                return Problem(400, "INVALID_REQUEST", "Source identity, name, and pairing code are required.");
+            if (remoteRequests.GetIssued(request.Code, request.AgentId) is { } issued)
+            {
+                if (!http.Request.IsHttps) return Problem(400, "HTTPS_REQUIRED", "Nearby pairing exchange retries require HTTPS.");
+                if (revocations.IsRevoked(request.AgentId)) return Problem(403, "REVOKED", "This Remote Agent's access has been revoked.");
+                if (!credentials.Authorize(issued.Credential, request.AgentId) || issued.AuthorityPem != mutualTls.ServerTrustPem)
+                    return Problem(401, "PAIRING_BUNDLE_STALE", "The issued pairing credentials are no longer current.");
+                return Results.Ok(issued);
+            }
             if (throttle.IsLockedOut(remote))
             {
                 logger.LogWarning("Pairing exchange throttled for {RemoteAddress} after repeated invalid codes.", remote);
                 return Problem(429, "PAIRING_RATE_LIMITED", "Too many invalid pairing attempts. Try again later.");
             }
-            if (request.AgentId == Guid.Empty || string.IsNullOrWhiteSpace(request.AgentName)) return Problem(400, "INVALID_REQUEST", "Source identity and name are required.");
             if (!sessions.TryConsume(request.Code, out var rebindAgentId))
             {
                 throttle.RecordFailure(remote);
                 logger.LogWarning("Pairing exchange rejected an invalid, expired, or already-used code from {RemoteAddress} for agent {AgentId}.", remote, request.AgentId);
                 return Problem(401, "PAIRING_CODE_INVALID", "The pairing code is invalid, expired, or already used.");
+            }
+            if (remoteRequests.Authorize(request.Code, request.AgentId) == RemoteCodeAuthorization.Denied)
+            {
+                throttle.RecordFailure(remote);
+                return Problem(401, "PAIRING_REQUEST_INVALID", "The nearby pairing request is expired, rejected, replaced, or belongs to another Remote Agent.");
             }
             // A code either re-pairs one specific, already-known Source (rebindAgentId set, by explicit tray
             // action) or must mint a brand new identity - it may never be used to claim an unrelated agent_id
@@ -333,17 +377,29 @@ public static class ControlApi
             // overwrite its catalog.
             if (rebindAgentId is { } bound ? request.AgentId != bound : credentials.HasIssuedTo(request.AgentId))
             {
+                remoteRequests.MarkFailed(request.Code);
                 throttle.RecordFailure(remote);
                 logger.LogWarning("Pairing exchange from {RemoteAddress} requested Source Agent {AgentId} that this code is not authorized to identify as.", remote, request.AgentId);
                 return Problem(409, "AGENT_ID_NOT_AUTHORIZED", "This pairing code is not authorized to identify as that Source Agent.");
             }
             throttle.RecordSuccess(remote);
-            var certificate = certificates.Issue(request.AgentId);
-            issuedCertificates.Record(request.AgentId, certificate.ExpiresAt, CertificateFingerprint(certificate.CertificatePem));
-
-            var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
+            PairingExchangeResponse response;
+            try
+            {
+                var certificate = certificates.Issue(request.AgentId);
+                issuedCertificates.Record(request.AgentId, certificate.ExpiresAt, CertificateFingerprint(certificate.CertificatePem));
+                var credential = credentials.Issue(request.AgentId);
+                var controlEndpoint = new UriBuilder(Uri.UriSchemeHttps, host, mutualTls.Port).Uri.GetLeftPart(UriPartial.Authority);
+                response = new PairingExchangeResponse(request.AgentId, controlEndpoint, credential, certificate.CertificatePem, certificate.PrivateKeyPem, mutualTls.ServerTrustPem, certificate.ExpiresAt, DateTimeOffset.UtcNow);
+                remoteRequests.MarkIssued(request.Code, request.AgentId, response);
+            }
+            catch
+            {
+                remoteRequests.MarkFailed(request.Code);
+                throw;
+            }
             logger.LogInformation("Pairing exchange issued credentials to Source Agent {AgentId} ({AgentName}) from {RemoteAddress}.", request.AgentId, request.AgentName, remote);
-            return Results.Ok(new { agent_id = request.AgentId, control_endpoint = controlEndpoint, credential = credentials.Issue(request.AgentId), certificate_pem = certificate.CertificatePem, private_key_pem = certificate.PrivateKeyPem, authority_pem = mutualTls.ServerTrustPem, expires_at = certificate.ExpiresAt, issued_at = DateTimeOffset.UtcNow });
+            return Results.Ok(response);
         });
         pairing.MapPost("/rotate-authority", (HttpContext http, PairingCertificateAuthority certificates, BackupJobStore jobs, ILogger<PairingSessionStore> logger, CancellationToken ct) =>
         {
@@ -527,7 +583,7 @@ public static class ControlApi
             if (outcome == StoreOutcome.Conflict) return Problem(403, "FORBIDDEN", "The backup command belongs to another Source Agent.");
             return EventResult(outcome, http);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
-        api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, CancellationToken ct) =>
+        api.MapPost("/source/catalog", (SourceCatalog catalog, HttpContext http, SourceCatalogStore catalogs, RemotePairingRequestStore remotePairing, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             var invalid = Validate(catalog);
@@ -541,6 +597,7 @@ public static class ControlApi
                 return Problem(409, "STALE_CATALOG", "A newer catalog from this Source Agent is already stored.");
             if (outcome == StoreOutcome.Conflict)
                 return Problem(409, "REPLAY_CONFLICT", "The catalog timestamp was reused with different content.");
+            remotePairing.MarkConnected(catalog.SourceAgentId);
             http.Response.Headers["Idempotency-Replayed"] = (outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant();
             return Results.NoContent();
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
@@ -620,6 +677,7 @@ public static class ControlApi
         using var certificate = X509Certificate2.CreateFromPem(certificatePem);
         return Convert.ToHexString(SHA256.HashData(certificate.RawData));
     }
+    private static bool IsLoopback(HttpContext http) => http.Connection.RemoteIpAddress is { } remote && System.Net.IPAddress.IsLoopback(remote);
     private static IResult EventResult(StoreOutcome outcome, HttpContext http)
     {
         if (outcome == StoreOutcome.NotFound) return Problem(404, "NOT_FOUND", "Backup job not found.");
