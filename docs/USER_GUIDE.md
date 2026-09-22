@@ -62,7 +62,7 @@ Storage registration is internal. You only choose what to back up and where to s
 
 Folder devices are useful for evaluation and for storage that is not exposed as a removable USB volume. They also allow multi-target behavior to be tested with ordinary folders.
 
-How long BackupMesh waits after a target connects before starting a backup is a single global default on the **Settings** tab. Use Windows to eject removable storage after its backup job has stopped.
+When an eligible storage device arrives, BackupMesh waits for the delay configured on the **Settings** tab before queuing its mapped backups. The default delay is 30 minutes. **Next backup** shows the service-calculated eligible time, not a guaranteed start time; an offline or busy Remote Agent can start later. **Start now** bypasses the remaining delay. If you add a rule for a device that is already ready, use **Start now** to run it. Use Windows to eject removable storage after its backup job has stopped.
 
 ## 3b. Back up this PC's own files (no Remote Agent needed)
 
@@ -91,6 +91,8 @@ sudo backupmesh-setup
 ```
 
 Existing settings are preserved and the watcher restarts when setup saves a change. Keep a protected copy of `/etc/backupmesh/restic-password`; encrypted snapshots cannot be restored without it.
+
+After removing this computer from Storage, run `sudo backupmesh-setup` to connect it again. Setup keeps the existing connection by default; explicitly approve the reset when prompted. Resetting does not restore the old permission. It preserves backup folders and the repository password and creates a fresh identity because the removed identity remains blocked.
 
 ### Advanced manual configuration
 
@@ -156,7 +158,7 @@ Source and Storage Agents may run on the same computer by using the Storage Agen
 
 ## 7. Run and monitor a backup
 
-Connect the target device and wait for the arrival delay set on the **Settings** tab. BackupMesh requests the mapped Source backup automatically. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
+Connect the target device and wait until it becomes eligible at the **Next backup** time, or choose **Start now** to bypass the remaining arrival delay. BackupMesh queues mapped backups when the device newly becomes ready. This is an arrival-based delay, not a recurring schedule. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
 
 For a manual Source-side run:
 

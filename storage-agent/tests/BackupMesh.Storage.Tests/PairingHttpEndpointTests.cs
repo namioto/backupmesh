@@ -394,6 +394,17 @@ public sealed class PairingHttpEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task BackupCommandStatusIsLoopbackOnly()
+    {
+        var local = await PostOrGetAsync("GET", "/api/v1/backup/commands", IPAddress.Loopback);
+        Assert.Equal(200, local.Response.StatusCode);
+        Assert.Empty((await ReadJsonAsync(local)).EnumerateArray());
+
+        var remote = await PostOrGetAsync("GET", "/api/v1/backup/commands", IPAddress.Parse("203.0.113.10"));
+        Assert.True(remote.Response.StatusCode is 401 or 403);
+    }
+
+    [Fact]
     public async Task ListSourcesFromLoopbackReportsRevocationStatus()
     {
         var agentId = Guid.NewGuid();

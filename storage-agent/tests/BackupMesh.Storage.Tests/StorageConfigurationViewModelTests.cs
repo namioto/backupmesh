@@ -197,6 +197,38 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task StartNowEnqueuesOnlySelectedRule()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "READY", "D:\\", DateTimeOffset.UtcNow, null)) { IsConnected = true };
+        var selected = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "one"), set, device);
+        var other = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "two"), set, device);
+        var client = new FakeJobClient([]);
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: client);
+        viewModel.Mappings.Add(selected);
+        viewModel.Mappings.Add(other);
+        viewModel.SelectedMapping = selected;
+
+        await viewModel.QueueSelectedMappingAsync();
+
+        Assert.Equal([selected.Id], client.EnqueuedMappingIds);
+    }
+
+    [Fact]
+    public void NextBackupUsesServiceEligibilityTime()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "READY", "D:\\", DateTimeOffset.UtcNow, null));
+        var mapping = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "one"), set, device);
+        var now = new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero);
+        var status = new StorageDeviceStatusDto(device.Id, true, false, now.AddMinutes(6));
+
+        var display = MainWindowViewModel.ComputeNextBackupDisplay(mapping, true, status, null, false, now);
+
+        Assert.Contains("6 min", display);
+    }
+
+    [Fact]
     public async Task LastBackupShowsRelativeTimeAndAFailureReasonForTheMostRecentAttempt()
     {
         var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", ["C:\\Data"]));

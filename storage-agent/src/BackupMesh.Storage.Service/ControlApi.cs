@@ -512,6 +512,11 @@ public static class ControlApi
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapGet("/backup/status/{job_id:guid}", (Guid job_id, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, job_id)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var status = jobs.Get(job_id); return status is null ? Problem(404, "NOT_FOUND", "Backup job not found.") : Results.Ok(status); });
         api.MapGet("/backup/jobs", (HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); var list = jobs.List(); return Results.Ok(AuthenticatedAgent(http) is { } agentId ? list.Where(job => jobs.IsOwnedBy(job.JobId, agentId)) : list); });
+        api.MapGet("/backup/commands", (HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return IsLoopback(http) ? Results.Ok(commands.List()) : Problem(403, "FORBIDDEN", "Backup command status is available only from the local tray app.");
+        });
         api.MapGet("/automation/settings", (AutomationSettingsStore settings, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); return Results.Ok(settings.Get()); });
         api.MapPut("/automation/settings", (AutomationSettings update, HttpContext http, AutomationSettingsStore settings, CancellationToken ct) =>
         {

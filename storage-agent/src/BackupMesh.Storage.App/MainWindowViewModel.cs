@@ -35,6 +35,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // reconnecting the device only ever restores the ones *this* skip touched, never a mapping that was
     // already off before the skip happened.
     private readonly HashSet<Guid> _skipDisabledMappingIds = [];
+    private IReadOnlyList<StorageDeviceStatusDto> _deviceStatuses = [];
+    private IReadOnlyList<BackupCommandStatusDto> _backupCommands = [];
+    private bool _refreshingJobs;
+    private bool _serviceAutomaticBackups = true;
     private BackupSetViewModel? _selectedBackupSet;
     private RemoteAgentViewModel? _selectedRemoteAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
@@ -91,16 +95,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RemoveLocalBackupSetCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand CancelJobCommand { get; }
-    public ICommand PairSourceCommand { get; }
-    public ICommand RePairSourceCommand { get; }
-    public ICommand RevokeSourceCommand { get; }
-    public ICommand UnrevokeSourceCommand { get; }
     public ICommand RenameSourceCommand { get; }
     public ICommand ForgetSourceCommand { get; }
     public ICommand RotateStorageIdentityCommand { get; }
     public ICommand RefreshNearbyComputersCommand { get; }
     public ICommand RequestNearbyPairingCommand { get; }
     public ICommand CancelNearbyPairingCommand { get; }
+    public ICommand QueueSelectedMappingCommand { get; }
 
     public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null, INearbyPairingClient? nearbyPairingClient = null)
     {
@@ -119,16 +120,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RemoveLocalBackupSetCommand = new RelayCommand(() => _ = RemoveLocalBackupSetAsync());
         SaveCommand = new RelayCommand(() => _ = SaveAsync());
         CancelJobCommand = new RelayCommand(() => _ = CancelSelectedJobAsync());
-        PairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: null));
-        RePairSourceCommand = new RelayCommand(() => _ = PairSourceAsync(rebind: SelectedSourceConnection));
-        RevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: true));
-        UnrevokeSourceCommand = new RelayCommand(() => _ = SetSourceRevocationAsync(revoked: false));
         RenameSourceCommand = new RelayCommand(() => _ = RenameSelectedSourceAsync());
         ForgetSourceCommand = new RelayCommand(() => _ = ForgetSelectedSourceAsync());
         RotateStorageIdentityCommand = new RelayCommand(() => _ = RotateStorageIdentityAsync());
         RefreshNearbyComputersCommand = new RelayCommand(() => _ = RefreshNearbyComputersAsync());
         RequestNearbyPairingCommand = new RelayCommand(() => _ = RequestNearbyPairingAsync());
         CancelNearbyPairingCommand = new RelayCommand(() => _ = CancelNearbyPairingAsync());
+        QueueSelectedMappingCommand = new RelayCommand(() => _ = QueueSelectedMappingAsync());
         // Recomputed from Mappings itself, not from each call site that mutates it, so a test (or any
         // future caller) that adds/removes a mapping directly never needs to know this bookkeeping exists.
         Mappings.CollectionChanged += (_, _) => UpdateMappingRepeatMarkers();
@@ -173,10 +171,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             if (!Set(ref _selectedRemoteAgent, value)) return;
             SelectedSourceConnection = value is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == value.Id);
-            OnPropertyChanged(nameof(SelectedComputerActionHint));
         }
     }
-    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) { OnPropertyChanged(nameof(HasSelectedSourceConnection)); OnPropertyChanged(nameof(SelectedComputerActionHint)); } } }
+    public SourceConnectionViewModel? SelectedSourceConnection { get => _selectedSourceConnection; set { if (Set(ref _selectedSourceConnection, value)) OnPropertyChanged(nameof(HasSelectedSourceConnection)); } }
     public bool HasSelectedSourceConnection => SelectedSourceConnection is not null;
     public NearbyComputerViewModel? SelectedNearbyComputer { get => _selectedNearbyComputer; set { if (Set(ref _selectedNearbyComputer, value)) OnPropertyChanged(nameof(HasSelectedNearbyComputer)); } }
     public bool HasSelectedNearbyComputer => SelectedNearbyComputer is not null && !_requestingNearbyPairing && _nearbyPairingRequest is null;
@@ -188,25 +185,41 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public string NearbyComparisonCode => _nearbyPairingRequest?.ComparisonCode ?? string.Empty;
     public bool HasNearbyComparisonCode => _nearbyPairingRequest is not null;
     public bool CanCancelNearbyPairing => _nearbyPairingRequest?.Status == "PENDING";
-    // Explain why connection actions are disabled for the current selection.
-    public string SelectedComputerActionHint => SelectedRemoteAgent switch
-    {
-        null => string.Empty,
-        _ when SelectedSourceConnection is null => Localization.Text("Text_ThisSourceAgenthasntconnectedy_34F527"),
-        _ when SelectedSourceConnection.StatusDisplay == Localization.Text("Text_Offline_A17947") => Localization.Text("ConnectionAutomaticRecovery"),
-        _ => string.Empty
-    };
     public DeviceViewModel? SelectedDevice { get => _selectedDevice; set => Set(ref _selectedDevice, value); }
     public MappingViewModel? SelectedMapping
     {
         get => _selectedMapping;
-        set { if (Set(ref _selectedMapping, value)) OnPropertyChanged(nameof(HasSelectedMapping)); }
+        set
+        {
+            if (!Set(ref _selectedMapping, value)) return;
+            OnPropertyChanged(nameof(HasSelectedMapping));
+            OnPropertyChanged(nameof(CanStartSelectedMapping));
+            OnPropertyChanged(nameof(StartSelectedMappingHint));
+        }
     }
     public bool HasSelectedMapping => SelectedMapping is not null;
+    public bool CanStartSelectedMapping => SelectedMapping is { Enabled: true } mapping
+        && mapping.Device.IsConnected
+        && !Jobs.Any(job => job.TargetMappingId == mapping.Id && !job.IsTerminal)
+        && !_backupCommands.Any(command => command.TargetMappingId == mapping.Id && command.State is "PENDING" or "CLAIMED" or "RUNNING");
+    public string StartSelectedMappingHint => SelectedMapping switch
+    {
+        null => Localization.Text("StartNowSelectRule"),
+        { Enabled: false } => Localization.Text("StartNowPaused"),
+        var mapping when Jobs.Any(job => job.TargetMappingId == mapping.Id && !job.IsTerminal) => Localization.Text("StartNowRunning"),
+        var mapping when _backupCommands.Any(command => command.TargetMappingId == mapping.Id && command.State is "PENDING" or "CLAIMED" or "RUNNING") => Localization.Text("StartNowQueued"),
+        var mapping when !mapping.Device.IsConnected => Localization.Format("StartNowConnectStorage", mapping.DeviceName),
+        _ => string.Empty
+    };
     public BackupJobViewModel? SelectedJob { get => _selectedJob; set => Set(ref _selectedJob, value); }
     public bool StartWithWindows { get; set; } = true;
     public bool NotifyOnDeviceArrival { get; set; } = true;
-    public bool AutomaticBackups { get; set; } = true;
+    private bool _automaticBackups = true;
+    public bool AutomaticBackups
+    {
+        get => _automaticBackups;
+        set { if (Set(ref _automaticBackups, value)) UpdateMappingLastBackupInfo(); }
+    }
     // Replaces the Devices tab's per-device arrival-delay editor (removed with that tab): one global
     // default - the only one left in the tray - rather than a setting a person had to think to revisit
     // per device. It governs every device, not just newly-registered ones: an already-registered device
@@ -243,6 +256,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public async Task RefreshJobsAsync()
     {
+        if (_refreshingJobs) return;
+        _refreshingJobs = true;
         try
         {
             var selectedId = SelectedJob?.JobId;
@@ -250,11 +265,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Jobs.Clear();
             foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
+            _deviceStatuses = await _configurationClient.GetDeviceStatusesAsync(_shutdown.Token);
+            _backupCommands = await _jobClient.ListCommandsAsync(_shutdown.Token);
             UpdateMappingLastBackupInfo();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
-        catch (HttpRequestException) { }
-        catch (TaskCanceledException) { }
+        catch (HttpRequestException) { _deviceStatuses = []; _backupCommands = []; UpdateMappingLastBackupInfo(); }
+        catch (TaskCanceledException) { _deviceStatuses = []; _backupCommands = []; UpdateMappingLastBackupInfo(); }
+        finally { _refreshingJobs = false; }
     }
 
     // "Last backup" answers both "when" and, if it's stale for a reason the user can act on, "why" in the
@@ -267,6 +285,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             mapping.TriggerNote = ComputeTriggerNote(mapping.BackupSet.Model);
             var jobsForMapping = Jobs.Where(job => job.TargetMappingId == mapping.Id).ToArray();
+            mapping.NextBackupDisplay = ComputeNextBackupDisplay(mapping, _serviceAutomaticBackups,
+                _deviceStatuses.FirstOrDefault(status => status.DeviceId == mapping.Device.Id),
+                _backupCommands.FirstOrDefault(command => command.TargetMappingId == mapping.Id && command.State is "PENDING" or "CLAIMED" or "RUNNING"),
+                jobsForMapping.Any(job => !job.IsTerminal));
             if (jobsForMapping.Any(job => !job.IsTerminal))
             {
                 mapping.LastBackupDisplay = Localization.Text("Text_Backingupnow_CF4F1D");
@@ -291,6 +313,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 _ => string.Empty
             };
         }
+        OnPropertyChanged(nameof(CanStartSelectedMapping));
+        OnPropertyChanged(nameof(StartSelectedMappingHint));
     }
 
     // A Backup Set that names an explicit trigger device (the external-source-arrival case
@@ -337,30 +361,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private bool _updatingStorageIdentity;
-    private async Task PairSourceAsync(SourceConnectionViewModel? rebind, bool repairAttempted = false)
-    {
-        if (_updatingStorageIdentity) return;
-        try
-        {
-            var pairing = await _pairingClient.CreateSessionAsync(rebind?.AgentId, _shutdown.Token);
-            new PairingDetailsWindow(pairing, rebind?.AgentName).ShowDialog();
-            FooterStatus = rebind is null
-                ? Localization.Text("Text_Onetimepairingdetailsgenerated_6E3566")
-                : Localization.Format("Text_Onetimerepairingdetailsgenerat_0C12FF", rebind.AgentName);
-            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerpairing_53ECA5"), FooterStatus));
-        }
-        catch (PairingSetupRequiredException) when (!repairAttempted)
-        {
-            if (await RotateStorageIdentityAsync()) await PairSourceAsync(rebind, repairAttempted: true);
-        }
-        catch (HttpRequestException exception)
-        {
-            FooterStatus = Localization.Format("Text_Pairingsessioncouldnotbecreate_168B2A", exception.Message);
-            System.Windows.MessageBox.Show(FooterStatus, Localization.Text("Text_Computerpairing_53ECA5"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-        }
-        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
-    }
-
     private async Task RefreshCatalogsAsync()
     {
         try
@@ -395,6 +395,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
+    }
+
+    internal static string ComputeNextBackupDisplay(MappingViewModel mapping, bool automaticBackups,
+        StorageDeviceStatusDto? deviceStatus, BackupCommandStatusDto? command, bool backupRunning, DateTimeOffset? now = null)
+    {
+        if (backupRunning) return Localization.Text("Text_Backingupnow_CF4F1D");
+        if (command is not null) return Localization.Text(command.State is "CLAIMED" or "RUNNING" ? "NextBackupStarting" : "NextBackupQueued");
+        if (!mapping.Enabled) return Localization.Text("NextBackupPaused");
+        if (!automaticBackups) return Localization.Text("NextBackupAutomaticOff");
+        if (deviceStatus is null) return Localization.Text("NextBackupStatusUnavailable");
+        if (!deviceStatus.Connected) return Localization.Format("NextBackupWaitingForStorage", mapping.DeviceName);
+        if (!deviceStatus.Ready && deviceStatus.EligibleAt is { } eligibleAt)
+        {
+            var remaining = eligibleAt - (now ?? DateTimeOffset.Now);
+            if (remaining <= TimeSpan.Zero) return Localization.Text("NextBackupWaiting");
+            var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+            return Localization.Format("NextBackupWaitEnds", eligibleAt.LocalDateTime.ToString("t"), minutes);
+        }
+        if (!deviceStatus.Ready) return Localization.Text("NextBackupWaiting");
+        return Localization.Text(mapping.BackupSet.Model.TriggerDeviceIds.Count == 0 ? "NextBackupReadyOnReconnect" : "NextBackupReady");
     }
 
     public Task RefreshConnectionsOnceAsync() => RefreshConnectionsAsync();
@@ -559,30 +579,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         UpdateMappingLastBackupInfo();
     }
 
-    private async Task SetSourceRevocationAsync(bool revoked)
-    {
-        var connection = SelectedSourceConnection;
-        if (connection is null) return;
-        if (revoked)
-        {
-            var confirmed = System.Windows.MessageBox.Show(
-                Localization.Format("Text_Blockaccessfor0Itwillbeimmedia_3393BA", connection.AgentName),
-                Localization.Text("Text_Blockaccess_13C267"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
-            if (!confirmed) return;
-        }
-        try
-        {
-            if (revoked) await _connectionsClient.RevokeAsync(connection.AgentId, _shutdown.Token);
-            else await _connectionsClient.UnrevokeAsync(connection.AgentId, _shutdown.Token);
-            FooterStatus = revoked ? Localization.Format("Text_Blockedaccessfor0_B6A848", connection.AgentName) : Localization.Format("Text_Restoredaccessfor0_824F36", connection.AgentName);
-            NotificationRequested?.Invoke(this, new(Localization.Text("Text_Computerconnection_6BB4A5"), FooterStatus));
-            await RefreshConnectionsAsync();
-        }
-        catch (HttpRequestException exception) { FooterStatus = Localization.Format("Text_Couldnotupdate0saccess1_5A8E32", connection.AgentName, exception.Message); }
-        catch (TaskCanceledException) { FooterStatus = Localization.Format("Text_Therequesttoupdate0saccesstime_414854", connection.AgentName); }
-        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
-    }
-
     private async Task RenameSelectedSourceAsync()
     {
         var connection = SelectedSourceConnection;
@@ -653,7 +649,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var document = await _configurationClient.GetAsync(_shutdown.Token);
             ApplyTopology(document.Configuration);
             _configurationRevision = document.Revision;
-            AutomaticBackups = (await _configurationClient.GetAutomationAsync(_shutdown.Token)).Enabled;
+            AutomaticBackups = _serviceAutomaticBackups = (await _configurationClient.GetAutomationAsync(_shutdown.Token)).Enabled;
             FooterStatus = Localization.Format("Text_LoadedStorageServiceconfigurat_E46147", document.Revision);
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
@@ -762,6 +758,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public Task<int> QueueEligibleBackupsAsync() => QueueEligibleBackupsAsync(_ => true);
+
+    internal Task<int> QueueSelectedMappingAsync() => SelectedMapping is { } mapping
+        ? QueueEligibleBackupsAsync(candidate => candidate.Id == mapping.Id)
+        : Task.FromResult(0);
 
     private async Task<int> QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
     {
@@ -895,7 +895,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var document = await _configurationClient.UpdateAsync(_configurationRevision, topology, _shutdown.Token);
-            AutomaticBackups = (await _configurationClient.UpdateAutomationAsync(AutomaticBackups, _shutdown.Token)).Enabled;
+            AutomaticBackups = _serviceAutomaticBackups = (await _configurationClient.UpdateAutomationAsync(AutomaticBackups, _shutdown.Token)).Enabled;
+            UpdateMappingLastBackupInfo();
             _configurationRevision = document.Revision;
             if (_persistLocalState)
             {
@@ -977,7 +978,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // every other in-screen edit this pass made auto-saving), and every other place a MappingViewModel is
     // constructed shares this same callback rather than each wiring up SaveAsync() independently.
     private MappingViewModel CreateMapping(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) =>
-        new(model, set, device, mapping => _ = SaveAsync());
+        new(model, set, device, mapping => { UpdateMappingLastBackupInfo(); _ = SaveAsync(); });
 
     internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled)
     {
@@ -1492,6 +1493,7 @@ public sealed class MappingViewModel : ObservableObject
     private string _lastBackupDisplay = Localization.Text("Text_Never_6300EF");
     private string _lastBackupIssue = string.Empty;
     private string _triggerNote = string.Empty;
+    private string _nextBackupDisplay = string.Empty;
 
     public MappingViewModel(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device, Action<MappingViewModel>? onEnabledChanged = null)
     {
@@ -1540,6 +1542,7 @@ public sealed class MappingViewModel : ObservableObject
     // starts for that device, regardless of Target. Without this line the grid would silently imply
     // "starts when Target connects" for a row that in fact does not.
     public string TriggerNote { get => _triggerNote; set => Set(ref _triggerNote, value); }
+    public string NextBackupDisplay { get => _nextBackupDisplay; set => Set(ref _nextBackupDisplay, value); }
     public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
 }
 

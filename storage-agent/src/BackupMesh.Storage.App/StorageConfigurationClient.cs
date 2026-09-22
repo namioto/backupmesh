@@ -9,6 +9,7 @@ namespace BackupMesh.Storage.App;
 public sealed record StorageConfigurationDocumentDto(long Revision, DateTimeOffset UpdatedAt, StorageAgentConfiguration Configuration);
 public sealed record StorageConfigurationUpdateDto(long ExpectedRevision, StorageAgentConfiguration Configuration);
 public sealed record AutomationSettingsDto(bool Enabled);
+public sealed record StorageDeviceStatusDto(Guid DeviceId, bool Connected, bool Ready, DateTimeOffset? EligibleAt);
 
 public interface IStorageConfigurationClient
 {
@@ -16,6 +17,7 @@ public interface IStorageConfigurationClient
     Task<StorageConfigurationDocumentDto> UpdateAsync(long expectedRevision, StorageAgentConfiguration configuration, CancellationToken cancellationToken);
     Task<AutomationSettingsDto> GetAutomationAsync(CancellationToken cancellationToken);
     Task<AutomationSettingsDto> UpdateAutomationAsync(bool enabled, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StorageDeviceStatusDto>> GetDeviceStatusesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<StorageDeviceStatusDto>>([]);
 }
 
 public sealed class StorageConfigurationConflictException : Exception
@@ -58,6 +60,9 @@ public sealed class StorageConfigurationClient : IStorageConfigurationClient, ID
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<AutomationSettingsDto>(cancellationToken: cancellationToken) ?? new(enabled);
     }
+
+    public async Task<IReadOnlyList<StorageDeviceStatusDto>> GetDeviceStatusesAsync(CancellationToken cancellationToken) =>
+        await _client.GetFromJsonAsync<StorageDeviceStatusDto[]>("storage/devices/status", cancellationToken) ?? [];
 
     public void Dispose() => _client.Dispose();
 }

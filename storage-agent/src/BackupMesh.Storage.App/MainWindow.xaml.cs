@@ -52,6 +52,10 @@ public partial class MainWindow : Window
 
     private void OnAddMappingClick(object sender, RoutedEventArgs e) => OpenBackupRule(null);
 
+    private void OnGoToComputersClick(object sender, RoutedEventArgs e) => ComputersTabItem.IsSelected = true;
+
+    private void OnGoToBackupsClick(object sender, RoutedEventArgs e) => BackupsTabItem.IsSelected = true;
+
     private void OnEditMappingClick(object sender, RoutedEventArgs e) => OpenBackupRule(ViewModel.SelectedMapping);
 
     private void OnMappingDoubleClick(object sender, MouseButtonEventArgs e)

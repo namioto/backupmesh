@@ -27,12 +27,16 @@ public sealed record BackupJobDto(
     [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt = null);
 
 public sealed record BackupCommandEnqueueDto([property: JsonPropertyName("queued_count")] int QueuedCount);
+public sealed record BackupCommandStatusDto(
+    [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId,
+    [property: JsonPropertyName("state")] string State);
 
 public interface IBackupJobClient
 {
     Task<IReadOnlyList<BackupJobDto>> ListAsync(CancellationToken cancellationToken);
     Task<int> EnqueueAsync(Guid[] mappingIds, string reason, CancellationToken cancellationToken);
     Task CancelAsync(Guid jobId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<BackupCommandStatusDto>> ListCommandsAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<BackupCommandStatusDto>>([]);
 }
 
 public sealed class BackupJobClient : IBackupJobClient, IDisposable
@@ -56,6 +60,9 @@ public sealed class BackupJobClient : IBackupJobClient, IDisposable
         var result = await response.Content.ReadFromJsonAsync<BackupCommandEnqueueDto>(cancellationToken) ?? new(0);
         return result.QueuedCount;
     }
+
+    public async Task<IReadOnlyList<BackupCommandStatusDto>> ListCommandsAsync(CancellationToken cancellationToken) =>
+        await _client.GetFromJsonAsync<BackupCommandStatusDto[]>("backup/commands", cancellationToken) ?? [];
 
     public async Task CancelAsync(Guid jobId, CancellationToken cancellationToken)
     {

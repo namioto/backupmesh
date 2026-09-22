@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/namioto/backupmesh/source-agent/internal/config"
+	"github.com/namioto/backupmesh/source-agent/internal/controlapi"
 )
 
 const setupPairingWait = 2 * time.Minute
@@ -30,6 +32,7 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 	}
 
 	reader := bufio.NewReader(input)
+	var announceErrors <-chan error
 	var additions []string
 	for {
 		fmt.Fprint(output, "Add backup folder (absolute existing path, for example /home/you/Documents; Enter to continue): ")
@@ -59,8 +62,29 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 		fmt.Fprintln(output, "Backup folders saved.")
 	}
 	if _, err := config.Load(configPath); err == nil {
-		fmt.Fprintln(output, "Storage pairing is already configured. Setup complete.")
-		return nil
+		fmt.Fprint(output, "Storage connection is already configured. Reset it and connect again? Existing backup folders and settings will be kept. [y/N]: ")
+		line, readErr := reader.ReadString('\n')
+		answer := strings.ToLower(strings.TrimSpace(line))
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			return readErr
+		}
+		if answer != "y" && answer != "yes" {
+			fmt.Fprintln(output, "Existing Storage connection kept. Setup complete.")
+			return nil
+		}
+		if err := resetSetupPairing(configPath, pairingOutput); err != nil {
+			return err
+		}
+		fmt.Fprintln(output, "Old connection removed. This computer now has a fresh identity for connecting again.")
+		resetConfig, err := config.LoadUserConfig(configPath)
+		if err != nil {
+			return err
+		}
+		announceContext, stopAnnouncing := context.WithCancel(ctx)
+		defer stopAnnouncing()
+		errors := make(chan error, 1)
+		announceErrors = errors
+		go func() { errors <- runNearbyWatch(announceContext, configPath, pairingOutput, resetConfig) }()
 	}
 	fmt.Fprint(output, "Connect to Storage now? [Y/n]: ")
 	line, readErr := reader.ReadString('\n')
@@ -78,6 +102,14 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 	deadline := started.Add(setupPairingWait)
 	nextFeedback := started.Add(5 * time.Second)
 	for time.Now().Before(deadline) {
+		select {
+		case err := <-announceErrors:
+			announceErrors = nil
+			if err != nil {
+				return fmt.Errorf("announce fresh identity: %w", err)
+			}
+		default:
+		}
 		if _, err := config.Load(configPath); err == nil {
 			fmt.Fprintln(output, "Storage pairing settings saved. Setup complete.")
 			return nil
@@ -150,6 +182,75 @@ func runSetup(ctx context.Context, input io.Reader, output io.Writer, configPath
 		return err
 	}
 	return pairWithCode(configPath, invitation.Endpoint, invitation.Code, invitation.Fingerprint, pairingOutput)
+}
+
+func resetSetupPairing(configPath, pairingOutput string) error {
+	unlock, err := lockPairing(configPath)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	cfg, err := config.LoadUserConfig(configPath)
+	if err != nil {
+		return err
+	}
+	nearby, err := filepath.Abs(nearbyDirectory(configPath, pairingOutput))
+	if err != nil {
+		return err
+	}
+	if cfg.Storage.RepositoryPasswordFile != "" {
+		password, err := filepath.Abs(cfg.Storage.RepositoryPasswordFile)
+		if err != nil {
+			return err
+		}
+		for _, name := range []string{"control.token", "source.crt", "source.key", "storage-ca.pem", "nearby-identity.pem"} {
+			if samePath(password, filepath.Join(nearby, name)) {
+				return errors.New("repository password overlaps managed pairing credentials; move it before resetting the connection")
+			}
+		}
+		if relative, err := filepath.Rel(filepath.Join(nearby, "pending"), password); err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return errors.New("repository password is inside pending pairing data; move it before resetting the connection")
+		}
+	}
+	newID, err := controlapi.UUIDv4()
+	if err != nil {
+		return err
+	}
+	cfg.Agent.ID = newID
+	cfg.Storage.ControlEndpoint = ""
+	cfg.Storage.AuthenticationTokenFile = ""
+	cfg.Storage.TLSCAFile = ""
+	cfg.Storage.TLSCertificateFile = ""
+	cfg.Storage.TLSKeyFile = ""
+	if err := cfg.ValidateUserAuthored(); err != nil {
+		return err
+	}
+	encoded, err := config.Marshal(cfg, configPath)
+	if err != nil {
+		return fmt.Errorf("encode config: %w", err)
+	}
+	if err := writePrivateFile(configPath, append(encoded, '\n')); err != nil {
+		return err
+	}
+	if err := config.SaveIdentityState(configPath, cfg); err != nil {
+		return err
+	}
+	for _, name := range []string{"control.token", "source.crt", "source.key", "storage-ca.pem", "nearby-identity.pem"} {
+		if err := os.Remove(filepath.Join(nearby, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if err := os.RemoveAll(filepath.Join(nearby, "pending")); err != nil {
+		return err
+	}
+	return nil
+}
+
+func samePath(left, right string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
+	}
+	return filepath.Clean(left) == filepath.Clean(right)
 }
 
 func validateBackupFolder(path string) (string, error) {

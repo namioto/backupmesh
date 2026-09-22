@@ -178,7 +178,7 @@
     <value>언어</value>
   </data>
   <data name="Text_SavedautomaticallyExitBackupMe_6E29AA" xml:space="preserve">
-    <value>언어는 즉시 적용되며 자동으로 저장됩니다.</value>
+    <value>언어는 즉시 적용됩니다. 다른 변경 사항은 설정 저장을 눌러 적용하세요.</value>
   </data>
   <data name="Text_Automation_D90975" xml:space="preserve">
     <value>자동화</value>
@@ -763,20 +763,40 @@
   <data name="NearbyName"><value>확인되지 않은 이름</value></data>
   <data name="NearbyNone"><value>근처에서 연결되지 않은 컴퓨터를 찾지 못했습니다.</value></data>
   <data name="NearbyFound"><value>연결되지 않은 컴퓨터 {0}대를 찾았습니다.</value></data>
-  <data name="NearbyRefreshFailed"><value>근처 컴퓨터를 새로 고치지 못했습니다. 스토리지 서비스가 실행 중인지 확인하세요.</value></data>
+  <data name="NearbyRefreshFailed"><value>근처 컴퓨터를 확인하지 못했습니다. 잠시 후 다시 시도하세요.</value></data>
   <data name="NearbyRequestPairing"><value>연결 요청</value></data>
   <data name="NearbyRefresh"><value>새로 고침</value></data>
   <data name="NearbyComparisonInstructions"><value>연결을 승인하기 전에 원격 컴퓨터에도 같은 번호가 표시되는지 확인하세요:</value></data>
   <data name="NearbyPairingPending"><value>{0}에서 승인을 기다리는 중입니다. 요청은 자동으로 만료됩니다.</value></data>
   <data name="NearbyPairingFinishing"><value>{0}에서 승인했습니다. 보안 연결을 완료하는 중입니다…</value></data>
-  <data name="NearbyPairingIssued"><value>{0}에서 승인했습니다. 인증된 카탈로그를 기다리는 중입니다…</value></data>
+  <data name="NearbyPairingIssued"><value>{0}에서 승인했습니다. 백업 폴더 목록을 가져오는 중입니다…</value></data>
   <data name="NearbyPairingPaired"><value>{0}에서 연결을 승인하여 연결되었습니다.</value></data>
   <data name="NearbyPairingExpired"><value>연결 요청이 만료되었습니다. 컴퓨터를 선택하고 다시 시도하세요.</value></data>
   <data name="NearbyPairingReplaced"><value>새 연결 요청이 이 요청을 대체했습니다. 컴퓨터를 선택하고 다시 시도하세요.</value></data>
   <data name="NearbyPairingFailed"><value>연결 요청에 실패했습니다. 근처 컴퓨터를 새로 고친 뒤 다시 시도하세요.</value></data>
   <data name="NearbyPairingRejected"><value>원격 컴퓨터에서 연결 요청을 거부했습니다.</value></data>
-  <data name="NearbyPairingUnavailable"><value>스토리지 서비스를 기다리는 중입니다. 요청은 취소하거나 만료될 때까지 유지됩니다.</value></data>
+  <data name="NearbyPairingUnavailable"><value>연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도하세요. 요청은 취소하거나 만료될 때까지 유지됩니다.</value></data>
   <data name="NearbyCancelPairing"><value>요청 취소</value></data>
   <data name="NearbyPairingCancelled"><value>연결 요청을 취소했습니다.</value></data>
   <data name="NearbyPairingCancelFailed"><value>연결 요청을 취소하지 못했습니다. 요청은 자동으로 만료됩니다.</value></data>
+  <data name="NextBackupPaused"><value>일시 중지됨</value></data>
+  <data name="NextBackupStarting"><value>백업 시작 중…</value></data>
+  <data name="NextBackupQueued"><value>대기열 등록 · 시작 대기 중</value></data>
+  <data name="NextBackupAutomaticOff"><value>자동 백업 꺼짐 · 지금 백업 사용</value></data>
+  <data name="NextBackupStatusUnavailable"><value>백업 상태를 확인하는 중…</value></data>
+  <data name="NextBackupWaitingForStorage"><value>{0} 연결 대기 중</value></data>
+  <data name="NextBackupWaitEnds"><value>연결 대기 종료 {0} · 약 {1}분 후</value></data>
+  <data name="NextBackupWaiting"><value>저장 위치가 준비되기를 기다리는 중</value></data>
+  <data name="NextBackupReadyOnReconnect"><value>대기 완료 · 다음 연결 시 자동 · 지금 백업 가능</value></data>
+  <data name="NextBackupReady"><value>대기 완료 · 지금 백업 가능</value></data>
+  <data name="NextBackup"><value>다음 백업</value></data>
+  <data name="BackupFolder"><value>백업할 폴더</value></data>
+  <data name="StorageLocation"><value>저장 위치</value></data>
+  <data name="StartNowSelectRule"><value>백업 규칙을 선택하세요.</value></data>
+  <data name="StartNowPaused"><value>이 백업을 켠 후 시작하세요.</value></data>
+  <data name="StartNowRunning"><value>이 백업은 이미 실행 중입니다.</value></data>
+  <data name="StartNowQueued"><value>이 백업은 이미 대기열에 있습니다.</value></data>
+  <data name="StartNowConnectStorage"><value>지금 시작하려면 {0}을(를) 연결하세요.</value></data>
+  <data name="UXConnectComputer" xml:space="preserve"><value>컴퓨터 연결</value></data>
+  <data name="UXChooseThisPCFolder" xml:space="preserve"><value>이 PC 폴더 선택…</value></data>
 </root>

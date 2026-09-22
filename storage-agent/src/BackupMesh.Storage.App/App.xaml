@@ -12,6 +12,19 @@
         <SolidColorBrush x:Key="NavyBrush" Color="#082B63" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="#F6F8FB" />
         <SolidColorBrush x:Key="DangerBrush" Color="#C0392B" />
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DCE3EC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18" />
+        </Style>
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#172B4D" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
         <Style TargetType="Button" x:Key="BaseButtonStyle">
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="Margin" Value="4" />
@@ -35,6 +48,12 @@
         <Style TargetType="ComboBox">
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#E7ECF2" />
+            <Setter Property="BorderBrush" Value="#DCE3EC" />
+            <Setter Property="HeadersVisibility" Value="Column" />
         </Style>
         <!-- DataGridTextColumn does not trim by default. Keep long values readable through an ellipsis
              and a tooltip bound to the generated TextBlock's own text. -->

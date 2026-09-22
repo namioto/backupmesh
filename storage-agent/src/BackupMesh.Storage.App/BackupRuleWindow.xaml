@@ -25,10 +25,8 @@
                 <TextBlock Text="{local:Loc Text_Whattobackup_6B4FC3}" Foreground="#607086" Margin="4,0"/>
                 <ComboBox x:Name="BackupSetCombo" ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet, Mode=TwoWay}" DisplayMemberPath="DisplayName" SelectionChanged="OnBackupSetChanged"
                           AutomationProperties.AutomationId="BackupRuleBackupSetCombo"/>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Button Content="{local:Loc Text_BackupafolderonthisPC_EF3B34}" Command="{Binding AddLocalBackupSetCommand}" ToolTip="{local:Loc Text_BackupafolderonthisPCdirectlyn_11F9C0}" AutomationProperties.AutomationId="AddLocalBackupSetButton"/>
-                    <Button Content="{local:Loc Text_Removefolder_F2A987}" Command="{Binding RemoveLocalBackupSetCommand}" Style="{StaticResource DangerButtonStyle}" Margin="6,0,0,0" ToolTip="{local:Loc Text_Stopbackinguptheselectedlocalf_1235A1}" AutomationProperties.AutomationId="RemoveLocalBackupSetButton"/>
-                </StackPanel>
+                <Button Content="{local:Loc UXChooseThisPCFolder}" Command="{Binding AddLocalBackupSetCommand}" HorizontalAlignment="Left" Margin="4,4,4,0" Padding="10,5"
+                        ToolTip="{local:Loc Text_BackupafolderonthisPCdirectlyn_11F9C0}" AutomationProperties.AutomationId="BackupRuleAddLocalBackupSetButton"/>
                 <TextBlock Text="{local:Loc Text_Sourcepath_6A869D}" Foreground="#607086" Margin="4,8,4,0"/>
                 <TextBox x:Name="SourcePathsText" IsReadOnly="True" TextWrapping="Wrap" MinHeight="48" VerticalScrollBarVisibility="Auto"
                          AutomationProperties.AutomationId="BackupRuleSourcePathsText"/>
