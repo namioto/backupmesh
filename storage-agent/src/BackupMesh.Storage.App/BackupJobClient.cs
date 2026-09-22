@@ -100,11 +100,20 @@ public sealed class BackupJobViewModel(BackupJobDto model, MappingViewModel? map
     public DateTimeOffset? StartedAt => model.StartedAt;
     public DateTimeOffset UpdatedAt => model.UpdatedAt;
     public string Updated => model.UpdatedAt.LocalDateTime.ToString("g");
-    public string Target => mapping is null ? "—" : $"{mapping.BackupSetName} → {mapping.DeviceName}";
+    public string Target => mapping is null ? "—" : $"{mapping.BackupSetName} → {mapping.DestinationFolder} ({mapping.DeviceName})";
     public string Progress => model.Progress is null ? "—" : model.Progress.BytesTotal is > 0
         ? Localization.Format("Text_00012files3_B2C08E", model.Progress.BytesDone * 100d / model.Progress.BytesTotal, model.Progress.FilesDone, model.Progress.FilesTotal?.ToString() ?? "?", EtaSuffix)
         : Localization.Format("Text_0N0bytes1files_8634DD", model.Progress.BytesDone, model.Progress.FilesDone);
-    public string Result => model.Result?.SnapshotId is { Length: > 0 } snapshot ? $"{Localization.State(model.Result.Outcome)} · {snapshot[..Math.Min(8, snapshot.Length)]}" : Localization.State(model.Result?.Outcome);
+    public string Result
+    {
+        get
+        {
+            var summary = model.Result?.SnapshotId is { Length: > 0 } snapshot
+                ? $"{Localization.State(model.Result.Outcome)} · {snapshot[..Math.Min(8, snapshot.Length)]}"
+                : Localization.State(model.Result?.Outcome);
+            return string.IsNullOrWhiteSpace(model.Result?.Message) ? summary : $"{summary} · {model.Result.Message}";
+        }
+    }
     public bool CanCancel => State is "ACCEPTED" or "RUNNING";
     // Mirrors BackupJobStore.Terminal() server-side: CANCEL_REQUESTED is deliberately excluded - a
     // cancellation still in flight is not yet safe to treat as "this device is done".

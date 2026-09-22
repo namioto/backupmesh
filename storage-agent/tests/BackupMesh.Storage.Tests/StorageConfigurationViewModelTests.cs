@@ -8,6 +8,23 @@ public sealed class StorageConfigurationViewModelTests
 {
     public StorageConfigurationViewModelTests() => Localization.Initialize("en");
     [Fact]
+    public void JobDisplayDistinguishesDestinationsAndPreservesFailureReason()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", [@"C:\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "READY", @"D:\", DateTimeOffset.UtcNow, null));
+        var first = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "one"), set, device);
+        var second = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "two"), set, device);
+        const string reason = "Access denied: D:\\one";
+        var failed = new BackupJobViewModel(new(Guid.NewGuid(), "FAILED", DateTimeOffset.UtcNow, null, new("FAILED", null, reason)), first);
+        var other = new BackupJobViewModel(new(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "1234567890", null)), second);
+
+        Assert.NotEqual(failed.Target, other.Target);
+        Assert.Contains(first.DestinationFolder, failed.Target);
+        Assert.Contains(reason, failed.Result);
+        Assert.Contains("12345678", other.Result);
+    }
+
+    [Fact]
     public void RefreshDrivesPublishesEveryAvailableBackupDestination()
     {
         var first = new AvailableDriveViewModel("disk:first", "C:\\", "FIRST", 1, 2, "First disk", 1);

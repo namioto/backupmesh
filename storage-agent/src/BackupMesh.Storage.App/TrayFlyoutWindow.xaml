@@ -31,7 +31,7 @@
                 </DockPanel>
             </Border>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,10">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="14,10">
                 <StackPanel>
                     <TextBlock Text="{local:Loc Text_NobackupsrunningConnectadrivet_02023F}" Foreground="#607086" Margin="4,18"
                                HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
@@ -51,9 +51,9 @@
                                                          IsIndeterminate="{Binding IsIndeterminate}"
                                                          Foreground="{StaticResource AccentBrush}"/>
                                             <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" Foreground="#526276" FontSize="11"/>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" TextWrapping="Wrap" Foreground="#526276" FontSize="11"/>
                                             </DockPanel>
-                                            <TextBlock Text="{Binding EtaDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,0"/>
+                                            <TextBlock Text="{Binding EtaDisplay}" TextWrapping="Wrap" Foreground="#607086" FontSize="11" Margin="0,2,0,0"/>
                                             <Button Content="{local:Loc Text_Cancelthisbackup_23F218}" HorizontalAlignment="Right" Margin="0,4,0,0" Padding="10,4"
                                                     Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibleConverter}}"
                                                     Command="{Binding DataContext.CancelJobCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -88,7 +88,7 @@
                                     <Border Background="White" CornerRadius="6" Padding="10" Margin="0,0,0,8">
                                         <StackPanel>
                                             <TextBlock Text="{Binding TitleDisplay}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding StatusDisplay}" Foreground="#607086" FontSize="11" Margin="0,2,0,6"/>
+                                            <TextBlock Text="{Binding StatusDisplay}" TextWrapping="Wrap" Foreground="#607086" FontSize="11" Margin="0,2,0,6"/>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                 <Button Content="{local:Loc Text_Skipthistime_D3077F}" Padding="10,4"
                                                         Command="{Binding DataContext.SkipThisTimeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -98,7 +98,7 @@
                                                         CommandParameter="{Binding}"/>
                                             </StackPanel>
                                             <!-- State the scope directly rather than relying on the button label alone. -->
-                                            <TextBlock Text="{local:Loc Text_Skippingaffectsthisconnectiono_3BFF0F}" Foreground="#8493A6" FontSize="10" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                            <TextBlock Text="{local:Loc Text_Skippingaffectsthisconnectiono_3BFF0F}" TextWrapping="Wrap" Foreground="#8493A6" FontSize="10" Margin="0,4,0,0" HorizontalAlignment="Right"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

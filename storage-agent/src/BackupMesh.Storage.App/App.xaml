@@ -8,7 +8,7 @@
         <local:StringEmptyToCollapsedConverter x:Key="StringEmptyToCollapsedConverter" />
         <local:NullToCollapsedConverter x:Key="NullToCollapsedConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibleConverter" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#08AFCB" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#007F94" />
         <SolidColorBrush x:Key="NavyBrush" Color="#082B63" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="#F6F8FB" />
         <SolidColorBrush x:Key="DangerBrush" Color="#C0392B" />

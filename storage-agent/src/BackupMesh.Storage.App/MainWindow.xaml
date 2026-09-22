@@ -23,64 +23,77 @@
 
         <TabControl Grid.Row="1" Margin="18" SelectionChanged="OnTabSelectionChanged" AutomationProperties.AutomationId="MainTabControl">
             <TabItem Header="{local:Loc Text_Overview_D4B1EA}" AutomationProperties.AutomationId="OverviewTab">
-                <Grid Margin="18">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-                        <DockPanel LastChildFill="False">
-                            <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
-                                <TextBlock Text="{local:Loc Text_Overview_D4B1EA}" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,3"/>
-                                <TextBlock Text="{Binding OverallStatus}" Foreground="#526276" AutomationProperties.AutomationId="OverviewStatusText"/>
-                            </StackPanel>
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="{local:Loc UXConnectComputer}" Click="OnGoToComputersClick" AutomationProperties.AutomationId="OverviewConnectComputerButton"/>
-                                <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="OverviewAddBackupButton"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-                    <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,0,0,12" Padding="14">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1.5*"/><RowDefinition Height="2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel LastChildFill="False" Margin="0,0,0,8">
+                        <TextBlock Text="{local:Loc Text_Overview_D4B1EA}" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" Margin="0"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="{local:Loc UXConnectComputer}" Click="OnGoToComputersClick" AutomationProperties.AutomationId="OverviewConnectComputerButton"/>
+                            <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="OverviewAddBackupButton"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,0,0,8" Padding="10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <DockPanel LastChildFill="False">
                                 <TextBlock Text="{local:Loc NextBackup}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
                                 <Button DockPanel.Dock="Right" Content="{local:Loc Text_Backups_3334FE}" Click="OnGoToBackupsClick" Padding="10,5" AutomationProperties.AutomationId="OverviewViewBackupsButton"/>
                             </DockPanel>
-                            <ScrollViewer Grid.Row="1" MaxHeight="110" VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <Grid>
+                                <TextBlock Text="{local:Loc Text_NobackuprulesyetAddonetochoose_7C46A4}" TextWrapping="Wrap" Foreground="#607086" Margin="0,8,0,0" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                                 <ItemsControl ItemsSource="{Binding Mappings}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Grid Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding SourceAgentName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding DeviceName}" TextTrimming="CharacterEllipsis" Foreground="#526276" Margin="12,0"/>
+                                                <StackPanel ToolTip="{Binding SourcePathsDisplay}"><TextBlock Text="{Binding BackupSetOnlyName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding SourceAgentName}" FontSize="11" Foreground="#526276" TextTrimming="CharacterEllipsis"/></StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding DestinationFolder}" ToolTip="{Binding DestinationFolder}" TextTrimming="CharacterEllipsis" Foreground="#526276" Margin="12,0"/>
                                                 <TextBlock Grid.Column="2" Text="{Binding NextBackupDisplay}" TextWrapping="Wrap" Foreground="#2563A8"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                </Grid>
                             </ScrollViewer>
                         </Grid>
                     </Border>
-                    <GroupBox Grid.Row="2" Header="{local:Loc Text_Backupjobs_399BA4}" Padding="12" Margin="0,0,0,12">
+                    <GroupBox Grid.Row="2" Header="{local:Loc Text_Backupjobs_399BA4}" Padding="8" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
+                                <DataGrid.Style>
+                                    <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                        <Style.Triggers><DataTrigger Binding="{Binding Jobs.Count}" Value="0"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </DataGrid.Style>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{local:Loc Text_Backup_838557}" Binding="{Binding Target}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="{local:Loc Text_State_A3B50C}" Binding="{Binding StateDisplay}" Width="110"/>
                                     <DataGridTextColumn Header="{local:Loc Text_Progress_466482}" Binding="{Binding Progress}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <DataGridTextColumn Header="{local:Loc Text_Result_6E7D50}" Binding="{Binding Result}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
-                                    <DataGridTextColumn Header="{local:Loc Text_Updated_3A5ECC}" Binding="{Binding Updated}" Width="*"/>
+                                    <DataGridTextColumn Header="{local:Loc Text_Updated_3A5ECC}" Binding="{Binding Updated}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <StackPanel Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Visibility="{Binding Jobs.Count, Converter={StaticResource ZeroToVisibleConverter}}">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="{Binding Jobs.Count, Converter={StaticResource ZeroToVisibleConverter}}">
+                            <StackPanel Margin="8" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360">
                                 <TextBlock Text="{local:Loc Text_NobackupjobsyetJobsappearhereo_DF8946}" TextWrapping="Wrap" Foreground="#607086" TextAlignment="Center"/>
                                 <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Center" Margin="0,10,0,0" AutomationProperties.AutomationId="OverviewEmptyAddBackupButton"/>
                             </StackPanel>
-                            <Button Grid.Row="1" Content="{local:Loc Text_Cancelselectedbackup_F89A69}" Command="{Binding CancelJobCommand}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.AutomationId="CancelBackupButton"/>
+                            </ScrollViewer>
+                            <Button Grid.Row="1" Content="{local:Loc Text_Cancelselectedbackup_F89A69}" Command="{Binding CancelJobCommand}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.AutomationId="CancelBackupButton">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                        <Style.Triggers><DataTrigger Binding="{Binding Jobs.Count}" Value="0"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Grid>
                     </GroupBox>
-                    <GroupBox Grid.Row="3" Header="{local:Loc Text_Recentactivity_6CB44B}" Padding="12">
-                        <ListBox ItemsSource="{Binding Activity}" BorderThickness="0" AutomationProperties.AutomationId="RecentActivityList"/>
+                    <GroupBox Grid.Row="3" Header="{local:Loc Text_Recentactivity_6CB44B}" Padding="8">
+                        <ListBox ItemsSource="{Binding Activity}" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="RecentActivityList">
+                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
                     </GroupBox>
                 </Grid>
             </TabItem>
@@ -93,7 +106,7 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                      MinHeight="300" MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
+                                      MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
                                         <Style.Triggers>
@@ -106,28 +119,30 @@
                                     </Style>
                                 </DataGrid.RowStyle>
                                 <DataGrid.Resources>
-                                    <Style x:Key="RepeatDimmedCellStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisCellStyle}">
+                                    <Style x:Key="SelectedRowTextStyle" TargetType="TextBlock">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRepeatOfPreviousSource}" Value="True">
-                                                <Setter Property="Foreground" Value="#A9B2BE"/>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                    <Style x:Key="RepeatDimmedFolderNameStyle" TargetType="TextBlock">
+                                    <Style x:Key="SecondaryRowTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SelectedRowTextStyle}">
+                                        <Setter Property="Foreground" Value="#607086"/>
+                                    </Style>
+                                    <Style x:Key="WarningRowTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SelectedRowTextStyle}">
+                                        <Setter Property="Foreground" Value="#B45309"/>
+                                    </Style>
+                                    <Style x:Key="RepeatDimmedFolderNameStyle" TargetType="TextBlock" BasedOn="{StaticResource SelectedRowTextStyle}">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRepeatOfPreviousSourceFolder}" Value="True">
-                                                <Setter Property="Foreground" Value="#A9B2BE"/>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsRepeatOfPreviousSourceFolder}" Value="True"/>
+                                                    <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Foreground" Value="#607086"/>
                                                 <Setter Property="FontWeight" Value="Normal"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                    <Style x:Key="RepeatDimmedFolderPathsStyle" TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#8493A6"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRepeatOfPreviousSourceFolder}" Value="True">
-                                                <Setter Property="Foreground" Value="#C3C9D1"/>
-                                            </DataTrigger>
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </DataGrid.Resources>
@@ -136,8 +151,8 @@
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Margin="4,2" ToolTip="{Binding SourcePathsDisplay}">
-                                                    <TextBlock Text="{Binding BackupSetOnlyName}" Style="{StaticResource RepeatDimmedFolderNameStyle}"/>
-                                                    <TextBlock FontSize="11" TextTrimming="CharacterEllipsis" Style="{StaticResource RepeatDimmedFolderPathsStyle}">
+                                                    <TextBlock Text="{Binding BackupSetOnlyName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding BackupSetOnlyName}" Style="{StaticResource RepeatDimmedFolderNameStyle}"/>
+                                                    <TextBlock FontSize="11" TextTrimming="CharacterEllipsis" Style="{StaticResource SecondaryRowTextStyle}">
                                                         <Run Text="{Binding SourceAgentName, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding SourcePathsDisplay, Mode=OneWay}"/>
                                                     </TextBlock>
                                                 </StackPanel>
@@ -148,43 +163,50 @@
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Margin="4,2" ToolTip="{Binding DestinationFolder}">
-                                                    <TextBlock Text="{Binding DestinationFolder}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{Binding DeviceName}" FontSize="11" Foreground="#8493A6" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding DestinationFolder}" Style="{StaticResource SelectedRowTextStyle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding DeviceName}" FontSize="11" Style="{StaticResource SecondaryRowTextStyle}" TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header="{local:Loc NextBackup}" Width="1.6*">
-                                        <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding NextBackupDisplay}" Margin="4,2" TextWrapping="Wrap"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                        <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding NextBackupDisplay}" Style="{StaticResource SelectedRowTextStyle}" Margin="4,2" TextWrapping="Wrap"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header="{local:Loc Text_Lastbackup_8462B6}" Width="1.4*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Margin="4,2">
-                                                    <TextBlock Text="{Binding LastBackupDisplay}"/>
+                                                    <TextBlock Text="{Binding LastBackupDisplay}" Style="{StaticResource SelectedRowTextStyle}" TextWrapping="Wrap"/>
                                                     <!-- A small leading glyph plus color keeps this line from
                                                          reading as more of the same "when" fact above it - one
                                                          is neutral context, the other needs attention. -->
-                                                    <TextBlock FontSize="11" Foreground="#8493A6" TextWrapping="Wrap" Visibility="{Binding TriggerNote, Converter={StaticResource StringEmptyToCollapsedConverter}}">
+                                                    <TextBlock FontSize="11" Style="{StaticResource SecondaryRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding TriggerNote, Converter={StaticResource StringEmptyToCollapsedConverter}}">
                                                         <Run Text="ⓘ "/><Run Text="{Binding TriggerNote, Mode=OneWay}"/>
                                                     </TextBlock>
-                                                    <TextBlock FontSize="11" Foreground="#B45309" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}">
+                                                    <TextBlock FontSize="11" Style="{StaticResource WarningRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}">
                                                         <Run Text="⚠ "/><Run Text="{Binding LastBackupIssue, Mode=OneWay}"/>
                                                     </TextBlock>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridCheckBoxColumn Header="{local:Loc Text_Enabled_92C1CD}" Binding="{Binding Enabled}" IsReadOnly="False" Width="Auto" ToolTipService.ToolTip="{local:Loc Text_Pausethisbackupwithoutremoving_0ED5D5}"/>
+                                    <DataGridTemplateColumn Header="{local:Loc Text_Enabled_92C1CD}" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8" ToolTip="{local:Loc Text_Pausethisbackupwithoutremoving_0ED5D5}" AutomationProperties.Name="{local:Loc Text_Enabled_92C1CD}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock Text="{local:Loc Text_NobackuprulesyetAddonetochoose_7C46A4}" TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="360" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <Grid Grid.Row="1" Margin="0,12,0,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="{local:Loc Text_Removebackup_2D2646}" Command="{Binding RemoveMappingCommand}" IsEnabled="{Binding HasSelectedMapping}" AutomationProperties.AutomationId="RemoveMappingButton"/>
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding StartSelectedMappingHint}" Foreground="#B45309" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0" Visibility="{Binding StartSelectedMappingHint, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding StartSelectedMappingHint}" Foreground="#B45309" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0" Visibility="{Binding StartSelectedMappingHint, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                                     <Button Content="{local:Loc Text_Editbackup_9CBB38}" Click="OnEditMappingClick" IsEnabled="{Binding HasSelectedMapping}" AutomationProperties.AutomationId="EditMappingButton"/>
                                     <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" AutomationProperties.AutomationId="AddMappingButton"/>
@@ -199,17 +221,17 @@
             <!-- Use Source Agent consistently for the managed software identity; use computer only when
                  referring to the physical machine. -->
             <TabItem x:Name="ComputersTabItem" Header="{local:Loc Text_SourceAgents_016D07}" AutomationProperties.AutomationId="SourceAgentsTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid Margin="16">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{local:Loc Text_EachcomputeryoupairrunsaSource_32AFD1}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
                     <GroupBox Grid.Row="1" Header="{local:Loc Text_SourceAgents_016D07}" Padding="10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid MinHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <DataGrid MinHeight="90" MaxHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{local:Loc Text_SourceAgent_21CF69}" Binding="{Binding DisplayNameWithHint}" Width="1.7*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
-                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="1.4*"/>
+                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="1.4*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                     <!-- Status may contain a recovery deadline; preserve room and expose the
                                          complete value through the shared ellipsis/tooltip behavior. -->
                                     <DataGridTextColumn Header="{local:Loc Text_Status_920E41}" Binding="{Binding StatusDisplay}" Width="2.2*">
@@ -223,6 +245,7 @@
                                     <DataGridTextColumn Header="{local:Loc Text_Offers_E98BF0}" Binding="{Binding PathsServedDisplay}" Width="1.6*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
+                            <TextBlock Text="{local:Loc Text_Nocomputerhasreportedanythingt_2B5CCE}" TextWrapping="Wrap" Foreground="#607086" Margin="12,30,12,8" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" IsHitTestVisible="False" Visibility="{Binding Sources.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
                             <WrapPanel Grid.Row="1" Margin="0,8,0,0" HorizontalAlignment="Right">
                                 <Button Content="{local:Loc Text_Rename_3064D7}" Command="{Binding RenameSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="{local:Loc Text_Changeonlywhatthetraydisplaysf_8E2E3E}" AutomationProperties.AutomationId="RenameSourceButton"/>
                                 <Button Content="{local:Loc Text_RemoveSourceAgent_ED5EE3}" Command="{Binding ForgetSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="{local:Loc Text_BlockthisSourceAgentandremovei_1A5808}" AutomationProperties.AutomationId="ForgetSourceButton"/>
@@ -231,12 +254,12 @@
                     </GroupBox>
                     <GroupBox Grid.Row="2" Header="{local:Loc NearbyComputers}" Padding="10" Margin="0,12,0,0">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <TextBlock Text="{local:Loc NearbyDiscoveryWarning}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"/>
-                            <DataGrid Grid.Row="1" MinHeight="110" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="NearbyComputersGrid">
+                            <DataGrid Grid.Row="1" MinHeight="70" MaxHeight="150" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="NearbyComputersGrid">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{local:Loc NearbyName}" Binding="{Binding DisplayName}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
-                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="*"/>
+                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <StackPanel Grid.Row="2" Margin="0,8,0,0">
@@ -260,7 +283,7 @@
             </TabItem>
 
             <TabItem Header="{local:Loc Text_Settings_74A883}" AutomationProperties.AutomationId="SettingsTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="24" MaxWidth="720" HorizontalAlignment="Left">
                         <TextBlock Text="{local:Loc Text_Language_A4FE65}" FontSize="20" FontWeight="SemiBold"/>
                         <ComboBox ItemsSource="{Binding Languages}" DisplayMemberPath="DisplayName" SelectedValuePath="Code" SelectedValue="{Binding Language}" Width="240" HorizontalAlignment="Left" AutomationProperties.AutomationId="LanguageCombo"/>
