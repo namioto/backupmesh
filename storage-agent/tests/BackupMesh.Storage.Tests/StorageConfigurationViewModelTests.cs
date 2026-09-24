@@ -48,7 +48,7 @@ public sealed class StorageConfigurationViewModelTests
         Assert.False(viewModel.IsDashboardTransferIndeterminate);
 
         device.IsConnected = false;
-        Assert.Equal("저장 장치 없음", viewModel.DashboardDeviceName);
+        Assert.Equal(Localization.Text("DashboardNoDevice"), viewModel.DashboardDeviceName);
         Assert.False(viewModel.IsDashboardTransferActive);
         device.IsConnected = true;
 
@@ -88,11 +88,11 @@ public sealed class StorageConfigurationViewModelTests
 
         inventory.Drives = [];
         viewModel.RefreshDrivesCommand.Execute(null);
-        Assert.Equal("저장 장치 없음", viewModel.DashboardDeviceName);
-        Assert.Equal("연결 대기 중", viewModel.DashboardDeviceStatus);
+        Assert.Equal(Localization.Text("DashboardNoDevice"), viewModel.DashboardDeviceName);
+        Assert.Equal(Localization.Text("DashboardWaiting"), viewModel.DashboardDeviceStatus);
         Assert.True(nameChanged >= 2);
         currentAgent.Connection = new(new(currentAgentId, "Current computer", "Current computer", DateTimeOffset.UtcNow.AddMinutes(-10), null, 1, false, null));
-        Assert.Equal("원격 컴퓨터 없음", viewModel.LaptopName);
+        Assert.Equal(Localization.Text("DashboardNoRemote"), viewModel.LaptopName);
     }
 
     [Fact]

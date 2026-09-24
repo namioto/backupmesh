@@ -15,10 +15,12 @@ public partial class ConnectAgentWindow : Window
     {
         e.Handled = true;
         if (e.Uri.Scheme != Uri.UriSchemeHttps || e.Uri.Host != "github.com") return;
-        try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        var address = Localization.Source.Culture.TwoLetterISOLanguageName == "ko"
+            ? e.Uri.AbsoluteUri : e.Uri.AbsoluteUri.Replace("INSTALLATION.ko.md", "INSTALLATION.md");
+        try { Process.Start(new ProcessStartInfo(address) { UseShellExecute = true }); }
         catch (Exception error) when (error is Win32Exception or InvalidOperationException)
         {
-            System.Windows.MessageBox.Show("설치 안내를 열 수 없습니다.\n" + e.Uri.AbsoluteUri, "BackupMesh");
+            System.Windows.MessageBox.Show(Localization.Text("InstallGuideOpenFailed") + "\n" + address, "BackupMesh");
         }
     }
 }

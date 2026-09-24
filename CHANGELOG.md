@@ -2,6 +2,12 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.14 — 2026-09-24
+
+- Translate Storage screen labels, rule editor, and Remote Agent guide when switching between Korean and English.
+- Use the existing BackupMesh logo and reduce body text to the 12-point size used under the overview illustrations.
+- Localize demo data and UI dates, and allow fast preview in either language.
+
 ## 0.3.13 — 2026-09-24
 
 - Reduce text sizes across the Storage app and align page titles and primary actions on Overview, Backup Rules, and Remote Agents.

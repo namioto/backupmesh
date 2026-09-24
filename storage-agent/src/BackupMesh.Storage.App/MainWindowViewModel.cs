@@ -27,7 +27,8 @@ public sealed record ActivityItem(string Title, string Detail, DateTimeOffset At
         _ => "Assets/Icons/activity-info.png"
     };
     public string TimeDisplay => At.LocalDateTime.Date == DateTime.Today
-        ? $"{Localization.Text("ActivityToday")} {At.LocalDateTime:t}" : At.LocalDateTime.ToString("g");
+        ? $"{Localization.Text("ActivityToday")} {At.LocalDateTime.ToString("t", Localization.Source.Culture)}"
+        : At.LocalDateTime.ToString("g", Localization.Source.Culture);
     public string DetailAndTime => string.IsNullOrWhiteSpace(Detail) ? TimeDisplay : $"{Detail} · {TimeDisplay}";
     public override string ToString() => $"{Title} {DetailAndTime}";
 }
@@ -188,20 +189,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public int ConnectedDeviceCount => Devices.Count(device => device.IsConnected);
     public int SourceCount => Sources.Count;
     public int MappingCount => Mappings.Count(mapping => mapping.Enabled);
+    public string RuleHeaderCount => Localization.Format("RuleHeaderCount", Mappings.Count);
     public string LocalComputerName => Environment.MachineName;
     private RemoteAgentViewModel? DashboardRemoteAgent => Sources.FirstOrDefault(source => source.Id == DashboardJobMapping?.BackupSet.Model.SourceAgentId && source.Connection?.IsOnline == true)
         ?? Sources.FirstOrDefault(source => source.Connection?.IsOnline == true);
     private DeviceViewModel? DashboardDevice => DashboardJobMapping?.Device is { IsConnected: true } target
         ? target : Devices.FirstOrDefault(device => device.IsConnected);
-    public string LaptopName => DashboardRemoteAgent?.DisplayName ?? "원격 컴퓨터 없음";
-    public string LaptopStatus => DashboardRemoteAgent?.StatusDisplay ?? (Sources.Any(source => source.Id != LocalSourceIdentity.AgentId) ? "연결 대기 중" : "연결된 원격 컴퓨터 없음");
-    public string DashboardDeviceName => DashboardDevice?.DisplayName ?? "저장 장치 없음";
-    public string DashboardDeviceStatus => DashboardDevice?.Status ?? (Devices.Count > 0 ? "연결 대기 중" : "등록된 장치 없음");
-    public string DashboardDescription => ConnectedDeviceCount == 0 ? "백업 저장 장치를 연결하면 백업할 수 있습니다." : CanQueueAnyBackup ? "백업할 수 있는 규칙이 준비되었습니다." : "사용 가능한 백업 규칙을 확인하세요.";
+    public string LaptopName => DashboardRemoteAgent?.DisplayName ?? Localization.Text("DashboardNoRemote");
+    public string LaptopStatus => DashboardRemoteAgent?.StatusDisplay ?? (Sources.Any(source => source.Id != LocalSourceIdentity.AgentId) ? Localization.Text("DashboardWaiting") : Localization.Text("DashboardNoConnectedRemote"));
+    public string DashboardDeviceName => DashboardDevice?.DisplayName ?? Localization.Text("DashboardNoDevice");
+    public string DashboardDeviceStatus => DashboardDevice?.Status ?? (Devices.Count > 0 ? Localization.Text("DashboardWaiting") : Localization.Text("DashboardNoRegisteredDevice"));
+    public string DashboardDescription => ConnectedDeviceCount == 0 ? Localization.Text("DashboardConnectStorage") : CanQueueAnyBackup ? Localization.Text("DashboardRulesReady") : Localization.Text("DashboardCheckRules");
     public System.Windows.Media.Brush StatusBrush => ConnectedDeviceCount > 0 ? System.Windows.Media.Brushes.Teal : System.Windows.Media.Brushes.DarkOrange;
     public bool CanQueueAnyBackup => Mappings.Any(mapping => mapping.Enabled && mapping.Device.IsConnected);
-    public string QueueAllBackupsHint => CanQueueAnyBackup ? "연결된 저장 장치의 활성 백업 규칙을 실행합니다." : "활성 백업 규칙과 연결된 저장 장치가 필요합니다.";
-    public string LastBackupSummary => Jobs.Where(job => job.State == "SUCCEEDED").OrderByDescending(job => job.UpdatedAt).FirstOrDefault()?.Updated ?? "완료된 백업 없음";
+    public string QueueAllBackupsHint => CanQueueAnyBackup ? Localization.Text("DashboardRunRulesHint") : Localization.Text("DashboardNeedRulesHint");
+    public string LastBackupSummary => Jobs.Where(job => job.State == "SUCCEEDED").OrderByDescending(job => job.UpdatedAt).FirstOrDefault()?.Updated ?? Localization.Text("DashboardNoCompletedBackup");
     private BackupJobViewModel? DashboardJob => Jobs.Where(job => !job.IsTerminal && Mappings.Any(mapping => mapping.Id == job.TargetMappingId))
         .OrderByDescending(job => job.State == "RUNNING").ThenByDescending(job => job.UpdatedAt).FirstOrDefault();
     private MappingViewModel? DashboardJobMapping => Mappings.FirstOrDefault(mapping => mapping.Id == DashboardJob?.TargetMappingId);
@@ -981,14 +983,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         for (var index = 0; index < samples.Length; index++)
         {
             var sample = samples[index];
-            var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, sample.Name, [sample.Path]));
+            var name = PreviewName(sample.Name);
+            var path = PreviewPath(sample.Path);
+            var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, name, [path]));
             BackupSets.Add(set);
-            var mapping = new MappingViewModel(new BackupTargetMapping(Guid.NewGuid(), set.Id, drive.Id, sample.Name, sample.Enabled), set, drive);
+            var mapping = new MappingViewModel(new BackupTargetMapping(Guid.NewGuid(), set.Id, drive.Id, name, sample.Enabled), set, drive);
             mapping.LastBackupDisplay = sample.LastBackup == "백업 중" ? Localization.Text("Text_Backingupnow_CF4F1D")
-                : sample.LastBackup == "없음" ? Localization.Text("Text_Never_6300EF") : sample.LastBackup;
+                : sample.LastBackup == "없음" ? Localization.Text("Text_Never_6300EF") : PreviewTime(sample.LastBackup);
             mapping.LastBackupAt = sample.LastBackup == "없음" ? null : DateTimeOffset.Now.AddMinutes(-index * 40);
             Mappings.Add(mapping);
         }
+        NotifyCounts(refreshJobInfo: false);
     }
 
     public void LoadPreviewAgents()
@@ -1008,19 +1013,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         for (var index = 0; index < agents.Length; index++)
         {
             var sample = agents[index];
-            var agent = new RemoteAgentViewModel(Guid.NewGuid(), sample.Name) { PreviewStatus = sample.PreviewStatus };
+            var name = PreviewName(sample.Name);
+            var agent = new RemoteAgentViewModel(Guid.NewGuid(), name) { PreviewStatus = sample.PreviewStatus is null ? null : "PreviewAwaitingApproval" };
             foreach (var folder in sample.Folders)
             {
                 string[] paths = sample.Name == "가족 PC" && folder == "문서"
-                    ? ["/doc/img", "/doc/db"] : [$"C:\\Users\\사용자\\{folder}"];
-                var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), agent.Id, sample.Name, folder, paths));
+                    ? ["/doc/img", "/doc/db"] : [PreviewPath($"C:\\Users\\사용자\\{folder}")];
+                var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), agent.Id, name, PreviewName(folder), paths));
                 agent.BackupSets.Add(set);
                 BackupSets.Add(set);
             }
             Sources.Add(agent);
             if (sample.PreviewStatus is null)
             {
-                var connection = new SourceConnectionViewModel(new SourceConnectionDto(agent.Id, sample.Name, sample.Name,
+                var connection = new SourceConnectionViewModel(new SourceConnectionDto(agent.Id, name, name,
                     DateTimeOffset.UtcNow - sample.LastSeen, null, sample.Folders.Length, false, DateTimeOffset.UtcNow.AddDays(90)));
                 SourceConnections.Add(connection);
                 agent.Connection = connection;
@@ -1029,7 +1035,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         NearbyComputers.Add(new(new NearbyComputerDto(Guid.NewGuid(), "NEW-PC", "preview-new-pc", DateTimeOffset.UtcNow.AddSeconds(-30))));
         NearbyComputers.Add(new(new NearbyComputerDto(Guid.NewGuid(), "STUDIO-LAPTOP", "preview-studio-laptop", DateTimeOffset.UtcNow.AddMinutes(-5))));
         SelectedRemoteAgent = Sources.FirstOrDefault();
+        NotifyCounts(refreshJobInfo: false);
     }
+
+    private static string PreviewName(string value) => Localization.Source.Culture.TwoLetterISOLanguageName != "en" ? value : value switch
+    {
+        "사진 보관함" => "Photo archive", "문서" => "Documents", "작업 파일" => "Work files",
+        "개발 프로젝트" => "Development projects", "가족 사진" => "Family photos", "음악" => "Music",
+        "회계 자료" => "Accounting", "동영상" => "Videos", "스캔 문서" => "Scanned documents",
+        "노트" => "Notes", "다운로드" => "Downloads", "업무 자료" => "Business files",
+        "가족 PC" => "Family PC", "작업실 PC" => "Studio PC", "노트북" => "Laptop", "새 컴퓨터" => "New computer",
+        "사진" => "Photos", _ => value
+    };
+
+    private static string PreviewPath(string value) => Localization.Source.Culture.TwoLetterISOLanguageName != "en" ? value
+        : value.Replace("사용자", "User").Replace("작업", "Work").Replace("가족", "Family")
+            .Replace("회계", "Accounting").Replace("스캔", "Scans").Replace("노트", "Notes").Replace("업무", "Business");
+
+    private static string PreviewTime(string value) => Localization.Source.Culture.TwoLetterISOLanguageName != "en" ? value
+        : value.Replace("오늘", "Today").Replace("어제", "Yesterday");
 
     private void AddDemoSet(RemoteAgentViewModel source, SourceBackupSet model)
     {
@@ -1168,7 +1192,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             intervalMinutes ?? existing?.BackupIntervalMinutes ?? 30, delayWhenBusy ?? existing?.DelayWhenBusy ?? true,
             uploadLimitKiBps == -1 ? null : uploadLimitKiBps ?? existing?.UploadLimitKiBps);
         if (BackupTopologyValidator.SourcePathsFor(candidate, backupSet.Model) is null)
-            return "백업할 원본 경로를 하나 이상 선택하세요. 에이전트가 허용한 경로만 선택할 수 있습니다.";
+            return Localization.Text("RulePathSelectionRequired");
         var all = existing is null
             ? Mappings.Select(mapping => mapping.ToModel()).Append(candidate).ToArray()
             : Mappings.Select(mapping => mapping.Id == existing.Id ? candidate : mapping.ToModel()).ToArray();
@@ -1424,12 +1448,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // The header badge must reflect ConnectedDeviceCount immediately after any action that can change
     // it (forgetting, registering) - not only on the next 3-second RefreshDrives() tick - so every
     // mutation path that used to call NotifyCounts() alone gets the badge update for free here too.
-    private void NotifyCounts()
+    private void NotifyCounts(bool refreshJobInfo = true)
     {
         OverallStatus = ConnectedDeviceCount > 0 ? Localization.Format("Text_0device1connected_5378A0", ConnectedDeviceCount, (ConnectedDeviceCount == 1 ? "" : "s")) : Localization.Text("Text_Waitingforstorage_AB8528");
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
+        OnPropertyChanged(nameof(RuleHeaderCount));
         OnPropertyChanged(nameof(LaptopName));
         OnPropertyChanged(nameof(LaptopStatus));
         OnPropertyChanged(nameof(DashboardDeviceName));
@@ -1439,7 +1464,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanQueueAnyBackup));
         OnPropertyChanged(nameof(QueueAllBackupsHint));
         NotifyDashboardTransfer();
-        UpdateMappingLastBackupInfo();
+        if (refreshJobInfo) UpdateMappingLastBackupInfo();
     }
 
     private void NotifyDashboardTransfer()
@@ -1494,7 +1519,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             { TotalMinutes: < 60 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalMinutes, "minute")),
             { TotalHours: < 24 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalHours, "hour")),
             { TotalDays: < 30 } => Localization.Format("TimeAgo", Pluralize((int)elapsed.TotalDays, "day")),
-            _ => at.LocalDateTime.ToString("g")
+            _ => at.LocalDateTime.ToString("g", Localization.Source.Culture)
         };
     }
 
@@ -1546,8 +1571,9 @@ public sealed class RemoteAgentViewModel(Guid id, string displayName) : Observab
         }
     }
     public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
-    public string StatusDisplay => PreviewStatus ?? Connection?.StatusDisplay ?? "—";
-    public string ListStatusDisplay => PreviewStatus ?? (Connection?.IsOnline == true ? "온라인" : Connection?.StatusDisplay ?? "—");
+    public string StatusDisplay => PreviewStatus is null ? Connection?.StatusDisplay ?? "—" : Localization.Text(PreviewStatus);
+    public string ListStatusDisplay => PreviewStatus is not null ? Localization.Text(PreviewStatus)
+        : Connection?.IsOnline == true ? Localization.Text("UX_70716b3e6e") : Connection?.StatusDisplay ?? "—";
     public System.Windows.Media.Brush ListStatusBackground => PreviewStatus is not null ? System.Windows.Media.Brushes.LemonChiffon
         : Connection?.IsOnline == true ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 249, 245))
         : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(242, 246, 252));
@@ -1568,7 +1594,7 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model) : Obser
     public string ReportedAgentName { get; } = model.ReportedAgentName;
     public DateTimeOffset LastSeenAt { get; } = model.LastSeenAt;
     // Relative phrasing makes recent connectivity easier to recognize than an absolute timestamp.
-    public string LastSeenDisplay { get; } = MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
+    public string LastSeenDisplay => MainWindowViewModel.RelativeTimeDisplay(LastSeenAt);
     // Captured server-side at the same moment as LastSeenAt (the Source's most recent catalog upload), so
     // the two describe the same event rather than two different points in time. DHCP-mutable and shown for
     // context only - the certificate fingerprint below is this Source's actual identity.
@@ -1630,7 +1656,7 @@ public sealed class NearbyComputerViewModel(NearbyComputerDto model)
     public string Identity => model.Identity;
     public string DisplayName => model.AgentName;
     public string LastSeenDisplay => MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
-    public string DiscoveryStatus => "발견됨";
+    public string DiscoveryStatus => Localization.Text("UX_4b197f0a06");
     public string EmptyOffer => "—";
 }
 
@@ -1807,17 +1833,15 @@ public sealed class MappingViewModel : ObservableObject
     // after a mapping was created, so the column only ever displayed "true". Persists immediately, same
     // as every other in-screen edit this pass made auto-saving.
     public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) { OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(RuleStatusBrush)); _onEnabledChanged?.Invoke(this); } } }
-    public string StatusDisplay => !Enabled ? "일시 중지"
-        : LastBackupDisplay == Localization.Text("Text_Backingupnow_CF4F1D") ? "백업 중"
-        : LastBackupIssue.Length > 0 ? "확인 필요"
-        : LastBackupDisplay == Localization.Text("Text_Never_6300EF") ? "대기 중" : "완료";
-    public System.Windows.Media.Brush RuleStatusBrush => StatusDisplay switch
-    {
-        "완료" => System.Windows.Media.Brushes.SeaGreen,
-        "백업 중" => System.Windows.Media.Brushes.DodgerBlue,
-        "확인 필요" => System.Windows.Media.Brushes.DarkOrange,
-        _ => System.Windows.Media.Brushes.SlateGray
-    };
+    public string StatusDisplay => !Enabled ? Localization.Text("UX_13293e6028")
+        : LastBackupDisplay == Localization.Text("Text_Backingupnow_CF4F1D") ? Localization.Text("Text_Backingupnow_632CAE")
+        : LastBackupIssue.Length > 0 ? Localization.Text("UX_5982e28d0e")
+        : LastBackupDisplay == Localization.Text("Text_Never_6300EF") ? Localization.Text("State_ACCEPTED") : Localization.Text("UX_8d8680373c");
+    public System.Windows.Media.Brush RuleStatusBrush => !Enabled ? System.Windows.Media.Brushes.SlateGray
+        : LastBackupDisplay == Localization.Text("Text_Backingupnow_CF4F1D") ? System.Windows.Media.Brushes.DodgerBlue
+        : LastBackupIssue.Length > 0 ? System.Windows.Media.Brushes.DarkOrange
+        : LastBackupDisplay == Localization.Text("Text_Never_6300EF") ? System.Windows.Media.Brushes.SlateGray
+        : System.Windows.Media.Brushes.SeaGreen;
     // For a caller that's about to toggle several mappings at once and save them together (e.g.
     // MainWindowViewModel.SkipDeviceThisConnection) - the normal setter's per-mapping auto-save would fire
     // one overlapping SaveAsync() per mapping, and a config revision conflict on any but the first could

@@ -48,7 +48,9 @@ public partial class App : System.Windows.Application
         _window = new MainWindow(demoMode, serviceEndpoint);
         if (e.Args.Any(argument => argument.Equals("--preview-backups", StringComparison.OrdinalIgnoreCase)))
         {
-            _window.Title = "BackupMesh 백업 규칙 미리보기";
+            _window.Title = Localization.Source.Culture.TwoLetterISOLanguageName == "ko"
+                ? "BackupMesh 백업 규칙 미리보기"
+                : "BackupMesh Backup Rules Preview";
             _window.ViewModel.LoadPreviewRules();
             _window.ViewModel.LoadPreviewAgents();
             _window.ViewModel.SelectedMapping = _window.ViewModel.Mappings.FirstOrDefault();
@@ -108,7 +110,7 @@ public partial class App : System.Windows.Application
                         _window.ShowSettings();
                         await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                         CapturePreview("backupmesh-settings-preview.png");
-                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-settings-check.txt"), _window.VerifyPreviewSettingsControls());
+                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-settings-check.txt"), await _window.VerifyPreviewSettingsControlsAsync());
                         _window.ShowBackupRules();
                         _window.ViewModel.SelectedBackupSet = _window.ViewModel.BackupSets.FirstOrDefault(set => set.Model.SourcePaths.Count > 1);
                         _window.OpenBackupRule(null);
@@ -138,8 +140,8 @@ public partial class App : System.Windows.Application
                             throw new InvalidOperationException("Edit did not open in the rules page.");
                         _window.CloseRuleEditor();
                         _window.OpenBackupRule(sampleRule, copy: true);
-                        if (_window.RuleEditor?.HeadingText.Text != "백업 규칙 복제")
-                            throw new InvalidOperationException("Duplicate did not open in the rules page.");
+                        if (_window.RuleEditor?.HeadingText.Text != Localization.Text("RuleCopyHeading"))
+                            throw new InvalidOperationException($"Duplicate heading was '{_window.RuleEditor?.HeadingText.Text}', expected '{Localization.Text("RuleCopyHeading")}'.");
                         _window.CloseRuleEditor();
                         File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rule-paths-check.txt"), "In-page add, cancel, edit, duplicate, search and visible bulk selection: passed.");
                         var agentDialog = new ConnectAgentWindow { Owner = _window };

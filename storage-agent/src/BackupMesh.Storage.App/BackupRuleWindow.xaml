@@ -1,9 +1,9 @@
-<UserControl x:Class="BackupMesh.Storage.App.BackupRuleWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:BackupMesh.Storage.App" Background="#F8FBFE" FontFamily="Segoe UI" FontSize="15" Foreground="#172B4D" AutomationProperties.AutomationId="BackupRuleEditor">
+<UserControl x:Class="BackupMesh.Storage.App.BackupRuleWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:BackupMesh.Storage.App" Background="#F8FBFE" FontFamily="Segoe UI" FontSize="12" Foreground="#172B4D" AutomationProperties.AutomationId="BackupRuleEditor">
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,20">
             <TextBlock x:Name="HeadingText" Text="{local:Loc Text_Addbackuprule_3C4060}" Style="{StaticResource PageHeadingStyle}"/>
-            <TextBlock Text="백업할 원본과 저장 위치를 선택하세요." Foreground="#60718D" Margin="0,7,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="{local:Loc UX_335a46b3de}" Foreground="#60718D" Margin="0,7,0,0" TextWrapping="Wrap"/>
         </StackPanel>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
@@ -12,83 +12,83 @@
                 <Border Style="{StaticResource CardStyle}" Padding="24" MinHeight="450">
                     <StackPanel>
                         <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="백업할 데이터" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
+                            <TextBlock Text="{local:Loc Text_Whattobackup_6B4FC3}" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
                             <Border Grid.Column="1" Width="64" Height="64" CornerRadius="20" Background="#175A68"><Image Source="Assets/Icons/nav-agents.png" Width="38" Height="38" Stretch="Uniform"/></Border>
                         </Grid>
-                        <TextBlock Text="원본 컴퓨터 / 폴더" Foreground="#526987" Margin="0,0,0,7"/>
+                        <TextBlock Text="{local:Loc UX_3af87e7739}" Foreground="#526987" Margin="0,0,0,7"/>
                         <Grid Margin="0,0,0,23"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="BackupSetCombo" ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet, Mode=TwoWay}" DisplayMemberPath="DisplayName" SelectionChanged="OnBackupSetChanged" ToolTip="{Binding SelectedItem.DisplayName, RelativeSource={RelativeSource Self}}" Style="{StaticResource RuleFilterStyle}" AutomationProperties.AutomationId="BackupRuleBackupSetCombo"/>
                             <Button Grid.Column="1" Content="{local:Loc UXChooseThisPCFolder}" Command="{Binding AddLocalBackupSetCommand}" Style="{StaticResource OutlinedButtonStyle}" Margin="12,0,0,0" Padding="12,9" ToolTip="{local:Loc Text_BackupafolderonthisPCdirectlyn_11F9C0}" AutomationProperties.AutomationId="BackupRuleAddLocalBackupSetButton"/>
                         </Grid>
                         <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="백업할 원본 경로 선택" Foreground="#526987" VerticalAlignment="Center"/>
+                            <TextBlock Text="{local:Loc UX_5b0d0ff4ca}" Foreground="#526987" VerticalAlignment="Center"/>
                             <TextBlock x:Name="SourcePathsSummary" Grid.Column="1" Foreground="#007F78" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.AutomationId="BackupRuleSourcePathsSummary"/>
                         </Grid>
                         <Grid Margin="0,0,0,8">
-                            <TextBox x:Name="SourcePathSearch" Style="{StaticResource SearchTextBoxStyle}" Padding="40,9,12,9" Height="42" VerticalContentAlignment="Center" TextChanged="OnSourcePathSearchChanged" ToolTip="경로가 많을 때 이름으로 검색하세요." AutomationProperties.AutomationId="BackupRuleSourcePathSearch" AutomationProperties.Name="원본 경로 검색"/>
+                            <TextBox x:Name="SourcePathSearch" Style="{StaticResource SearchTextBoxStyle}" Padding="40,9,12,9" Height="42" VerticalContentAlignment="Center" TextChanged="OnSourcePathSearchChanged" ToolTip="{local:Loc UX_d62207ee27}" AutomationProperties.AutomationId="BackupRuleSourcePathSearch" AutomationProperties.Name="{local:Loc UX_dfde9e7bab}"/>
                             <TextBlock Text="⌕" FontSize="23" Foreground="#172B4D" Margin="13,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                            <TextBlock x:Name="SourcePathSearchHint" Text="원본 경로 검색" Foreground="#8292A8" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="SourcePathSearchHint" Text="{local:Loc UX_dfde9e7bab}" Foreground="#8292A8" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
                         </Grid>
                         <Grid>
                             <ListBox x:Name="SourcePathsList" Height="136" Background="White" BorderBrush="#CEDCF0" BorderThickness="1" Padding="7" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.AutomationId="BackupRuleSourcePathsList">
                                 <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="8,7"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border Background="{TemplateBinding Background}" CornerRadius="5"><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Margin="{TemplateBinding Padding}"/></Border></ControlTemplate></Setter.Value></Setter><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="#F0F9FB"/></DataTrigger></Style.Triggers></Style></ListBox.ItemContainerStyle>
-                                <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Path}" ToolTip="{Binding Path}" IsChecked="{Binding IsSelected, Mode=TwoWay}" FontSize="15" Foreground="#172B4D" AutomationProperties.Name="{Binding Path}"/></DataTemplate></ListBox.ItemTemplate>
+                                <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Path}" ToolTip="{Binding Path}" IsChecked="{Binding IsSelected, Mode=TwoWay}" FontSize="12" Foreground="#172B4D" AutomationProperties.Name="{Binding Path}"/></DataTemplate></ListBox.ItemTemplate>
                             </ListBox>
                             <TextBlock x:Name="SourcePathsEmptyText" Foreground="#60718D" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                         </Grid>
                         <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="SourcePathsMatches" Foreground="#60718D" FontSize="13" VerticalAlignment="Center"/>
-                            <Button x:Name="SelectVisibleSourcePathsButton" Grid.Column="1" Content="표시 항목 모두 선택" Click="OnSelectVisibleSourcePathsClick" Style="{StaticResource LinkButtonStyle}" Margin="0,0,10,0" FontSize="13" AutomationProperties.AutomationId="BackupRuleSelectVisiblePathsButton"/>
-                            <Button x:Name="ClearVisibleSourcePathsButton" Grid.Column="2" Content="표시 항목 해제" Click="OnClearVisibleSourcePathsClick" Style="{StaticResource LinkButtonStyle}" Margin="0" FontSize="13" AutomationProperties.AutomationId="BackupRuleClearVisiblePathsButton"/>
+                            <TextBlock x:Name="SourcePathsMatches" Foreground="#60718D" FontSize="12" VerticalAlignment="Center"/>
+                            <Button x:Name="SelectVisibleSourcePathsButton" Grid.Column="1" Content="{local:Loc UX_7d4ba6250e}" Click="OnSelectVisibleSourcePathsClick" Style="{StaticResource LinkButtonStyle}" Margin="0,0,10,0" FontSize="12" AutomationProperties.AutomationId="BackupRuleSelectVisiblePathsButton"/>
+                            <Button x:Name="ClearVisibleSourcePathsButton" Grid.Column="2" Content="{local:Loc UX_1803e1e234}" Click="OnClearVisibleSourcePathsClick" Style="{StaticResource LinkButtonStyle}" Margin="0" FontSize="12" AutomationProperties.AutomationId="BackupRuleClearVisiblePathsButton"/>
                         </Grid>
                     </StackPanel>
                 </Border>
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="➜" FontSize="36" Foreground="#07AFC3" HorizontalAlignment="Center"/><TextBlock Text="한 위치에&#x0a;백업" TextAlignment="Center" FontSize="12" Foreground="#60718D"/></StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="➜" FontSize="36" Foreground="#07AFC3" HorizontalAlignment="Center"/><TextBlock Text="{local:Loc UX_5d4992a1ba}" TextAlignment="Center" FontSize="12" Foreground="#60718D"/></StackPanel>
                 <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="24" MinHeight="450">
                     <StackPanel>
                         <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="저장 위치" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
+                            <TextBlock Text="{local:Loc StorageLocation}" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
                             <Border Grid.Column="1" Width="64" Height="64" CornerRadius="20" Background="#EAF6FB"><Image Source="Assets/Icons/summary-drive.png" Width="38" Height="38" Stretch="Uniform"/></Border>
                         </Grid>
-                        <TextBlock Text="저장 장치" Foreground="#526987" Margin="0,0,0,7"/>
+                        <TextBlock Text="{local:Loc UX_3982d6c2c6}" Foreground="#526987" Margin="0,0,0,7"/>
                         <ComboBox x:Name="TargetDeviceCombo" ItemsSource="{Binding BackupDestinations}" DisplayMemberPath="DisplayName" SelectionChanged="OnTargetChanged" Style="{StaticResource RuleFilterStyle}" AutomationProperties.AutomationId="BackupRuleDeviceCombo"/>
-                        <Button Content="저장 폴더 선택..." Click="OnChooseStorageFolderClick" Style="{StaticResource OutlinedButtonStyle}" HorizontalAlignment="Left" Margin="0,12,0,23" Padding="16,9" AutomationProperties.AutomationId="BackupRuleChooseStorageFolderButton"/>
-                        <TextBlock Text="전체 저장 경로" Foreground="#526987" Margin="0,0,0,7"/>
+                        <Button Content="{local:Loc UX_72120b546c}" Click="OnChooseStorageFolderClick" Style="{StaticResource OutlinedButtonStyle}" HorizontalAlignment="Left" Margin="0,12,0,23" Padding="16,9" AutomationProperties.AutomationId="BackupRuleChooseStorageFolderButton"/>
+                        <TextBlock Text="{local:Loc Text_Fulldestinationpath_FA4DF9}" Foreground="#526987" Margin="0,0,0,7"/>
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBox x:Name="DestinationInput" Style="{StaticResource SearchTextBoxStyle}" Margin="0" Padding="12,10" MinHeight="44" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleDestinationInput"/>
                             <Button Grid.Column="1" Content="{local:Loc Text_Browse_93C6B6}" Click="OnBrowseClick" Style="{StaticResource OutlinedButtonStyle}" Margin="8,0,0,0" Padding="12,9" AutomationProperties.AutomationId="BackupRuleBrowseButton"/>
                         </Grid>
-                        <TextBlock Text="{local:Loc Text_Thisisthecompletepathwheretheb_68B6C2}" TextWrapping="Wrap" Foreground="#60718D" FontSize="13" Margin="0,7,0,0"/>
-                        <Border Background="#EFF7FC" CornerRadius="9" Padding="16" Margin="0,30,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="24" Height="24" CornerRadius="12" Background="#1675D1" Margin="0,0,10,0"><TextBlock Text="i" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Grid.Column="1" Text="왼쪽에서 선택한 모든 경로가 이 저장 위치에 백업됩니다." TextWrapping="Wrap" Foreground="#526987" VerticalAlignment="Center"/></Grid></Border>
+                        <TextBlock Text="{local:Loc Text_Thisisthecompletepathwheretheb_68B6C2}" TextWrapping="Wrap" Foreground="#60718D" FontSize="12" Margin="0,7,0,0"/>
+                        <Border Background="#EFF7FC" CornerRadius="9" Padding="16" Margin="0,30,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="24" Height="24" CornerRadius="12" Background="#1675D1" Margin="0,0,10,0"><TextBlock Text="i" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Grid.Column="1" Text="{local:Loc UX_6d53264d17}" TextWrapping="Wrap" Foreground="#526987" VerticalAlignment="Center"/></Grid></Border>
                     </StackPanel>
                 </Border>
             </Grid>
             <Border Style="{StaticResource CardStyle}" Padding="24,16" Margin="0,14,0,0">
                 <StackPanel>
-                    <TextBlock Text="자동 백업 설정" Style="{StaticResource CardHeadingStyle}" Margin="0,0,0,16"/>
-                    <Grid TextElement.FontSize="15" TextElement.FontWeight="Normal">
+                    <TextBlock Text="{local:Loc UX_b0e900c976}" Style="{StaticResource CardHeadingStyle}" Margin="0,0,0,16"/>
+                    <Grid TextElement.FontSize="12" TextElement.FontWeight="Normal">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="UploadDividerColumn" Width="1"/><ColumnDefinition x:Name="UploadSettingsColumn" Width="*"/></Grid.ColumnDefinitions>
                         <StackPanel Margin="0,0,22,0">
-                            <TextBlock Text="백업 간격" Foreground="#526987" Margin="0,0,0,6"/>
+                            <TextBlock Text="{local:Loc UX_34f3480226}" Foreground="#526987" Margin="0,0,0,6"/>
                             <StackPanel Orientation="Horizontal">
                                 <TextBox x:Name="BackupIntervalInput" Style="{StaticResource SearchTextBoxStyle}" Width="120" Height="42" Padding="12,0" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleIntervalInput"/>
-                                <TextBlock Text="분" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#526987"/>
+                                <TextBlock Text="{local:Loc Text_minutes_90E63D}" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#526987"/>
                             </StackPanel>
-                            <TextBlock Text="원본과 저장 위치가 연결된 동안 이 간격으로 자동 백업합니다." TextWrapping="Wrap" Foreground="#60718D" FontSize="13" Margin="0,6,0,0"/>
+                            <TextBlock Text="{local:Loc UX_b087adc062}" TextWrapping="Wrap" Foreground="#60718D" FontSize="12" Margin="0,6,0,0"/>
                         </StackPanel>
                         <Border Grid.Column="1" Background="#DFE8F2"/>
                         <StackPanel Grid.Column="2" Margin="22,0">
-                            <CheckBox x:Name="DelayWhenBusyCheckBox" Content="PC가 바쁠 때 자동 백업 미루기" IsChecked="True" AutomationProperties.AutomationId="BackupRuleDelayWhenBusyCheckBox"/>
-                            <TextBlock Text="CPU와 디스크 사용량이 높으면 잠시 미룹니다. 지금 백업에는 적용되지 않습니다." TextWrapping="Wrap" Foreground="#60718D" FontSize="13" Margin="0,6,0,0"/>
+                            <CheckBox x:Name="DelayWhenBusyCheckBox" Content="{local:Loc UX_d158c2ae6e}" IsChecked="True" AutomationProperties.AutomationId="BackupRuleDelayWhenBusyCheckBox"/>
+                            <TextBlock Text="{local:Loc UX_5541b6e16a}" TextWrapping="Wrap" Foreground="#60718D" FontSize="12" Margin="0,6,0,0"/>
                         </StackPanel>
                         <Border Grid.Column="3" Background="#DFE8F2"/>
                         <StackPanel x:Name="UploadLimitSection" Grid.Column="4" Margin="22,0,0,0">
-                            <TextBlock Text="이 규칙의 업로드 속도 제한 (KiB/s)" Foreground="#526987" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                            <TextBlock Text="{local:Loc UX_c799f39b2f}" Foreground="#526987" Margin="0,0,0,6" TextWrapping="Wrap"/>
                             <StackPanel Orientation="Horizontal">
                                 <TextBox x:Name="UploadLimitInput" Style="{StaticResource SearchTextBoxStyle}" Width="150" Height="42" Padding="12,0" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleUploadLimitInput"/>
                                 <TextBlock Text="KiB/s" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#526987"/>
                             </StackPanel>
-                            <TextBlock Text="비우면 에이전트 설정을 따르고, 0이면 제한하지 않습니다." TextWrapping="Wrap" Foreground="#60718D" FontSize="13" Margin="0,6,0,0"/>
+                            <TextBlock Text="{local:Loc UX_51b9eb066a}" TextWrapping="Wrap" Foreground="#60718D" FontSize="12" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>

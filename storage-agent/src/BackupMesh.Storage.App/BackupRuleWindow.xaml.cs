@@ -38,8 +38,8 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
         UploadLimitInput.Text = existing?.UploadLimitKiBps?.ToString() ?? string.Empty;
         if (copy)
         {
-            HeadingText.Text = "백업 규칙 복제";
-            SaveButton.Content = "복제";
+            HeadingText.Text = Localization.Text("RuleCopyHeading");
+            SaveButton.Content = Localization.Text("RuleCopyAction");
         }
         else if (existing is not null)
         {
@@ -54,9 +54,9 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
 
     internal static string CopyDestination(string destination, IEnumerable<string> existing)
     {
-        var candidate = destination + " - 복사본";
+        var candidate = destination + Localization.Text("RuleCopySuffix");
         for (var number = 2; existing.Contains(candidate, StringComparer.OrdinalIgnoreCase); number++)
-            candidate = destination + $" - 복사본 {number}";
+            candidate = destination + Localization.Format("RuleCopySuffixNumber", number);
         return candidate;
     }
 
@@ -65,14 +65,14 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
         ValidationText.Text = string.Empty;
         if (!int.TryParse(BackupIntervalInput.Text, out var interval) || interval is < 5 or > 1440)
         {
-            ValidationText.Text = "백업 간격은 5~1440분 사이로 입력하세요.";
+            ValidationText.Text = Localization.Text("RuleIntervalInvalid");
             return;
         }
         var uploadLimit = -1;
         if (!string.IsNullOrWhiteSpace(UploadLimitInput.Text)
             && (!int.TryParse(UploadLimitInput.Text, out uploadLimit) || uploadLimit is < 0 or > 1_048_576))
         {
-            ValidationText.Text = "업로드 제한은 0~1048576 KiB/s 사이로 입력하세요.";
+            ValidationText.Text = Localization.Text("RuleUploadInvalid");
             return;
         }
         SaveButton.IsEnabled = false;
@@ -200,10 +200,10 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
     {
         if (_updatingPathSelection || SourcePathsList is null || SourcePathsSummary is null) return;
         SourcePathSearchHint.Visibility = string.IsNullOrEmpty(SourcePathSearch.Text) ? Visibility.Visible : Visibility.Collapsed;
-        SourcePathsSummary.Text = $"선택 {_sourcePaths.Count(path => path.IsSelected)} / 전체 {_sourcePaths.Count}";
+        SourcePathsSummary.Text = Localization.Format("RulePathsSelected", _sourcePaths.Count(path => path.IsSelected), _sourcePaths.Count);
         var visible = SourcePathsList.Items.Count;
-        SourcePathsMatches.Text = string.IsNullOrEmpty(SourcePathSearch.Text) ? $"전체 {visible}개" : $"검색 결과 {visible}개";
-        SourcePathsEmptyText.Text = _sourcePaths.Count == 0 ? "원본 경로가 없습니다." : "검색 결과가 없습니다.";
+        SourcePathsMatches.Text = Localization.Format(string.IsNullOrEmpty(SourcePathSearch.Text) ? "RulePathsAll" : "RulePathsMatches", visible);
+        SourcePathsEmptyText.Text = Localization.Text(_sourcePaths.Count == 0 ? "RulePathsEmpty" : "RulePathsNoMatches");
         SourcePathsEmptyText.Visibility = visible == 0 ? Visibility.Visible : Visibility.Collapsed;
         SelectVisibleSourcePathsButton.IsEnabled = visible > 0;
         ClearVisibleSourcePathsButton.IsEnabled = visible > 0;

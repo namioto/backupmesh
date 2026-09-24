@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         System.Windows.Data.CollectionViewSource.GetDefaultView(ViewModel.NearbyComputers).Filter = MatchesNearbyAgent;
         ViewModel.Sources.CollectionChanged += OnAgentsCollectionChanged;
         OnAgentsCollectionChanged(null, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        Localization.LanguageChanged += (_, _) => OnRuleFilterChanged(this, new RoutedEventArgs());
     }
 
     private void OnMinimizeWindowClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -138,7 +139,7 @@ public partial class MainWindow : Window
         ViewModel.SelectedMapping = selected is not null && RulePage.Contains(selected) ? selected : null;
         var first = filtered.Length == 0 ? 0 : _rulePageIndex * _rulePageSize + 1;
         var last = Math.Min(filtered.Length, first + RulePage.Count - 1);
-        RuleCountText.Text = filtered.Length == 0 ? "0개 규칙" : $"{ViewModel.Mappings.Count}개 중 {first}-{last}개 표시";
+        RuleCountText.Text = filtered.Length == 0 ? Localization.Text("RuleCountEmpty") : Localization.Format("RuleCountRange", ViewModel.Mappings.Count, first, last);
         RulePageButtons.Children.Clear();
         var visiblePages = Enumerable.Range(0, Math.Min(3, pages))
             .Concat(Enumerable.Range(Math.Max(0, _rulePageIndex - 1), Math.Min(3, pages - Math.Max(0, _rulePageIndex - 1))))
@@ -155,7 +156,7 @@ public partial class MainWindow : Window
                 BorderThickness = new Thickness(0), Background = page == _rulePageIndex ? new SolidColorBrush(Color.FromRgb(228, 248, 245)) : Brushes.Transparent,
                 Foreground = new SolidColorBrush(Color.FromRgb(23, 43, 77))
             };
-            System.Windows.Automation.AutomationProperties.SetName(pageButton, $"{page + 1} 페이지");
+            System.Windows.Automation.AutomationProperties.SetName(pageButton, Localization.Format("RulePageAccessible", page + 1));
             pageButton.Click += OnRulePageNumberClick;
             RulePageButtons.Children.Add(pageButton);
             previousPage = page;
@@ -205,10 +206,11 @@ public partial class MainWindow : Window
     public async Task<string> VerifyPreviewRuleControlsAsync()
     {
         int Count() => RulePage.Count;
-        if (BackupRuleWindow.CopyDestination(@"D:\Backup", [@"D:\Backup - 복사본"]) != @"D:\Backup - 복사본 2")
+        if (BackupRuleWindow.CopyDestination(@"D:\Backup", [@"D:\Backup" + Localization.Text("RuleCopySuffix")])
+            != @"D:\Backup" + Localization.Format("RuleCopySuffixNumber", 2))
             throw new InvalidOperationException("Duplicate destination failed.");
         if (Count() != 12 || ViewModel.SelectedMapping is null) throw new InvalidOperationException("Preview rows or selection missing.");
-        RuleSearch.Text = "가족";
+        RuleSearch.Text = Localization.Source.Culture.TwoLetterISOLanguageName == "en" ? "Family" : "가족";
         if (Count() != 1) throw new InvalidOperationException("Rule search failed.");
         RuleSearch.Clear();
         RuleStatusFilter.SelectedIndex = 2;
@@ -221,7 +223,8 @@ public partial class MainWindow : Window
         if (Count() != 12) throw new InvalidOperationException("Device filter failed.");
         RuleDeviceFilter.SelectedItem = null;
         RuleSort.SelectedIndex = 1;
-        if (Count() != 12 || RulePage.First().BackupSetOnlyName != "가족 사진") throw new InvalidOperationException("Name sort failed.");
+        if (Count() != 12 || RulePage.First().BackupSetOnlyName != ViewModel.Mappings.MinBy(mapping => mapping.BackupSetOnlyName, StringComparer.CurrentCulture)?.BackupSetOnlyName)
+            throw new InvalidOperationException("Name sort failed.");
         RuleSort.SelectedIndex = 0;
         RuleStatusFilter.SelectedIndex = 4;
         var paused = ViewModel.Mappings.Single(mapping => !mapping.Enabled);
@@ -267,14 +270,14 @@ public partial class MainWindow : Window
         MappingsGrid.UpdateLayout();
         var otherRule = RulePage.Skip(1).First();
         var otherRow = MappingsGrid.ItemContainerGenerator.ContainerFromItem(otherRule) as DataGridRow;
-        var rowMore = otherRow is null ? null : FindDescendant<Button>(otherRow, button => Equals(button.ToolTip, "규칙 작업"));
+        var rowMore = otherRow is null ? null : FindDescendant<Button>(otherRow, button => Equals(button.ToolTip, Localization.Text("UX_b4db392797")));
         if (rowMore is null) throw new InvalidOperationException("Rule row menu button missing.");
         rowMore.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         if (!rowMore.ContextMenu.IsOpen || ViewModel.SelectedMapping != otherRule) throw new InvalidOperationException("Rule row menu failed.");
         rowMore.ContextMenu.IsOpen = false;
         RuleSelectAll.IsChecked = true;
-        if (MappingsGrid.SelectedItems.Count != RulePage.Count || RuleEditButton.IsEnabled || !RuleDeleteButton.IsEnabled || SelectedRuleCountText.Text != $"선택 {RulePage.Count}개")
+        if (MappingsGrid.SelectedItems.Count != RulePage.Count || RuleEditButton.IsEnabled || !RuleDeleteButton.IsEnabled || SelectedRuleCountText.Text != Localization.Format("RuleSelectedCount", RulePage.Count))
             throw new InvalidOperationException("Rule select all failed.");
         RuleSelectAll.IsChecked = false;
         if (MappingsGrid.SelectedItems.Count != 0 || RuleDeleteButton.IsEnabled) throw new InvalidOperationException("Rule clear selection failed.");
@@ -438,7 +441,7 @@ public partial class MainWindow : Window
         int SourceCount() => System.Windows.Data.CollectionViewSource.GetDefaultView(ViewModel.Sources).Cast<object>().Count();
         int NearbyCount() => System.Windows.Data.CollectionViewSource.GetDefaultView(ViewModel.NearbyComputers).Cast<object>().Count();
         if (SourceCount() != 4 || NearbyCount() != 2) throw new InvalidOperationException("Preview agents missing.");
-        AgentSearch.Text = "가족";
+        AgentSearch.Text = Localization.Source.Culture.TwoLetterISOLanguageName == "en" ? "Family" : "가족";
         if (SourceCount() != 1 || NearbyCount() != 0) throw new InvalidOperationException("Agent search failed.");
         AgentSearch.Clear();
         AgentStatusFilter.SelectedIndex = 1;
@@ -473,7 +476,7 @@ public partial class MainWindow : Window
         foreach (var agent in new[] { ViewModel.Sources.First(), ViewModel.Sources.Last() })
         {
             var row = SourceConnectionsGrid.ItemContainerGenerator.ContainerFromItem(agent) as DataGridRow;
-            var more = row is null ? null : FindDescendant<Button>(row, button => Equals(button.ToolTip, "에이전트 작업"));
+            var more = row is null ? null : FindDescendant<Button>(row, button => Equals(button.ToolTip, Localization.Text("UX_bddb76c84d")));
             if (more is null) throw new InvalidOperationException("Agent row menu button missing.");
             more.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
@@ -521,7 +524,7 @@ public partial class MainWindow : Window
 
     public void ShowSettings() => SettingsTabItem.IsSelected = true;
 
-    public string VerifyPreviewSettingsControls()
+    public async Task<string> VerifyPreviewSettingsControlsAsync()
     {
         T Control<T>(string id) where T : DependencyObject => FindDescendant<T>((DependencyObject)SettingsTabItem.Content,
             control => System.Windows.Automation.AutomationProperties.GetAutomationId(control) == id)
@@ -540,6 +543,20 @@ public partial class MainWindow : Window
 
         if (Control<System.Windows.Controls.ComboBox>("LanguageCombo").SelectedValue?.ToString() != ViewModel.Language)
             throw new InvalidOperationException("Language selection binding failed.");
+        var originalCulture = Localization.Source.Culture.Name;
+        try
+        {
+            foreach (var language in new[] { "en", "ko" })
+            {
+                Localization.Initialize(language);
+                await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                if (RuleStatusFilter.Items[0] is not ComboBoxItem status ||
+                    status.Content?.ToString() != Localization.Text("UX_aad0345e13") ||
+                    RuleCountText.Text != Localization.Format("RuleCountRange", ViewModel.Mappings.Count, 1, RulePage.Count))
+                    throw new InvalidOperationException($"Language switch did not update rule labels: {language}; status={(RuleStatusFilter.Items[0] as ComboBoxItem)?.Content}; count={RuleCountText.Text}; expected={Localization.Format("RuleCountRange", ViewModel.Mappings.Count, 1, RulePage.Count)}.");
+            }
+        }
+        finally { Localization.Initialize(originalCulture); }
         CheckToggle("StartWithWindowsCheckBox", () => ViewModel.StartWithWindows);
         CheckToggle("NotifyOnDeviceArrivalCheckBox", () => ViewModel.NotifyOnDeviceArrival);
         CheckToggle("AutomaticBackupsCheckBox", () => ViewModel.AutomaticBackups);
@@ -591,7 +608,7 @@ public partial class MainWindow : Window
         if (e.OriginalSource != MappingsGrid || RuleStartButton is null) return;
         var selected = SelectedRules();
         SelectedRuleCountBadge.Visibility = selected.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        SelectedRuleCountText.Text = $"선택 {selected.Length}개";
+        SelectedRuleCountText.Text = Localization.Format("RuleSelectedCount", selected.Length);
         RuleStartButton.IsEnabled = selected.Any(mapping => mapping.Enabled && mapping.Device.IsConnected);
         RuleEditButton.IsEnabled = selected.Length == 1;
         RuleDuplicateButton.IsEnabled = selected.Length == 1;
