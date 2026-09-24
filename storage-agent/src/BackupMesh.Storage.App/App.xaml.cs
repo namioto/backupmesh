@@ -55,7 +55,7 @@ public partial class App : System.Windows.Application
             _window.ViewModel.LoadPreviewAgents();
             _window.ViewModel.SelectedMapping = _window.ViewModel.Mappings.FirstOrDefault();
             _window.ShowBackupRules();
-            void CapturePreview(string filename, FrameworkElement? target = null)
+            void CapturePreview(string filename, FrameworkElement? target = null, FrameworkElement? overlay = null)
             {
                 var path = Path.Combine(Path.GetTempPath(), filename);
                 if (target is not null)
@@ -80,6 +80,21 @@ public partial class App : System.Windows.Application
                 var image = new System.Windows.Media.Imaging.RenderTargetBitmap(
                     (int)_window.ActualWidth, (int)_window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
                 image.Render(_window);
+                if (overlay is not null)
+                {
+                    var composite = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                        (int)_window.ActualWidth, (int)_window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    var drawing = new System.Windows.Media.DrawingVisual();
+                    using (var context = drawing.RenderOpen())
+                    {
+                        context.DrawImage(image, new Rect(0, 0, _window.ActualWidth, _window.ActualHeight));
+                        var position = _window.PointFromScreen(overlay.PointToScreen(new System.Windows.Point(0, 0)));
+                        context.DrawRectangle(new System.Windows.Media.VisualBrush(overlay), null,
+                            new Rect(position, new System.Windows.Size(overlay.ActualWidth, overlay.ActualHeight)));
+                    }
+                    composite.Render(drawing);
+                    image = composite;
+                }
                 var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
                 encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
                 using var output = File.Create(path);
@@ -136,6 +151,7 @@ public partial class App : System.Windows.Application
                             (icon.PixelWidth != icon.PixelHeight || icon.PixelWidth is < 330 or > 390)))
                             throw new InvalidOperationException("Backup rule icons are not uniformly cropped and centered.");
                         CapturePreview("backupmesh-rule-icons-preview.png", (FrameworkElement)ruleDialog.RuleIconPopup.Child);
+                        CapturePreview("backupmesh-rule-icons-window-preview.png", overlay: (FrameworkElement)ruleDialog.RuleIconPopup.Child);
                         ruleDialog.RuleIconChoices.SelectedIndex = 42;
                         ruleDialog.RuleNameInput.Text = "가족 자료 백업";
                         if (ruleDialog.SelectedRuleIcon.IconId != 42 || ruleDialog.RuleIconPopup.IsOpen)

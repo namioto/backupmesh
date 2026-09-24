@@ -345,7 +345,7 @@
                                         <Setter Property="Foreground" Value="#B45309"/>
                                     </Style>
                                     <Style x:Key="RepeatDimmedFolderNameStyle" TargetType="TextBlock" BasedOn="{StaticResource SelectedRowTextStyle}">
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
                                         <Style.Triggers>
                                             <MultiDataTrigger>
                                                 <MultiDataTrigger.Conditions>
@@ -353,7 +353,6 @@
                                                     <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="False"/>
                                                 </MultiDataTrigger.Conditions>
                                                 <Setter Property="Foreground" Value="#607086"/>
-                                                <Setter Property="FontWeight" Value="Normal"/>
                                             </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -367,7 +366,7 @@
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Grid Margin="7,2" VerticalAlignment="Center">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <local:RuleIcon IconId="{Binding IconId}" Width="30" Height="30" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding RuleName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="14" VerticalAlignment="Center"/>
                                                 </Grid>
