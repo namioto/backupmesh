@@ -22,6 +22,10 @@
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition x:Name="FooterRow" Height="34"/></Grid.RowDefinitions>
             <TabControl x:Name="MainTabControl" Margin="-280,0,0,0" TabStripPlacement="Left" SelectionChanged="OnTabSelectionChanged" AutomationProperties.AutomationId="MainTabControl" Background="Transparent" BorderThickness="0">
                 <TabControl.Resources>
+                    <Style x:Key="SidebarLabelStyle" TargetType="TextBlock">
+                        <Setter Property="FontWeight" Value="Bold"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
                     <Style TargetType="TabControl">
                         <Setter Property="Template">
                             <Setter.Value>
@@ -49,10 +53,10 @@
                             <Setter.Value><ControlTemplate TargetType="TabItem">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="8" Margin="0,0,0,2" x:Name="ItemBorder">
                                     <Grid><Border Width="6" HorizontalAlignment="Left" Background="Transparent" x:Name="Accent" CornerRadius="3"/>
-                                    <ContentPresenter x:Name="HeaderContent" ContentSource="Header" Margin="26,16" TextElement.FontSize="14" TextElement.FontWeight="SemiBold" VerticalAlignment="Center"/></Grid>
+                                    <ContentPresenter ContentSource="Header" Margin="26,16" TextElement.FontSize="14" VerticalAlignment="Center"/></Grid>
                                 </Border>
                                 <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#1C5263"/><Setter Property="Foreground" Value="White"/><Setter TargetName="HeaderContent" Property="TextElement.FontWeight" Value="Bold"/><Setter TargetName="Accent" Property="Background" Value="#31E9DD"/></Trigger>
+                                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#1C5263"/><Setter Property="Foreground" Value="White"/><Setter TargetName="Accent" Property="Background" Value="#31E9DD"/></Trigger>
                                     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#286170"/></Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate></Setter.Value>
@@ -60,7 +64,7 @@
                     </Style>
                 </TabControl.Resources>
             <TabItem HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" AutomationProperties.AutomationId="OverviewTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-overview.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Overview_D4B1EA}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-overview.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Overview_D4B1EA}" Style="{StaticResource SidebarLabelStyle}"/></StackPanel></TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
                     <Grid Margin="34,52,40,42">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -209,7 +213,7 @@
                 </ScrollViewer>
             </TabItem>
             <TabItem x:Name="HistoryTabItem" Visibility="Collapsed" AutomationProperties.AutomationId="BackupHistoryTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-history.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc UX_a1901c92f1}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-history.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc UX_a1901c92f1}" Style="{StaticResource SidebarLabelStyle}"/></StackPanel></TabItem.Header>
                 <Grid Margin="28">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Text="{local:Loc UX_a1901c92f1}" Style="{StaticResource SectionTitleStyle}" FontSize="22"/>
@@ -260,7 +264,7 @@
                         <Setter Property="VerticalAlignment" Value="Center"/>
                     </Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Backuprules_566313}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Backuprules_566313}" Style="{StaticResource SidebarLabelStyle}"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,52,40,42">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid Style="{StaticResource PageHeaderStyle}">
@@ -455,7 +459,7 @@
                     <Style x:Key="AgentRowStyle" TargetType="DataGridRow"><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
                     <Style x:Key="AgentCellStyle" TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-agents.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_SourceAgent_21CF69}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-agents.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_SourceAgent_21CF69}" Style="{StaticResource SidebarLabelStyle}"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,51,40,47">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid Grid.Row="0" Style="{StaticResource PageHeaderStyle}">
@@ -585,7 +589,7 @@
                         </ControlTemplate></Setter.Value></Setter>
                     </Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-settings.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Settings_74A883}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-settings.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Settings_74A883}" Style="{StaticResource SidebarLabelStyle}"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,52,40,42" TextElement.Foreground="#172B4D" TextElement.FontSize="12">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Text="{local:Loc Text_Settings_74A883}" Style="{StaticResource PageHeadingStyle}"/>

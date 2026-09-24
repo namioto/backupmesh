@@ -6,6 +6,7 @@ All notable changes to BackupMesh are documented in this file.
 
 - Give each backup rule its own editable name and one of 72 shared category icons; show the icon consistently in rule lists and summaries.
 - Place the icon picker before the rule name and vertically align rule table cells, including rows with backup notes.
+- Apply a shared bold text style directly to every sidebar menu label.
 - Keep rule names and icons when editing or copying rules, including configurations created before these fields existed.
 - Restore visual hierarchy for navigation, primary actions, rule and agent names, and overview summary values.
 - Tighten remote agent rows and give the overview's lower panels more room while keeping body and supporting text compact.
