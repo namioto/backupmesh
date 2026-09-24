@@ -326,8 +326,6 @@
                                             <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger>
                                             <DataTrigger Binding="{Binding Enabled}" Value="False">
                                                 <Setter Property="Opacity" Value="0.55"/>
-                                                <Setter Property="BorderBrush" Value="#B0B8C2"/>
-                                                <Setter Property="BorderThickness" Value="3,0,0,0"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
