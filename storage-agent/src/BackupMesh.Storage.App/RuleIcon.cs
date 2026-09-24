@@ -24,7 +24,18 @@ public sealed class RuleIcon : System.Windows.Controls.Image
     public RuleIcon()
     {
         Stretch = Stretch.Uniform;
+        RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
         Source = RuleIconCatalog.Get(0);
+    }
+
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+    {
+        base.OnRenderSizeChanged(sizeInfo);
+        var size = Math.Min(ActualWidth, ActualHeight);
+        var inset = size * 0.035;
+        Clip = new RectangleGeometry(
+            new Rect(inset, inset, Math.Max(0, ActualWidth - 2 * inset), Math.Max(0, ActualHeight - 2 * inset)),
+            size * 0.19, size * 0.19);
     }
 }
 
