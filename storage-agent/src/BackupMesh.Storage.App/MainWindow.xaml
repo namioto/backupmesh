@@ -254,7 +254,7 @@
             <TabItem x:Name="BackupsTabItem" AutomationProperties.AutomationId="BackupsTab">
                 <TabItem.Resources>
                     <Style x:Key="RuleActionStyle" TargetType="Button" BasedOn="{StaticResource LinkButtonStyle}">
-                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="FontSize" Value="12"/>
                         <Setter Property="Foreground" Value="#172B4D"/>
                         <Setter Property="Margin" Value="7,0"/>
                         <Setter Property="Padding" Value="7,5"/>
@@ -296,7 +296,7 @@
                             <Grid Background="#FAFCFF" Margin="1,1,1,0" Height="54">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,18,0">
-                                    <TextBlock x:Name="RuleCountText" FontSize="13" Foreground="#172B4D" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="RuleCountText" FontSize="12" Foreground="#172B4D" VerticalAlignment="Center"/>
                                     <Border x:Name="SelectedRuleCountBadge" Background="#E4F8F5" CornerRadius="14" Padding="9,4" Margin="12,0,0,0" Visibility="Collapsed"><TextBlock x:Name="SelectedRuleCountText" FontSize="12" Foreground="#087D73"/></Border>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -318,7 +318,7 @@
                             </Grid>
                             <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" MinRowHeight="46" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="12" HorizontalScrollBarVisibility="Disabled"
                                       MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
-                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
+                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
                                 <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style></DataGrid.CellStyle>
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
@@ -368,7 +368,7 @@
                                                 <Grid Margin="7,2" VerticalAlignment="Center">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <local:RuleIcon IconId="{Binding IconId}" Width="30" Height="30" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding RuleName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="14" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding RuleName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="12" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -392,10 +392,10 @@
                                                     <!-- A small leading glyph plus color keeps this line from
                                                          reading as more of the same "when" fact above it - one
                                                          is neutral context, the other needs attention. -->
-                                                    <TextBlock FontSize="11" Style="{StaticResource SecondaryRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding TriggerNote, Converter={StaticResource StringEmptyToCollapsedConverter}}">
+                                                    <TextBlock FontSize="12" Style="{StaticResource SecondaryRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding TriggerNote, Converter={StaticResource StringEmptyToCollapsedConverter}}">
                                                         <Run Text="ⓘ "/><Run Text="{Binding TriggerNote, Mode=OneWay}"/>
                                                     </TextBlock>
-                                                    <TextBlock FontSize="11" Style="{StaticResource WarningRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}">
+                                                    <TextBlock FontSize="12" Style="{StaticResource WarningRowTextStyle}" TextWrapping="Wrap" Visibility="{Binding LastBackupIssue, Converter={StaticResource StringEmptyToCollapsedConverter}}">
                                                         <Run Text="⚠ "/><Run Text="{Binding LastBackupIssue, Mode=OneWay}"/>
                                                     </TextBlock>
                                                 </StackPanel>

@@ -11,6 +11,7 @@ All notable changes to BackupMesh are documented in this file.
 - Keep paused rule rows aligned with active rows by removing the inset caused by their left border.
 - Use regular weight for rule names, add space after their icons, and capture the icon picker with its rule editor.
 - Smooth bitmap icon edges with high-quality downscaling and a consistent rounded clip.
+- Use 12-pixel type for backup-rule table headers, rows, notes, and its action bar.
 - Keep rule names and icons when editing or copying rules, including configurations created before these fields existed.
 - Restore visual hierarchy for navigation, primary actions, rule and agent names, and overview summary values.
 - Tighten remote agent rows and give the overview's lower panels more room while keeping body and supporting text compact.
