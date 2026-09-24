@@ -27,6 +27,26 @@ public sealed class BackupTargetResolverTests
     }
 
     [Fact]
+    public void ResolvesOnlyThePathsSelectedForAMapping()
+    {
+        var root = Path.GetTempPath();
+        var sourceId = Guid.NewGuid();
+        var set = new SourceBackupSet(Guid.NewGuid(), sourceId, "Source", "Documents", ["/doc/img", "/doc/db"]);
+        var device = new RegisteredDevice(Guid.NewGuid(), "volume:selected", "Archive", "TEST", root, DateTimeOffset.UtcNow, null, 0);
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "documents", true, ["/doc/db"]);
+        var topology = new StorageAgentConfiguration([device], [set], [mapping]);
+        var configuration = new StorageConfigurationStore(new StorageConfigurationOptions { PersistencePath = string.Empty });
+        configuration.Update(new(0, topology));
+        var presence = new StoragePresenceStore();
+        presence.Refresh(topology, [new("volume:selected", root, "TEST", 100, 200, "Disk", 1)], DateTimeOffset.UtcNow);
+        var resolver = new BackupTargetResolver(configuration, presence);
+
+        Assert.Equal("SOURCE_UPGRADE_REQUIRED", resolver.Resolve(new(Guid.NewGuid(), sourceId, set.Id, mapping.Id, DateTimeOffset.UtcNow, null)).ErrorCode);
+        Assert.Equal(["/doc/db"], resolver.Resolve(new(Guid.NewGuid(), sourceId, set.Id, mapping.Id, DateTimeOffset.UtcNow, null, true)).Target?.SourcePaths);
+        Assert.Equal(["/doc/db"], Assert.Single(resolver.ListReady([mapping.Id])).SourcePaths);
+    }
+
+    [Fact]
     public void RejectsMappingRequestedByDifferentSource()
     {
         var set = new SourceBackupSet(Guid.NewGuid(), Guid.NewGuid(), "Source", "Photos", ["/photos"]);

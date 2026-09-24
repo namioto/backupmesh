@@ -789,6 +789,7 @@
   <data name="NextBackupWaiting"><value>저장 위치가 준비되기를 기다리는 중</value></data>
   <data name="NextBackupReadyOnReconnect"><value>대기 완료 · 다음 연결 시 자동 · 지금 백업 가능</value></data>
   <data name="NextBackupReady"><value>대기 완료 · 지금 백업 가능</value></data>
+  <data name="NextBackupEveryMinutes"><value>연결됨 · {0}분마다 자동 백업</value></data>
   <data name="NextBackup"><value>다음 백업</value></data>
   <data name="BackupFolder"><value>백업할 폴더</value></data>
   <data name="StorageLocation"><value>저장 위치</value></data>
@@ -799,4 +800,13 @@
   <data name="StartNowConnectStorage"><value>지금 시작하려면 {0}을(를) 연결하세요.</value></data>
   <data name="UXConnectComputer" xml:space="preserve"><value>컴퓨터 연결</value></data>
   <data name="UXChooseThisPCFolder" xml:space="preserve"><value>이 PC 폴더 선택…</value></data>
+  <data name="ActivityToday"><value>오늘</value></data>
+  <data name="ActivityBackupStarted"><value>백업을 시작했습니다.</value></data>
+  <data name="ActivityBackupCompleted"><value>백업이 완료되었습니다.</value></data>
+  <data name="ActivityBackupFailed"><value>백업에 실패했습니다.</value></data>
+  <data name="ActivityBackupCancelled"><value>백업이 취소되었습니다.</value></data>
+  <data name="ActivityStorageConnected"><value>저장 장치가 연결되었습니다.</value></data>
+  <data name="ActivityStorageDisconnected"><value>저장 장치 연결이 해제되었습니다.</value></data>
+  <data name="ActivitySourceConnected"><value>원격 컴퓨터가 연결되었습니다.</value></data>
+  <data name="ActivitySourceDisconnected"><value>원격 컴퓨터 연결이 해제되었습니다.</value></data>
 </root>

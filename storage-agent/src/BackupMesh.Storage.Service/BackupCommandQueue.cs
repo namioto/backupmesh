@@ -9,7 +9,7 @@ public sealed class BackupCommandOptions
     public int LeaseSeconds { get; set; } = 3600;
 }
 
-public sealed record BackupCommandDraft(Guid SourceAgentId, Guid BackupSetId, Guid TargetMappingId, string Reason);
+public sealed record BackupCommandDraft(Guid SourceAgentId, Guid BackupSetId, Guid TargetMappingId, string Reason, bool DelayWhenBusy = false);
 
 public sealed record BackupCommand(
     [property: JsonPropertyName("command_id")] Guid CommandId,
@@ -25,7 +25,9 @@ public sealed record BackupCommand(
     [property: JsonPropertyName("completed_at")] DateTimeOffset? CompletedAt,
     [property: JsonPropertyName("job_id")] Guid? JobId,
     [property: JsonPropertyName("outcome")] string? Outcome,
-    [property: JsonPropertyName("message")] string? Message);
+    [property: JsonPropertyName("message")] string? Message,
+    [property: JsonPropertyName("delay_when_busy")] bool DelayWhenBusy = false,
+    [property: JsonPropertyName("not_before")] DateTimeOffset? NotBefore = null);
 
 public sealed record BackupCommandEnqueueResult(
     [property: JsonPropertyName("queued_count")] int QueuedCount,
@@ -68,7 +70,7 @@ public sealed class BackupCommandQueue
                 }
 
                 var command = new BackupCommand(Guid.NewGuid(), "BACKUP_SET", draft.SourceAgentId, draft.BackupSetId, draft.TargetMappingId,
-                    draft.Reason, now, "PENDING", null, null, null, null, null, null);
+                    draft.Reason, now, "PENDING", null, null, null, null, null, null, draft.DelayWhenBusy);
                 _commands[command.CommandId] = command;
                 commandIds.Add(command.CommandId);
             }
@@ -110,6 +112,19 @@ public sealed class BackupCommandQueue
         }
     }
 
+    public StoreOutcome Defer(Guid sourceAgentId, Guid commandId, DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            if (!_commands.TryGetValue(commandId, out var command)) return StoreOutcome.NotFound;
+            if (command.SourceAgentId != sourceAgentId) return StoreOutcome.Conflict;
+            if (command.State != "CLAIMED") return StoreOutcome.Conflict;
+            _commands[commandId] = command with { State = "PENDING", ClaimedAt = null, LeaseExpiresAt = null, NotBefore = now.AddMinutes(1) };
+            Persist();
+            return StoreOutcome.Accepted;
+        }
+    }
+
     public StoreOutcome Complete(Guid sourceAgentId, Guid commandId, string outcome, DateTimeOffset completedAt, Guid? jobId, string? message)
     {
         lock (_gate)
@@ -129,11 +144,13 @@ public sealed class BackupCommandQueue
     }
 
     private bool HasOpenCommand(Guid mappingId) => _commands.Values.Any(command => command.TargetMappingId == mappingId && !IsTerminal(command.State));
-    private static bool IsClaimable(BackupCommand command, DateTimeOffset now) => command.State == "PENDING" || command.State == "CLAIMED" && command.LeaseExpiresAt <= now;
+    private static bool IsClaimable(BackupCommand command, DateTimeOffset now) =>
+        command.State == "PENDING" && (command.NotBefore is null || command.NotBefore <= now)
+        || command.State == "CLAIMED" && command.LeaseExpiresAt <= now;
     private static bool IsTerminal(string state) => state is "SUCCEEDED" or "FAILED" or "CANCELLED";
     private static string Signature(IEnumerable<BackupCommandDraft> drafts) => string.Join('|', drafts
         .OrderBy(item => item.TargetMappingId)
-        .Select(item => $"{item.SourceAgentId:N}:{item.BackupSetId:N}:{item.TargetMappingId:N}:{item.Reason}"));
+        .Select(item => $"{item.SourceAgentId:N}:{item.BackupSetId:N}:{item.TargetMappingId:N}:{item.Reason}:{item.DelayWhenBusy}"));
 
     private void Persist()
     {

@@ -2,6 +2,15 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.12 — 2026-09-24
+
+- Redesign the Storage app's backup rules, remote agents, settings, and in-page rule editor with shared controls and consistent navigation.
+- Select one or more paths offered by a Remote Agent in a single backup rule, with search and bulk selection for large path lists.
+- Run automatic backups when storage becomes ready and at each rule's configured interval while the source and destination remain available. Reduce the default device-arrival wait to one minute.
+- Optionally defer automatic work while either computer is busy and set a restic upload limit per remote backup rule. Manual backups bypass the busy delay.
+- Guide new Remote Agent connections in the app and show discovered agents directly in the Remote Agents list.
+- Keep the Storage tray app to one process and add a reusable preview launcher for UI review.
+
 ## 0.3.7 — 2026-09-22
 
 - Add guided Ubuntu Remote Agent setup with explicit backup-folder prompts and nearby pairing approval by six-digit comparison code.

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using BackupMesh.Storage.Core;
 using BackupMesh.Storage.Service;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,13 +21,16 @@ public sealed class LocalBackupExecutorServiceTests
 
         var root = Path.Combine(Path.GetTempPath(), $"backupmesh-local-executor-{Guid.NewGuid():N}");
         var sourceDirectory = Path.Combine(root, "source");
+        var excludedDirectory = Path.Combine(root, "excluded");
         var targetDirectory = Path.Combine(root, "target");
         var passwordDirectory = Path.Combine(root, "passwords");
         var cacheDirectory = Path.Combine(root, "cache");
         Directory.CreateDirectory(sourceDirectory);
+        Directory.CreateDirectory(excludedDirectory);
         Directory.CreateDirectory(targetDirectory);
         var expectedContent = $"local executor content {Guid.NewGuid()}";
         await File.WriteAllTextAsync(Path.Combine(sourceDirectory, "note.txt"), expectedContent);
+        await File.WriteAllTextAsync(Path.Combine(excludedDirectory, "skip.txt"), "not selected");
 
         try
         {
@@ -34,8 +38,8 @@ public sealed class LocalBackupExecutorServiceTests
             var backupSetId = Guid.NewGuid();
             var mappingId = Guid.NewGuid();
             var device = new RegisteredDevice(deviceId, FolderStorageIdentity.Create(targetDirectory), "Target", "Folder", targetDirectory, DateTimeOffset.UtcNow, null, 0);
-            var backupSet = new SourceBackupSet(backupSetId, LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, "Notes", [sourceDirectory]);
-            var mapping = new BackupTargetMapping(mappingId, backupSetId, deviceId, "repo");
+            var backupSet = new SourceBackupSet(backupSetId, LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, "Notes", [sourceDirectory, excludedDirectory]);
+            var mapping = new BackupTargetMapping(mappingId, backupSetId, deviceId, "repo", true, [sourceDirectory]);
             var topology = new StorageAgentConfiguration([device], [backupSet], [mapping]);
 
             var configuration = new StorageConfigurationStore(new StorageConfigurationOptions { PersistencePath = string.Empty });
@@ -50,7 +54,7 @@ public sealed class LocalBackupExecutorServiceTests
             var options = new LocalBackupOptions { ResticExecutablePath = resticPath, PasswordDirectory = passwordDirectory, CacheDirectory = cacheDirectory };
             var state = new StorageStateMachine();
             DriveToReady(state);
-            var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, NullLogger<LocalBackupExecutorService>.Instance);
+            var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, new HostLoadProbe(), NullLogger<LocalBackupExecutorService>.Instance);
 
             commands.Enqueue("test", [new BackupCommandDraft(LocalSourceIdentity.AgentId, backupSetId, mappingId, "manual")], DateTimeOffset.UtcNow);
             var claimed = commands.ClaimNext(LocalSourceIdentity.AgentId, DateTimeOffset.UtcNow, TimeSpan.FromHours(1));
@@ -67,6 +71,23 @@ public sealed class LocalBackupExecutorServiceTests
 
             Assert.True(Directory.Exists(Path.Combine(targetDirectory, "repo", "config")) || Directory.Exists(Path.Combine(targetDirectory, "repo", "data")),
                 "restic repository was not created under the mapped destination folder.");
+            using var passwordFile = passwords.GetOrCreatePlaintextPasswordFile(mappingId, out var passwordPath);
+            var inspect = new ProcessStartInfo(resticPath) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            inspect.ArgumentList.Add("ls");
+            inspect.ArgumentList.Add("latest");
+            inspect.ArgumentList.Add("--json");
+            inspect.Environment["RESTIC_REPOSITORY"] = Path.Combine(targetDirectory, "repo");
+            inspect.Environment["RESTIC_PASSWORD_FILE"] = passwordPath;
+            inspect.Environment["RESTIC_CACHE_DIR"] = cacheDirectory;
+            using var process = Process.Start(inspect)!;
+            var filesTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var files = await filesTask;
+            var stderr = await stderrTask;
+            Assert.True(process.ExitCode == 0, stderr);
+            Assert.Contains("note.txt", files);
+            Assert.DoesNotContain("skip.txt", files);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
@@ -85,7 +106,7 @@ public sealed class LocalBackupExecutorServiceTests
         var passwords = new LocalRepositoryPasswordStore(new LocalBackupOptions { PasswordDirectory = Path.Combine(Path.GetTempPath(), $"backupmesh-local-executor-pw-{Guid.NewGuid():N}") });
         var options = new LocalBackupOptions();
         var state = new StorageStateMachine();
-        var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, NullLogger<LocalBackupExecutorService>.Instance);
+        var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, new HostLoadProbe(), NullLogger<LocalBackupExecutorService>.Instance);
 
         var backupSetId = Guid.NewGuid();
         var mappingId = Guid.NewGuid();
@@ -111,7 +132,7 @@ public sealed class LocalBackupExecutorServiceTests
         var options = new LocalBackupOptions();
         var state = new StorageStateMachine();
         DriveToReady(state);
-        var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, NullLogger<LocalBackupExecutorService>.Instance);
+        var executor = new LocalBackupExecutorService(commands, jobs, targets, configuration, passwords, options, state, new HostLoadProbe(), NullLogger<LocalBackupExecutorService>.Instance);
 
         var backupSetId = Guid.NewGuid();
         var mappingId = Guid.NewGuid();

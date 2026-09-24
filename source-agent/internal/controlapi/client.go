@@ -43,12 +43,13 @@ type StoragePresence struct {
 }
 
 type BackupRequest struct {
-	JobID           string    `json:"job_id"`
-	SourceAgentID   string    `json:"source_agent_id"`
-	BackupSetID     string    `json:"backup_set_id"`
-	TargetMappingID string    `json:"target_mapping_id"`
-	RequestedAt     time.Time `json:"requested_at"`
-	SnapshotTags    []string  `json:"snapshot_tags,omitempty"`
+	JobID                       string    `json:"job_id"`
+	SourceAgentID               string    `json:"source_agent_id"`
+	BackupSetID                 string    `json:"backup_set_id"`
+	TargetMappingID             string    `json:"target_mapping_id"`
+	RequestedAt                 time.Time `json:"requested_at"`
+	SnapshotTags                []string  `json:"snapshot_tags,omitempty"`
+	SupportsSourcePathSelection bool      `json:"supports_source_path_selection"`
 }
 
 type BackupAdmission struct {
@@ -58,6 +59,8 @@ type BackupAdmission struct {
 	State              string    `json:"state"`
 	AcceptedAt         time.Time `json:"accepted_at"`
 	RepositoryEndpoint string    `json:"repository_endpoint"`
+	SourcePaths        []string  `json:"source_paths"`
+	UploadLimitKiBPS   *int64    `json:"upload_limit_kibps"`
 }
 
 type BackupTargetAvailability struct {
@@ -79,6 +82,7 @@ type BackupCommand struct {
 	RequestedAt     time.Time `json:"requested_at"`
 	State           string    `json:"state"`
 	JobID           string    `json:"job_id,omitempty"`
+	DelayWhenBusy   bool      `json:"delay_when_busy"`
 }
 
 type BackupCommandClaimResponse struct {
@@ -176,6 +180,12 @@ func (c Client) ClaimBackupCommand(ctx context.Context, sourceAgentID string) (*
 
 func (c Client) CompleteBackupCommand(ctx context.Context, key string, in BackupCommandResult) error {
 	return c.do(ctx, http.MethodPost, "/backup/commands/result", key, in, http.StatusNoContent, nil)
+}
+
+func (c Client) DeferBackupCommand(ctx context.Context, commandID, sourceAgentID string) error {
+	return c.do(ctx, http.MethodPost, "/backup/commands/defer", commandID+"-defer", map[string]string{
+		"command_id": commandID, "source_agent_id": sourceAgentID,
+	}, http.StatusNoContent, nil)
 }
 
 func (c Client) GetBackupStatus(ctx context.Context, jobID string) (JobStatus, error) {

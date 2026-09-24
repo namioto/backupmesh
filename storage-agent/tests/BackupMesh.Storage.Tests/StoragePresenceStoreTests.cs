@@ -187,6 +187,28 @@ public sealed class StoragePresenceStoreTests
         Assert.Equal("source-arrival", drafts[0].Reason);
     }
 
+    [Fact]
+    public void ConnectedRuleBecomesDueOnlyAfterItsOwnInterval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var deviceId = Guid.NewGuid();
+        var setId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        var mapping = new BackupTargetMapping(Guid.NewGuid(), setId, deviceId, "repository", true, null, 15, true, 512);
+        var topology = new StorageAgentConfiguration([Device(deviceId, Path.GetTempPath())],
+            [new(setId, sourceId, "Remote", "Documents", ["/doc"])], [mapping]);
+        var presence = new[] { Presence(deviceId, Path.GetTempPath(), true) };
+        var history = new[] { new BackupCommand(Guid.NewGuid(), "BACKUP_SET", sourceId, setId, mapping.Id,
+            "interval", now.AddMinutes(-14), "SUCCEEDED", null, null, now.AddMinutes(-14), null, "SUCCEEDED", null) };
+
+        Assert.Empty(StorageMonitorService.BuildDueDrafts(topology, presence, history, now));
+        var due = Assert.Single(StorageMonitorService.BuildDueDrafts(topology, presence, history, now.AddMinutes(1)));
+        Assert.Equal(mapping.Id, due.TargetMappingId);
+        Assert.True(due.DelayWhenBusy);
+        Assert.Empty(StorageMonitorService.BuildDueDrafts(topology, presence,
+            [history[0] with { State = "PENDING" }], now.AddHours(1)));
+    }
+
     private static RegisteredDevice Device(Guid id, string root) =>
         new(id, FolderStorageIdentity.Create(root), root, "Folder", root, DateTimeOffset.UtcNow, null, 0);
 

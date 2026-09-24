@@ -19,6 +19,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +31,7 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/restic"
 )
 
-const version = "0.3.11"
+const version = "0.3.12"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -590,6 +592,24 @@ func loadAuthenticationToken(path string) (string, error) {
 	return token, nil
 }
 
+func backupPathsForAdmission(selected, offered []string) ([]string, error) {
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("storage selected no source paths")
+	}
+	allowed := make(map[string]bool, len(offered))
+	for _, path := range offered {
+		allowed[path] = true
+	}
+	seen := make(map[string]bool, len(selected))
+	for _, path := range selected {
+		if !allowed[path] || seen[path] {
+			return nil, fmt.Errorf("storage selected a source path not offered by this Backup Set")
+		}
+		seen[path] = true
+	}
+	return selected, nil
+}
+
 func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Config, set config.BackupSet, target controlapi.BackupTargetAvailability, resticBinary, jobID string) error {
 	if strings.TrimSpace(jobID) == "" {
 		generatedJobID, err := controlapi.UUIDv4()
@@ -602,13 +622,14 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	if err != nil {
 		return fmt.Errorf("create idempotency key: %w", err)
 	}
-	admission, err := api.RequestBackup(ctx, requestKey, controlapi.BackupRequest{JobID: jobID, SourceAgentID: cfg.Agent.ID, BackupSetID: set.ID, TargetMappingID: target.MappingID, RequestedAt: time.Now().UTC()})
+	admission, err := api.RequestBackup(ctx, requestKey, controlapi.BackupRequest{JobID: jobID, SourceAgentID: cfg.Agent.ID, BackupSetID: set.ID, TargetMappingID: target.MappingID, RequestedAt: time.Now().UTC(), SupportsSourcePathSelection: true})
 	if err != nil {
 		return fmt.Errorf("request backup admission: %w", err)
 	}
 	if admission.State != "ACCEPTED" || admission.JobID != jobID || admission.TargetMappingID != target.MappingID {
 		return fmt.Errorf("storage returned an invalid backup admission")
 	}
+	paths, pathErr := backupPathsForAdmission(admission.SourcePaths, set.Paths)
 
 	backupCtx, cancelBackup := context.WithCancel(ctx)
 	defer cancelBackup()
@@ -616,15 +637,22 @@ func runBackupTarget(ctx context.Context, api controlapi.Client, cfg config.Conf
 	defer cancelPoll()
 	go pollCancellation(pollCtx, api, jobID, cancelBackup)
 	adapter := restic.Adapter{Binary: resticBinary}
-	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, CACertificateFile: cfg.Storage.TLSCAFile, Paths: set.Paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
+	backupRequest := engine.BackupRequest{Repository: admission.RepositoryEndpoint, PasswordFile: cfg.Storage.RepositoryPasswordFile, CacheDirectory: cfg.Storage.ResticCacheDirectory, CACertificateFile: cfg.Storage.TLSCAFile, Paths: paths, Includes: set.Include, Excludes: set.Exclude, UploadLimitBPS: cfg.UploadLimitBPS}
+	if admission.UploadLimitKiBPS != nil {
+		backupRequest.UploadLimitBPS = *admission.UploadLimitKiBPS * 1024
+	}
 	var sequence int64
 	var reportErr error
 	var result engine.Result
-	repository, closeBridge, backupErr := controlapi.RepositoryBridge(api.HTTPClient, admission.RepositoryEndpoint)
+	backupErr := pathErr
 	if backupErr == nil {
-		defer closeBridge()
-		backupRequest.Repository = repository
-		backupErr = adapter.EnsureRepository(backupCtx, backupRequest)
+		repository, closeBridge, bridgeErr := controlapi.RepositoryBridge(api.HTTPClient, admission.RepositoryEndpoint)
+		backupErr = bridgeErr
+		if backupErr == nil {
+			defer closeBridge()
+			backupRequest.Repository = repository
+			backupErr = adapter.EnsureRepository(backupCtx, backupRequest)
+		}
 	}
 	if backupErr == nil {
 		result, backupErr = adapter.Backup(backupCtx, backupRequest, func(p engine.Progress) {
@@ -726,10 +754,58 @@ func watchSourceCommands(ctx context.Context, api controlapi.Client, cfg config.
 			}
 			continue
 		}
+		if command.DelayWhenBusy && hostBusy(ctx) {
+			if err := api.DeferBackupCommand(ctx, command.CommandID, cfg.Agent.ID); err != nil {
+				fmt.Fprintf(os.Stderr, "could not defer command %s: %v\n", command.CommandID, err)
+			}
+			if !sleepContext(ctx, pollInterval) {
+				return nil
+			}
+			continue
+		}
 		if err := executeSourceCommand(ctx, api, cfg, *command, resticBinary); err != nil {
 			fmt.Fprintf(os.Stderr, "command %s failed: %v\n", command.CommandID, err)
 		}
 	}
+}
+
+// Probe only when an automatic command has been claimed. Probe failures allow backup.
+func hostBusy(ctx context.Context) bool {
+	if runtime.GOOS == "windows" {
+		probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		output, err := exec.CommandContext(probeCtx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			`$c=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'").PercentProcessorTime; $d=(Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter "Name='_Total'").PercentDiskTime; Write-Output "$c,$d"`).Output()
+		if err != nil {
+			return false
+		}
+		parts := strings.Split(strings.TrimSpace(string(output)), ",")
+		if len(parts) != 2 {
+			return false
+		}
+		cpu, cpuErr := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		disk, diskErr := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		return cpuErr == nil && diskErr == nil && (cpu >= 80 || disk >= 80)
+	}
+	if runtime.GOOS == "linux" {
+		load, err := os.ReadFile("/proc/loadavg")
+		if fields := strings.Fields(string(load)); err == nil && len(fields) > 0 {
+			oneMinute, err := strconv.ParseFloat(fields[0], 64)
+			if err == nil && oneMinute >= float64(runtime.NumCPU())*0.8 {
+				return true
+			}
+		}
+		pressure, err := os.ReadFile("/proc/pressure/io")
+		if err == nil {
+			for _, field := range strings.Fields(strings.SplitN(string(pressure), "\n", 2)[0]) {
+				if value, ok := strings.CutPrefix(field, "avg10="); ok {
+					stalled, err := strconv.ParseFloat(value, 64)
+					return err == nil && stalled >= 20
+				}
+			}
+		}
+	}
+	return false
 }
 
 func sleepContext(ctx context.Context, delay time.Duration) bool {

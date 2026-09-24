@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +24,30 @@ import (
 	"github.com/namioto/backupmesh/source-agent/internal/config"
 	"github.com/namioto/backupmesh/source-agent/internal/controlapi"
 )
+
+func TestBackupPathsForAdmission(t *testing.T) {
+	offered := []string{"/doc/img", "/doc/db"}
+	for _, test := range []struct {
+		name     string
+		selected []string
+		want     []string
+		invalid  bool
+	}{
+		{"missing", nil, nil, true},
+		{"one", []string{"/doc/db"}, []string{"/doc/db"}, false},
+		{"both", offered, offered, false},
+		{"empty", []string{}, nil, true},
+		{"unoffered", []string{"/etc/passwd"}, nil, true},
+		{"duplicate", []string{"/doc/img", "/doc/img"}, nil, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := backupPathsForAdmission(test.selected, offered)
+			if (err != nil) != test.invalid || !slices.Equal(got, test.want) {
+				t.Fatalf("paths = %v, error = %v; want %v, invalid %v", got, err, test.want, test.invalid)
+			}
+		})
+	}
+}
 
 func TestApplyPairingWritesIdentityAndProtectedFiles(t *testing.T) {
 	directory := t.TempDir()

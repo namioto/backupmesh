@@ -789,6 +789,7 @@
   <data name="NextBackupWaiting"><value>Waiting for storage location</value></data>
   <data name="NextBackupReadyOnReconnect"><value>Wait complete · automatic on next connection · can back up now</value></data>
   <data name="NextBackupReady"><value>Wait complete · can back up now</value></data>
+  <data name="NextBackupEveryMinutes"><value>Connected · automatic backup every {0} min</value></data>
   <data name="NextBackup"><value>Next backup</value></data>
   <data name="BackupFolder"><value>Folder to back up</value></data>
   <data name="StorageLocation"><value>Storage location</value></data>
@@ -799,4 +800,13 @@
   <data name="StartNowConnectStorage"><value>Connect {0} to start now.</value></data>
   <data name="UXConnectComputer" xml:space="preserve"><value>Connect computer</value></data>
   <data name="UXChooseThisPCFolder" xml:space="preserve"><value>Choose folder on this PC…</value></data>
+  <data name="ActivityToday"><value>Today</value></data>
+  <data name="ActivityBackupStarted"><value>Backup started.</value></data>
+  <data name="ActivityBackupCompleted"><value>Backup completed.</value></data>
+  <data name="ActivityBackupFailed"><value>Backup failed.</value></data>
+  <data name="ActivityBackupCancelled"><value>Backup cancelled.</value></data>
+  <data name="ActivityStorageConnected"><value>Storage device connected.</value></data>
+  <data name="ActivityStorageDisconnected"><value>Storage device disconnected.</value></data>
+  <data name="ActivitySourceConnected"><value>Remote computer connected.</value></data>
+  <data name="ActivitySourceDisconnected"><value>Remote computer disconnected.</value></data>
 </root>

@@ -33,6 +33,25 @@ public sealed class BackupTopologyTests
         Assert.Empty(BackupTopologyValidator.Validate(topology));
     }
 
+    [Fact]
+    public void MappingSelectsOneOrSeveralOfferedPathsAndLegacyMappingSelectsAll()
+    {
+        var set = Set("Documents") with { SourcePaths = ["/doc/img", "/doc/db"] };
+        var device = Device("Archive");
+        var one = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "one", true, ["/doc/img"]);
+        var both = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "both", true, ["/doc/img", "/doc/db"]);
+        var legacy = new BackupTargetMapping(Guid.NewGuid(), set.Id, device.Id, "legacy");
+
+        Assert.Empty(BackupTopologyValidator.Validate(new([device], [set], [one, both, legacy])));
+        Assert.Equal(["/doc/img"], BackupTopologyValidator.SourcePathsFor(one, set));
+        Assert.Equal(["/doc/img", "/doc/db"], BackupTopologyValidator.SourcePathsFor(both, set));
+        Assert.Equal(["/doc/img", "/doc/db"], BackupTopologyValidator.SourcePathsFor(legacy, set));
+        Assert.Contains(BackupTopologyValidator.Validate(new([device], [set], [one with { SelectedSourcePaths = ["/other"] }])),
+            error => error.Contains("outside its Backup Set", StringComparison.Ordinal));
+        Assert.Contains(BackupTopologyValidator.Validate(new([device], [set], [one with { SelectedSourcePaths = [] }])),
+            error => error.Contains("outside its Backup Set", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("../outside")]
     [InlineData("C:\\absolute")]

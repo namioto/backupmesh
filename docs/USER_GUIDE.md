@@ -62,7 +62,7 @@ Storage registration is internal. You only choose what to back up and where to s
 
 Folder devices are useful for evaluation and for storage that is not exposed as a removable USB volume. They also allow multi-target behavior to be tested with ordinary folders.
 
-When an eligible storage device arrives, BackupMesh waits for the delay configured on the **Settings** tab before queuing its mapped backups. The default delay is 30 minutes. **Next backup** shows the service-calculated eligible time, not a guaranteed start time; an offline or busy Remote Agent can start later. **Start now** bypasses the remaining delay. If you add a rule for a device that is already ready, use **Start now** to run it. Use Windows to eject removable storage after its backup job has stopped.
+When an eligible storage device arrives, BackupMesh waits for the delay configured on the **Settings** tab before queuing its mapped backups. The default delay is one minute. **Next backup** shows readiness or the rule's automatic interval, not a guaranteed start time; an offline or busy Remote Agent can start later. **Start now** bypasses the remaining arrival delay. Use Windows to eject removable storage after its backup job has stopped.
 
 ## 3b. Back up this PC's own files (no Remote Agent needed)
 
@@ -147,10 +147,11 @@ sudo systemctl status backupmesh-source-watch.service
 
 After the Source synchronizes, open **Backups** in the tray app.
 
-1. Under **What to back up**, select a Backup Set — synced from a paired Remote Agent, or a local folder chosen in this dialog (section 3b).
+1. Under **What to back up**, select a Backup Set synced from a Remote Agent or a local folder. Then select one or more paths offered by that set. All selected paths use this rule's single destination.
 2. Under **Where to store it**, select a connected drive or choose **Choose folder…**.
 3. Confirm or edit the complete path under **Full destination path**. BackupMesh uses the chosen folder exactly and does not append an automatic subfolder.
-4. Choose **Add backup…**, complete the backup-rule window, and select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
+4. Under **Automatic backup settings**, set the interval (5–1440 minutes), optional busy-computer delay, and optional per-rule upload limit for a Remote Agent. A blank limit follows the agent setting; `0` removes the limit for this rule.
+5. Select **Add backup**. Double-click an existing row to edit the same settings later. BackupMesh rejects an identical source, target device, and target-folder combination instead of creating a duplicate rule.
 
 Mappings are many-to-many. Multiple Sources can use separate folders or a shared parent on one device, and one Backup Set can be copied to multiple devices. Use a distinct repository subfolder for each independent Backup Set unless intentional repository sharing has been tested.
 
@@ -158,7 +159,7 @@ Source and Storage Agents may run on the same computer by using the Storage Agen
 
 ## 7. Run and monitor a backup
 
-Connect the target device and wait until it becomes eligible at the **Next backup** time, or choose **Start now** to bypass the remaining arrival delay. BackupMesh queues mapped backups when the device newly becomes ready. This is an arrival-based delay, not a recurring schedule. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
+Connect the target device and wait for the one-minute default arrival delay, or choose **Start now** to bypass it. BackupMesh queues mapped backups when the device becomes ready and again at each rule's interval while it remains ready. A periodic run invokes restic even when files have not changed; it checks the source and stores only changes. The optional busy-computer setting delays automatic commands and leaves **Start now** unaffected. The tray app shows queued/running state, files and bytes processed, progress, result, and the latest successful run on the **Overview** tab. A small status window can also pop up near the tray icon when a backup starts, with progress and a Cancel button — this is on by default and can be turned off in **Settings**. A running job can be cancelled from either place; the Source terminates restic and reports `CANCELLED`.
 
 For a manual Source-side run:
 

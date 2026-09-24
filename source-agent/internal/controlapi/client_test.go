@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -63,15 +64,18 @@ func TestRequestBackupHeadersAndSnakeCaseBody(t *testing.T) {
 		if raw["source_agent_id"] != "source-1" {
 			t.Errorf("body = %#v", raw)
 		}
+		if raw["supports_source_path_selection"] != true {
+			t.Errorf("source path selection support missing: %#v", raw)
+		}
 		if _, ok := raw["sourceAgentId"]; ok {
 			t.Error("camelCase field was sent")
 		}
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_id":"job-1","target_mapping_id":"mapping-1","device_id":"device-1","state":"ACCEPTED","accepted_at":"2026-08-28T01:02:03Z","repository_endpoint":"rest:http://storage/repo"}`))
+		_, _ = w.Write([]byte(`{"job_id":"job-1","target_mapping_id":"mapping-1","device_id":"device-1","state":"ACCEPTED","accepted_at":"2026-08-28T01:02:03Z","repository_endpoint":"rest:http://storage/repo","source_paths":["/doc/db"],"upload_limit_kibps":512}`))
 	}))
 	defer srv.Close()
-	admission, err := (Client{BaseURL: srv.URL, Now: func() time.Time { return now }}).RequestBackup(context.Background(), "0123456789abcdef", BackupRequest{JobID: "job-1", SourceAgentID: "source-1", BackupSetID: "set-1", TargetMappingID: "mapping-1", RequestedAt: now})
-	if err != nil || admission.State != "ACCEPTED" {
+	admission, err := (Client{BaseURL: srv.URL, Now: func() time.Time { return now }}).RequestBackup(context.Background(), "0123456789abcdef", BackupRequest{JobID: "job-1", SourceAgentID: "source-1", BackupSetID: "set-1", TargetMappingID: "mapping-1", RequestedAt: now, SupportsSourcePathSelection: true})
+	if err != nil || admission.State != "ACCEPTED" || !slices.Equal(admission.SourcePaths, []string{"/doc/db"}) || admission.UploadLimitKiBPS == nil || *admission.UploadLimitKiBPS != 512 {
 		t.Fatalf("admission = %#v, err = %v", admission, err)
 	}
 }
@@ -87,6 +91,28 @@ func TestListBackupTargets(t *testing.T) {
 	targets, err := (Client{BaseURL: srv.URL}).ListBackupTargets(context.Background(), "source-1", "set-1")
 	if err != nil || len(targets) != 1 || targets[0].State != "READY" {
 		t.Fatalf("targets = %#v, err = %v", targets, err)
+	}
+}
+
+func TestDeferBackupCommandUsesAcceptedIdempotencyKey(t *testing.T) {
+	const commandID = "f91436ac-0ca9-4bcb-b0d0-42bc7181f611"
+	const agentID = "019388ef-2939-4bed-89fb-afcfc2e7081f"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/backup/commands/defer" || r.Header.Get("Idempotency-Key") != commandID+"-defer" {
+			t.Errorf("path = %q, key = %q", r.URL.Path, r.Header.Get("Idempotency-Key"))
+		}
+		var request map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request["command_id"] != commandID || request["source_agent_id"] != agentID {
+			t.Errorf("body = %#v", request)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	if err := (Client{BaseURL: srv.URL}).DeferBackupCommand(context.Background(), commandID, agentID); err != nil {
+		t.Fatal(err)
 	}
 }
 

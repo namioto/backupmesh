@@ -2,63 +2,227 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:BackupMesh.Storage.App"
-        Title="{local:Loc Text_BackupMeshStorageAgent_CABABF}" Height="760" Width="1120" MinHeight="640" MinWidth="920"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{local:Loc Text_BackupMeshStorageAgent_CABABF}" Height="960" Width="1544" MinHeight="600" MinWidth="904" WindowStyle="None" ResizeMode="CanResize"
         Background="{StaticResource SurfaceBrush}" WindowStartupLocation="CenterScreen"
         AutomationProperties.AutomationId="MainWindow"
         Icon="Assets/backupmesh-tray.ico">
+    <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="38" CornerRadius="10" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False"/></shell:WindowChrome.WindowChrome>
     <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="*"/><RowDefinition Height="34"/></Grid.RowDefinitions>
-        <Border Background="{StaticResource NavyBrush}" Padding="20,8">
-            <DockPanel LastChildFill="False">
-                <Image Source="Assets/backupmesh-tray.png" Width="36" Height="36" Margin="0,0,12,0" DockPanel.Dock="Left"/>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="BackupMesh" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock Text="{local:Loc Text_StorageAgent_0CA177}" Foreground="#BEEAF2" FontSize="11"/>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="280"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Border Background="{StaticResource NavyBrush}">
+            <StackPanel Margin="30,36">
+                <StackPanel Orientation="Horizontal" Margin="2,0,0,34">
+                    <Viewbox Width="46" Height="46" Margin="0,0,14,0">
+                        <Canvas Width="46" Height="46">
+                            <Path Data="M 23,2 L 44,13 L 23,25 L 2,13 Z" Fill="#34C8CC"/>
+                            <Path Data="M 2,13 L 23,25 L 23,44 L 2,32 Z" Fill="#168BE8"/>
+                            <Path Data="M 44,13 L 23,25 L 23,44 L 44,32 Z" Fill="#20B9BD"/>
+                            <Path Data="M 10,13 L 23,6 L 36,13 L 30,16 L 23,12 L 16,16 Z" Fill="#123750"/>
+                            <Path Data="M 8,22 L 17,27 L 17,35 L 8,30 Z" Fill="#123750"/>
+                            <Path Data="M 23,31 L 39,22 L 39,28 L 23,37 Z" Fill="#123750"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Foreground="White" FontSize="26" FontWeight="Bold" VerticalAlignment="Center"><Run Text="Backup"/><Run Text="Mesh" Foreground="#42D5DB"/></TextBlock>
                 </StackPanel>
-                <Border DockPanel.Dock="Right" Background="#173E71" CornerRadius="14" Padding="12,5" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding OverallStatus}" Foreground="White" AutomationProperties.AutomationId="OverallStatusText"/>
-                </Border>
-            </DockPanel>
+            </StackPanel>
         </Border>
-
-        <TabControl Grid.Row="1" Margin="18" SelectionChanged="OnTabSelectionChanged" AutomationProperties.AutomationId="MainTabControl">
-            <TabItem Header="{local:Loc Text_Overview_D4B1EA}" AutomationProperties.AutomationId="OverviewTab">
-                <Grid Margin="12">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1.5*"/><RowDefinition Height="2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <DockPanel LastChildFill="False" Margin="0,0,0,8">
-                        <TextBlock Text="{local:Loc Text_Overview_D4B1EA}" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" Margin="0"/>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="{local:Loc UXConnectComputer}" Click="OnGoToComputersClick" AutomationProperties.AutomationId="OverviewConnectComputerButton"/>
-                            <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="OverviewAddBackupButton"/>
-                        </StackPanel>
-                    </DockPanel>
-                    <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,0,0,8" Padding="10">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <DockPanel LastChildFill="False">
-                                <TextBlock Text="{local:Loc NextBackup}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
-                                <Button DockPanel.Dock="Right" Content="{local:Loc Text_Backups_3334FE}" Click="OnGoToBackupsClick" Padding="10,5" AutomationProperties.AutomationId="OverviewViewBackupsButton"/>
-                            </DockPanel>
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <Grid>
-                                <TextBlock Text="{local:Loc Text_NobackuprulesyetAddonetochoose_7C46A4}" TextWrapping="Wrap" Foreground="#607086" Margin="0,8,0,0" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                                <ItemsControl ItemsSource="{Binding Mappings}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-                                                <StackPanel ToolTip="{Binding SourcePathsDisplay}"><TextBlock Text="{Binding BackupSetOnlyName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding SourceAgentName}" FontSize="11" Foreground="#526276" TextTrimming="CharacterEllipsis"/></StackPanel>
-                                                <TextBlock Grid.Column="1" Text="{Binding DestinationFolder}" ToolTip="{Binding DestinationFolder}" TextTrimming="CharacterEllipsis" Foreground="#526276" Margin="12,0"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding NextBackupDisplay}" TextWrapping="Wrap" Foreground="#2563A8"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                </Grid>
-                            </ScrollViewer>
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition x:Name="FooterRow" Height="34"/></Grid.RowDefinitions>
+            <TabControl x:Name="MainTabControl" Margin="-280,0,0,0" TabStripPlacement="Left" SelectionChanged="OnTabSelectionChanged" AutomationProperties.AutomationId="MainTabControl" Background="Transparent" BorderThickness="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabControl">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabControl">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="280"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TabPanel Grid.Column="0" IsItemsHost="True" Margin="0,119,0,0" KeyboardNavigation.TabIndex="1"/>
+                                        <Border Grid.Column="1" Background="#F8FBFE">
+                                            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/>
+                                        </Border>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Foreground" Value="#D5E6F3"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Margin" Value="10,2,10,2"/>
+                        <Setter Property="Height" Value="64"/>
+                        <Setter Property="MinWidth" Value="260"/>
+                        <Setter Property="FontSize" Value="20"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                        <Setter Property="Template">
+                            <Setter.Value><ControlTemplate TargetType="TabItem">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="10" Margin="0,0,0,2" x:Name="ItemBorder">
+                                    <Grid><Border Width="6" HorizontalAlignment="Left" Background="Transparent" x:Name="Accent" CornerRadius="3"/>
+                                    <ContentPresenter x:Name="HeaderContent" ContentSource="Header" Margin="26,16" TextElement.FontSize="20" TextElement.FontWeight="Normal"/></Grid>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#1C5263"/><Setter Property="Foreground" Value="White"/><Setter TargetName="HeaderContent" Property="TextElement.FontWeight" Value="SemiBold"/><Setter TargetName="Accent" Property="Background" Value="#31E9DD"/></Trigger>
+                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="White"/><Setter TargetName="ItemBorder" Property="BorderThickness" Value="2"/></Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate></Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
+            <TabItem AutomationProperties.AutomationId="OverviewTab">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-overview.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="개요"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="28">
+                        <Grid Margin="0,0,0,22">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="오늘의 백업" FontSize="30" FontWeight="Bold" Foreground="#142A48"/>
+                                    <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
+                                    <Ellipse Width="9" Height="9" Fill="{Binding StatusBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <TextBlock Text="{Binding OverallStatus}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" AutomationProperties.AutomationId="OverallStatusText"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="{Binding DashboardDescription}" Foreground="#61748C" Margin="0,7,0,0"/>
+                            </StackPanel>
+                            <Button Content="지금 백업" Command="{Binding QueueAllBackupsCommand}" IsEnabled="{Binding CanQueueAnyBackup}" ToolTip="{Binding QueueAllBackupsHint}" ToolTipService.ShowOnDisabled="True" AutomationProperties.AutomationId="OverviewStartBackupButton" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="24,12"/>
                         </Grid>
-                    </Border>
-                    <GroupBox Grid.Row="2" Header="{local:Loc Text_Backupjobs_399BA4}" Padding="8" Margin="0,0,0,8">
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16" Padding="24">
+                            <Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                        <Image Source="Assets/laptop.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="원격 컴퓨터 예시 이미지"/>
+                                        <TextBlock Text="{Binding LaptopName}" FontSize="14" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LaptopName}"/>
+                                        <TextBlock Text="{Binding LaptopStatus}" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                    <Grid Grid.Column="1" Width="100" Height="38" VerticalAlignment="Center" Margin="0,0,0,36" AutomationProperties.Name="원격 컴퓨터에서 이 컴퓨터로 백업 흐름">
+                                        <Border Height="2" Background="#92D4CE" VerticalAlignment="Bottom" Margin="0,0,10,8"/>
+                                        <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding DashboardTransferPercent, Mode=OneWay}" IsIndeterminate="{Binding IsDashboardTransferIndeterminate, Mode=OneWay}" Foreground="#009C91" Background="Transparent" VerticalAlignment="Bottom" Margin="0,0,10,7" Visibility="{Binding IsRemoteDashboardTransferActive, Converter={StaticResource BoolToVisibleConverter}}" AutomationProperties.Name="원격 전송 진행률"/>
+                                        <Path Data="M 0,0 L 8,6 L 0,12" Stroke="#009C91" StrokeThickness="2" Width="8" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                        <Border Background="#F5FCFC" BorderBrush="#B7E4DF" BorderThickness="1" CornerRadius="10" Padding="3,1" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="{Binding IsRemoteDashboardTransferActive, Converter={StaticResource BoolToVisibleConverter}}"><TextBlock Text="{Binding DashboardTransferLabel}" FontSize="10" Foreground="#087E78"/></Border>
+                                    </Grid>
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                        <Image Source="Assets/desktop.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="이 컴퓨터 예시 이미지"/>
+                                        <TextBlock Text="{Binding LocalComputerName}" FontSize="14" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LocalComputerName}"/>
+                                        <TextBlock Text="이 컴퓨터" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                    <Grid Grid.Column="3" Width="100" Height="38" VerticalAlignment="Center" Margin="0,0,0,36" AutomationProperties.Name="이 컴퓨터에서 저장 장치로 백업 흐름">
+                                        <Border Height="2" Background="#92D4CE" VerticalAlignment="Bottom" Margin="0,0,10,8"/>
+                                        <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding DashboardTransferPercent, Mode=OneWay}" IsIndeterminate="{Binding IsDashboardTransferIndeterminate, Mode=OneWay}" Foreground="#009C91" Background="Transparent" VerticalAlignment="Bottom" Margin="0,0,10,7" Visibility="{Binding IsDashboardTransferActive, Converter={StaticResource BoolToVisibleConverter}}" AutomationProperties.Name="저장 장치 백업 진행률"/>
+                                        <Path Data="M 0,0 L 8,6 L 0,12" Stroke="#009C91" StrokeThickness="2" Width="8" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                        <Border Background="#F5FCFC" BorderBrush="#B7E4DF" BorderThickness="1" CornerRadius="10" Padding="3,1" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="{Binding IsDashboardTransferActive, Converter={StaticResource BoolToVisibleConverter}}"><TextBlock Text="{Binding DashboardTransferLabel}" FontSize="10" Foreground="#087E78"/></Border>
+                                    </Grid>
+                                    <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                                        <Image Source="Assets/drive.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="백업 저장 장치 예시 이미지"/>
+                                        <TextBlock Text="{Binding DashboardDeviceName}" FontSize="14" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding DashboardDeviceName}"/>
+                                        <TextBlock Text="{Binding DashboardDeviceStatus}" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <UniformGrid Columns="3" Margin="0,0,0,16">
+                            <Border Style="{StaticResource CardStyle}" Background="#F5FCFC" BorderBrush="#C7E6E5" Margin="0,0,8,0">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Border Width="46" Height="46" Background="#DDF5F1" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-drive.png" Width="25" Height="25"/></Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="연결된 저장 장치" Foreground="#61748C"/>
+                                        <TextBlock FontSize="21" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding ConnectedDeviceCount, Mode=OneWay}"/><Run Text="개 연결"/></TextBlock>
+                                        <TextBlock Text="{Binding DashboardDeviceName}" Foreground="#61748C" TextTrimming="CharacterEllipsis" ToolTip="{Binding DashboardDeviceName}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}" Background="#F6FAFF" BorderBrush="#CFDFFB" Margin="4,0">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Border Width="46" Height="46" Background="#E0EEFF" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-rules.png" Width="25" Height="25"/></Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="백업 규칙" Foreground="#61748C"/>
+                                        <TextBlock FontSize="21" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding MappingCount, Mode=OneWay}"/><Run Text="개 활성"/></TextBlock>
+                                        <TextBlock Text="실행 가능한 규칙을 확인하세요" Foreground="#61748C" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource CardStyle}" Background="#FFFBF7" BorderBrush="#F4DFCF" Margin="8,0,0,0">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Border Width="46" Height="46" Background="#FFF0DE" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-clock.png" Width="25" Height="25"/></Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="마지막 백업" Foreground="#61748C"/>
+                                        <TextBlock Text="{Binding LastBackupSummary}" FontSize="17" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding LastBackupSummary}"/>
+                                        <TextBlock Text="마지막 성공 시각" Foreground="#61748C"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+                        <Grid Height="200">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource CardStyle}" Margin="0,0,8,0">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <DockPanel Margin="0,0,0,12">
+                                        <Button DockPanel.Dock="Right" Content="모든 규칙 보기  ›" Click="OnGoToBackupsClick" Style="{StaticResource LinkButtonStyle}" AutomationProperties.AutomationId="OverviewViewBackupsButton"/>
+                                        <TextBlock Text="{local:Loc NextBackup}" Style="{StaticResource SectionTitleStyle}" Margin="0"/>
+                                    </DockPanel>
+                                    <Grid Grid.Row="1">
+                                        <TextBlock Text="{local:Loc Text_NobackuprulesyetAddonetochoose_7C46A4}" TextWrapping="Wrap" Foreground="#607086" Margin="0,12" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsControl ItemsSource="{Binding Mappings}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="#E4EBF3" BorderThickness="0,1,0,0" Padding="4,12">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                                                <StackPanel ToolTip="{Binding SourcePathsDisplay}">
+                                                                    <TextBlock Text="{Binding BackupSetOnlyName}" FontWeight="SemiBold" Foreground="#172B4D" TextTrimming="CharacterEllipsis"/>
+                                                                    <TextBlock Text="{Binding SourcePathsDisplay}" FontSize="12" Foreground="#61748C" TextTrimming="CharacterEllipsis"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                                    <TextBlock Text="{Binding NextBackupDisplay}" Foreground="#147681" TextWrapping="Wrap"/>
+                                                                    <TextBlock Text="{Binding Device.Status}" Foreground="#61748C" FontSize="12"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="8,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Button DockPanel.Dock="Right" Content="모두 보기  ›" Click="OnGoToHistoryClick" Style="{StaticResource LinkButtonStyle}" AutomationProperties.AutomationId="OverviewViewHistoryButton"/>
+                                        <TextBlock Text="{local:Loc Text_Recentactivity_6CB44B}" Style="{StaticResource SectionTitleStyle}" Margin="0"/>
+                                    </DockPanel>
+                                    <ListBox Grid.Row="1" ItemsSource="{Binding Activity}" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="RecentActivityList">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Image Source="{Binding IconSource}" Width="18" Height="18" VerticalAlignment="Top" HorizontalAlignment="Left" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Title}" Foreground="#172B4D" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Detail}" Foreground="#61748C" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding TimeDisplay}" Foreground="#61748C" FontSize="11" Margin="5,0,0,0"/>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="HistoryTabItem" Visibility="Collapsed" AutomationProperties.AutomationId="BackupHistoryTab">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-history.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="백업 이력"/></StackPanel></TabItem.Header>
+                <Grid Margin="28">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <TextBlock Text="백업 이력" Style="{StaticResource SectionTitleStyle}" FontSize="26"/>
+                    <Border Grid.Row="1" Style="{StaticResource CardStyle}">                    <GroupBox Grid.Row="1" Header="{local:Loc Text_Backupjobs_399BA4}" Padding="8" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="BackupJobsGrid">
@@ -89,27 +253,81 @@
                                 </Button.Style>
                             </Button>
                         </Grid>
-                    </GroupBox>
-                    <GroupBox Grid.Row="3" Header="{local:Loc Text_Recentactivity_6CB44B}" Padding="8">
-                        <ListBox ItemsSource="{Binding Activity}" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="RecentActivityList">
-                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ListBox.ItemTemplate>
-                        </ListBox>
-                    </GroupBox>
+                    </GroupBox></Border>
                 </Grid>
             </TabItem>
-
-            <TabItem x:Name="BackupsTabItem" Header="{local:Loc Text_Backups_3334FE}" AutomationProperties.AutomationId="BackupsTab">
-                <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="{local:Loc Text_Choosewhattobackupandwhereeach_AFABC9}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
-                    <GroupBox Grid.Row="1" Header="{local:Loc Text_Backuprules_566313}" Padding="10">
+            <TabItem x:Name="BackupsTabItem" AutomationProperties.AutomationId="BackupsTab">
+                <TabItem.Resources>
+                    <Style x:Key="RuleActionStyle" TargetType="Button" BasedOn="{StaticResource LinkButtonStyle}">
+                        <Setter Property="FontSize" Value="16"/>
+                        <Setter Property="Foreground" Value="#172B4D"/>
+                        <Setter Property="Margin" Value="7,0"/>
+                        <Setter Property="Padding" Value="7,5"/>
+                    </Style>
+                    <Style x:Key="RulePathStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisCellStyle}">
+                        <Setter Property="FontFamily" Value="Segoe UI"/>
+                    </Style>
+                </TabItem.Resources>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="백업 규칙"/></StackPanel></TabItem.Header>
+                <Grid Margin="34,52,40,42">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,20">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="백업 규칙" Style="{StaticResource PageHeadingStyle}"/>
+                            <TextBlock Text="{Binding Mappings.Count, StringFormat=전체 {0}개}" FontSize="18" Foreground="#60718D" Margin="16,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Content="＋  새 규칙" Click="OnAddMappingClick" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Padding="24,11" AutomationProperties.AutomationId="AddMappingButton"/>
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="145"/><ColumnDefinition Width="155"/><ColumnDefinition Width="165"/><ColumnDefinition Width="175"/></Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" Margin="0,0,7,0">
+                            <TextBox x:Name="RuleSearch" Style="{StaticResource SearchTextBoxStyle}" Height="46" Margin="0" Padding="40,9,10,9" VerticalContentAlignment="Center" FontSize="16" ToolTip="규칙 이름, 폴더, 컴퓨터 검색" AutomationProperties.Name="규칙 이름, 폴더, 컴퓨터 검색" TextChanged="OnRuleFilterChanged"/>
+                            <TextBlock Text="⌕" FontSize="23" Foreground="#172B4D" Margin="13,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"/>
+                            <TextBlock Text="규칙 이름, 폴더, 컴퓨터 검색" Foreground="#7B8CA4" FontSize="16" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=RuleSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                        </Grid>
+                        <ComboBox x:Name="RuleStatusFilter" Grid.Column="1" Margin="4,0" Style="{StaticResource RuleFilterStyle}" SelectionChanged="OnRuleFilterChanged" SelectedIndex="0" AutomationProperties.Name="상태 필터">
+                            <ComboBoxItem Content="상태: 전체"/><ComboBoxItem Content="완료"/><ComboBoxItem Content="백업 중"/><ComboBoxItem Content="대기 중"/><ComboBoxItem Content="일시 중지"/><ComboBoxItem Content="확인 필요"/>
+                        </ComboBox>
+                        <Grid Grid.Column="2" Margin="4,0"><ComboBox x:Name="RuleComputerFilter" Style="{StaticResource RuleFilterStyle}" Margin="0" ItemsSource="{Binding RuleComputerOptions}" DisplayMemberPath="Name" SelectionChanged="OnRuleFilterChanged" ToolTip="선택 해제: Delete" KeyDown="OnRuleFilterKeyDown" AutomationProperties.Name="컴퓨터 필터"/><TextBlock Text="컴퓨터: 전체" Foreground="#172B4D" FontSize="14" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=RuleComputerFilter}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers><Setter Property="Visibility" Value="Collapsed"/></Style></TextBlock.Style></TextBlock></Grid>
+                        <Grid Grid.Column="3" Margin="4,0"><ComboBox x:Name="RuleDeviceFilter" Style="{StaticResource RuleFilterStyle}" Margin="0" ItemsSource="{Binding Devices}" DisplayMemberPath="DisplayName" SelectionChanged="OnRuleFilterChanged" ToolTip="선택 해제: Delete" KeyDown="OnRuleFilterKeyDown" AutomationProperties.Name="저장 장치 필터"/><TextBlock Text="저장 장치: 전체" Foreground="#172B4D" FontSize="14" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=RuleDeviceFilter}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers><Setter Property="Visibility" Value="Collapsed"/></Style></TextBlock.Style></TextBlock></Grid>
+                        <ComboBox x:Name="RuleSort" Grid.Column="4" Margin="8,0,0,0" Style="{StaticResource RuleFilterStyle}" SelectionChanged="OnRuleSortChanged" SelectedIndex="0" AutomationProperties.Name="정렬">
+                            <ComboBoxItem Content="최근 백업순"/><ComboBoxItem Content="규칙 이름순"/>
+                        </ComboBox>
+                    </Grid>
+                    <Border Grid.Row="2" Background="White" BorderBrush="#D7E2F2" BorderThickness="1" CornerRadius="10">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid ItemsSource="{Binding Mappings}" SelectedItem="{Binding SelectedMapping}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Grid Background="#FAFCFF" Margin="1,1,1,0" Height="54">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,18,0">
+                                    <TextBlock x:Name="RuleCountText" FontSize="14" Foreground="#172B4D" VerticalAlignment="Center"/>
+                                    <Border x:Name="SelectedRuleCountBadge" Background="#E4F8F5" CornerRadius="14" Padding="9,4" Margin="12,0,0,0" Visibility="Collapsed"><TextBlock x:Name="SelectedRuleCountText" FontSize="12" Foreground="#087D73"/></Border>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="RuleStartButton" Click="OnStartSelectedRulesClick" IsEnabled="False" Style="{StaticResource RuleActionStyle}" AutomationProperties.AutomationId="StartSelectedBackupButton" AutomationProperties.Name="지금 백업"><StackPanel Orientation="Horizontal"><Path Data="M 3,2 L 18,11 L 3,20 Z" Fill="#172B4D" Width="18" Height="20" Stretch="Fill" VerticalAlignment="Center" Margin="0,0,10,0"/><TextBlock Text="지금 백업" VerticalAlignment="Center"/></StackPanel></Button>
+                                    <Button x:Name="RuleEditButton" Click="OnEditMappingClick" IsEnabled="False" Style="{StaticResource RuleActionStyle}" AutomationProperties.AutomationId="EditMappingButton" AutomationProperties.Name="수정"><StackPanel Orientation="Horizontal"><Path Data="M 3,17 L 5,12 L 15,2 L 20,7 L 10,17 L 3,19 Z M 13,4 L 18,9" Stroke="#172B4D" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/><TextBlock Text="수정" VerticalAlignment="Center"/></StackPanel></Button>
+                                    <Button x:Name="RuleDuplicateButton" Click="OnDuplicateMappingClick" IsEnabled="False" Style="{StaticResource RuleActionStyle}" AutomationProperties.AutomationId="DuplicateMappingButton" AutomationProperties.Name="복제"><StackPanel Orientation="Horizontal"><Path Data="M 7,7 L 19,7 L 19,20 L 7,20 Z M 3,15 L 2,15 L 2,2 L 15,2 L 15,5" Stroke="#172B4D" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/><TextBlock Text="복제" VerticalAlignment="Center"/></StackPanel></Button>
+                                    <Button x:Name="RuleDeleteButton" Click="OnDeleteSelectedRulesClick" IsEnabled="False" Style="{StaticResource RuleActionStyle}" AutomationProperties.AutomationId="RemoveMappingButton" AutomationProperties.Name="삭제"><StackPanel Orientation="Horizontal"><Path Data="M 4,5 L 18,5 M 8,5 L 8,3 L 14,3 L 14,5 M 6,7 L 7,19 L 17,19 L 18,7 M 10,9 L 10,16 M 14,9 L 14,16" Stroke="#172B4D" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/><TextBlock Text="삭제" VerticalAlignment="Center"/></StackPanel></Button>
+                                </StackPanel>
+                                <Button x:Name="RuleToolbarMoreButton" Grid.Column="2" Content="⋯" FontSize="22" Width="42" Height="36" Style="{StaticResource LinkButtonStyle}" VerticalAlignment="Center" Margin="0,0,14,0" Click="OnRuleToolbarMoreClick" AutomationProperties.Name="추가 규칙 작업">
+                                    <Button.ContextMenu><ContextMenu>
+                                        <MenuItem Header="새 규칙" Click="OnAddMappingClick"/>
+                                        <Separator/>
+                                        <MenuItem Header="지금 백업" Click="OnStartSelectedRulesClick"/>
+                                        <MenuItem Header="수정" Click="OnEditMappingClick"/>
+                                        <MenuItem Header="복제" Click="OnDuplicateMappingClick"/>
+                                        <MenuItem Header="삭제" Click="OnDeleteSelectedRulesClick"/>
+                                    </ContextMenu></Button.ContextMenu>
+                                </Button>
+                            </Grid>
+                            <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" RowHeight="44" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="16" HorizontalScrollBarVisibility="Disabled"
                                       MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
+                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
+                                <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style></DataGrid.CellStyle>
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
                                         <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger>
                                             <DataTrigger Binding="{Binding Enabled}" Value="False">
                                                 <Setter Property="Opacity" Value="0.55"/>
                                                 <Setter Property="BorderBrush" Value="#B0B8C2"/>
@@ -122,7 +340,7 @@
                                     <Style x:Key="SelectedRowTextStyle" TargetType="TextBlock">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
+                                                <Setter Property="Foreground" Value="#172B4D"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -147,31 +365,32 @@
                                     </Style>
                                 </DataGrid.Resources>
                                 <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="{local:Loc BackupFolder}" Width="2*">
+                                    <DataGridTemplateColumn Width="46">
+                                        <DataGridTemplateColumn.Header><CheckBox x:Name="RuleSelectAll" Style="{StaticResource SelectionCheckStyle}" Margin="14,0,0,0" Checked="OnRuleSelectAllChanged" Unchecked="OnRuleSelectAllChanged" ToolTip="현재 페이지 전체 선택" AutomationProperties.Name="현재 페이지 전체 선택"/></DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" Style="{StaticResource SelectionCheckStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="이 규칙 선택" AutomationProperties.Name="규칙 선택"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                     <DataGridTemplateColumn Header="규칙" Width="1.6*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel Margin="4,2" ToolTip="{Binding SourcePathsDisplay}">
-                                                    <TextBlock Text="{Binding BackupSetOnlyName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding BackupSetOnlyName}" Style="{StaticResource RepeatDimmedFolderNameStyle}"/>
-                                                    <TextBlock FontSize="11" TextTrimming="CharacterEllipsis" Style="{StaticResource SecondaryRowTextStyle}">
-                                                        <Run Text="{Binding SourceAgentName, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding SourcePathsDisplay, Mode=OneWay}"/>
-                                                    </TextBlock>
-                                                </StackPanel>
+                                                <Grid Margin="7,2" VerticalAlignment="Center">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Border Width="30" Height="30" CornerRadius="6" Background="{Binding BackupSet.IconBrush}" VerticalAlignment="Center"><TextBlock Text="{Binding BackupSet.IconGlyph}" Foreground="White" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                                    <TextBlock Grid.Column="1" Text="{Binding BackupSetOnlyName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="16" VerticalAlignment="Center"/>
+                                                </Grid>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="{local:Loc StorageLocation}" Width="2*">
+                                     <DataGridTextColumn Header="원본 / 컴퓨터" Binding="{Binding SourcePathsDisplay}" Width="2*" ElementStyle="{StaticResource RulePathStyle}"/>
+                                     <DataGridTemplateColumn Header="대상" Width="1.5*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel Margin="4,2" ToolTip="{Binding DestinationFolder}">
-                                                    <TextBlock Text="{Binding DestinationFolder}" Style="{StaticResource SelectedRowTextStyle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{Binding DeviceName}" FontSize="11" Style="{StaticResource SecondaryRowTextStyle}" TextTrimming="CharacterEllipsis"/>
-                                                </StackPanel>
+                                                <TextBlock Margin="4,2" Text="{Binding DeviceName}" ToolTip="{Binding DestinationFolder}" Style="{StaticResource SelectedRowTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="{local:Loc NextBackup}" Width="1.6*">
-                                        <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding NextBackupDisplay}" Style="{StaticResource SelectedRowTextStyle}" Margin="4,2" TextWrapping="Wrap"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
+                                     <DataGridTemplateColumn Header="상태" Width="1*">
+                                         <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="6,0"><Ellipse Width="9" Height="9" Fill="{Binding RuleStatusBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="{Binding StatusDisplay}" VerticalAlignment="Center" Foreground="#172B4D"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                     </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header="{local:Loc Text_Lastbackup_8462B6}" Width="1.4*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -190,79 +409,149 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="{local:Loc Text_Enabled_92C1CD}" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8" ToolTip="{local:Loc Text_Pausethisbackupwithoutremoving_0ED5D5}" AutomationProperties.Name="{local:Loc Text_Enabled_92C1CD}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn Width="50">
+                                        <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                            <Button Content="⋯" FontSize="19" Padding="4,0" Style="{StaticResource LinkButtonStyle}" Click="OnRuleMoreClick" ToolTip="규칙 작업" AutomationProperties.Name="규칙 작업">
+                                                <Button.ContextMenu><ContextMenu>
+                                                    <MenuItem Header="수정" Click="OnEditMappingClick"/>
+                                                    <MenuItem Header="복제" Click="OnDuplicateMappingClick"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="삭제" Click="OnDeleteMappingClick"/>
+                                                </ContextMenu></Button.ContextMenu>
+                                            </Button>
+                                        </DataTemplate></DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Text="{local:Loc Text_NobackuprulesyetAddonetochoose_7C46A4}" TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="360" IsHitTestVisible="False" Visibility="{Binding Mappings.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                            <Grid Grid.Row="1" Margin="0,12,0,0">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="{local:Loc Text_Removebackup_2D2646}" Command="{Binding RemoveMappingCommand}" IsEnabled="{Binding HasSelectedMapping}" AutomationProperties.AutomationId="RemoveMappingButton"/>
-                                </StackPanel>
-                                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding StartSelectedMappingHint}" Foreground="#B45309" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0" Visibility="{Binding StartSelectedMappingHint, Converter={StaticResource StringEmptyToCollapsedConverter}}"/>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                    <Button Content="{local:Loc Text_Editbackup_9CBB38}" Click="OnEditMappingClick" IsEnabled="{Binding HasSelectedMapping}" AutomationProperties.AutomationId="EditMappingButton"/>
-                                    <Button Content="{local:Loc Text_Addbackup_8026D5}" Click="OnAddMappingClick" AutomationProperties.AutomationId="AddMappingButton"/>
-                                    <Button Content="{local:Loc Text_Startnow_9FF3A6}" Command="{Binding QueueSelectedMappingCommand}" IsEnabled="{Binding CanStartSelectedMapping}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="StartSelectedBackupButton"/>
-                                </StackPanel>
-                            </Grid>
+                             <TextBlock Grid.Row="1" Text="표시할 규칙이 없습니다." TextWrapping="Wrap" Foreground="#8493A6" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="360" IsHitTestVisible="False" Visibility="{Binding RulePage.Count, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ZeroToVisibleConverter}}"/>
                         </Grid>
-                    </GroupBox>
+                    </Border>
+                    <Grid Grid.Row="3" Margin="0,14,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button x:Name="PreviousRulePageButton" Content="‹  이전" Click="OnPreviousRulePageClick" Style="{StaticResource RuleActionStyle}" AutomationProperties.Name="이전 페이지"/>
+                            <StackPanel x:Name="RulePageButtons" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0"/>
+                            <Button x:Name="NextRulePageButton" Content="다음  ›" Click="OnNextRulePageClick" Style="{StaticResource RuleActionStyle}" AutomationProperties.Name="다음 페이지"/>
+                        </StackPanel>
+                        <ComboBox x:Name="RulePageSize" HorizontalAlignment="Right" Width="155" Style="{StaticResource RuleFilterStyle}" SelectionChanged="OnRulePageSizeChanged" SelectedIndex="0" AutomationProperties.Name="페이지당 규칙 수">
+                            <ComboBoxItem Content="페이지당 25개"/><ComboBoxItem Content="페이지당 50개"/><ComboBoxItem Content="페이지당 100개"/>
+                        </ComboBox>
+                    </Grid>
+                    <Grid Grid.Row="4" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding FooterStatus}" TextTrimming="CharacterEllipsis" Foreground="#60718D" VerticalAlignment="Center" Margin="0,0,16,0"/><TextBlock Grid.Column="1" Text="♢ 모든 데이터는 사용자의 PC에만 저장됩니다." FontSize="12" Foreground="#60718D"/></Grid>
+                    <Grid x:Name="RuleEditorHost" Grid.RowSpan="5" Background="#F8FBFE" Visibility="Collapsed" Panel.ZIndex="20" AutomationProperties.AutomationId="RuleEditorHost"/>
                 </Grid>
             </TabItem>
-
-            <!-- Use Source Agent consistently for the managed software identity; use computer only when
-                 referring to the physical machine. -->
-            <TabItem x:Name="ComputersTabItem" Header="{local:Loc Text_SourceAgents_016D07}" AutomationProperties.AutomationId="SourceAgentsTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="{local:Loc Text_EachcomputeryoupairrunsaSource_32AFD1}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,10"/>
-                    <GroupBox Grid.Row="1" Header="{local:Loc Text_SourceAgents_016D07}" Padding="10">
+            <TabItem x:Name="ComputersTabItem" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" AutomationProperties.AutomationId="SourceAgentsTab">
+                <TabItem.Resources>
+                    <Style x:Key="AgentCellTextStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisCellStyle}"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Foreground" Value="#172B4D"/><Setter Property="FontSize" Value="16"/></Style>
+                    <Style x:Key="AgentDiscoveryToggleStyle" TargetType="CheckBox">
+                        <Setter Property="Foreground" Value="#172B4D"/><Setter Property="FontSize" Value="16"/><Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Grid Width="50" Height="28" Margin="0,0,12,0">
+                                    <Border x:Name="Track" Background="#0A927E" CornerRadius="14"/>
+                                    <Ellipse x:Name="Thumb" Width="21" Height="21" Fill="White" HorizontalAlignment="Right" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                </Grid>
+                                <ContentPresenter VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False"><Setter TargetName="Track" Property="Background" Value="#9BACC1"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Left"/><Setter TargetName="Thumb" Property="Margin" Value="4,0,0,0"/></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="#172B4D"/><Setter TargetName="Track" Property="BorderThickness" Value="2"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate></Setter.Value></Setter>
+                    </Style>
+                    <Style x:Key="AgentRowStyle" TargetType="DataGridRow"><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
+                    <Style x:Key="AgentCellStyle" TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
+                </TabItem.Resources>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-agents.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="원격 에이전트"/></StackPanel></TabItem.Header>
+                <Grid Margin="34,51,40,47">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="0,0,0,37">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="원격 에이전트" Style="{StaticResource PageHeadingStyle}"/>
+                            <TextBlock Text="다른 컴퓨터의 백업 연결을 관리합니다." FontSize="16" Foreground="#526987" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                            <TextBlock FontSize="15" Foreground="#526987" Margin="18,0,0,0" VerticalAlignment="Center"><Run Text="연결 "/><Run Text="{Binding Sources.Count, Mode=OneWay}"/><Run Text="개  ·  주변에서 발견 "/><Run Text="{Binding NearbyComputers.Count, Mode=OneWay}"/><Run Text="개"/></TextBlock>
+                        </StackPanel>
+                        <Button x:Name="ConnectNewAgentButton" Content="＋  새 에이전트 연결" Click="OnConnectNewAgentClick" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Padding="20,10" AutomationProperties.AutomationId="ConnectNewAgentButton"/>
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,0,0,24">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" Margin="0,0,18,0">
+                            <TextBox x:Name="AgentSearch" Style="{StaticResource SearchTextBoxStyle}" Height="46" Padding="40,9,10,9" VerticalContentAlignment="Center" FontSize="16" TextChanged="OnAgentFilterChanged" AutomationProperties.Name="에이전트 이름, 컴퓨터 ID 검색"/>
+                            <TextBlock Text="⌕" FontSize="23" Foreground="#172B4D" Margin="13,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <TextBlock Text="에이전트 이름, 컴퓨터 ID 검색" Foreground="#7B8CA4" FontSize="16" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=AgentSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                        </Grid>
+                        <CheckBox x:Name="IncludeNearbyAgents" Grid.Column="1" Content="발견된 기기 포함" IsChecked="True" Checked="OnAgentFilterChanged" Unchecked="OnAgentFilterChanged" VerticalAlignment="Center" Style="{StaticResource AgentDiscoveryToggleStyle}"/>
+                        <ComboBox x:Name="AgentStatusFilter" Grid.Column="2" Style="{StaticResource RuleFilterStyle}" SelectedIndex="0" SelectionChanged="OnAgentFilterChanged" AutomationProperties.Name="에이전트 상태 필터">
+                            <ComboBoxItem Content="상태: 전체"/><ComboBoxItem Content="온라인"/><ComboBoxItem Content="오프라인"/><ComboBoxItem Content="발견됨"/>
+                        </ComboBox>
+                    </Grid>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="2.2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="0" Margin="0,0,12,0" MinHeight="640">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid MinHeight="90" MaxHeight="150" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                            <DataGrid x:Name="SourceConnectionsGrid" Grid.Row="0" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" SelectionChanged="OnSourceAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="86" ColumnHeaderHeight="52" FontSize="16" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="{local:Loc Text_SourceAgent_21CF69}" Binding="{Binding DisplayNameWithHint}" Width="1.7*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
-                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="1.4*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTemplateColumn Width="46"><DataGridTemplateColumn.Header><CheckBox x:Name="AgentSelectAll" Style="{StaticResource SelectionCheckStyle}" Margin="14,0,0,0" Checked="OnAgentSelectAllChanged" Unchecked="OnAgentSelectAllChanged" ToolTip="표시된 에이전트 전체 선택" AutomationProperties.Name="표시된 에이전트 전체 선택"/></DataGridTemplateColumn.Header><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" Style="{StaticResource SelectionCheckStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="에이전트 선택"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="에이전트" Width="1.7*">
+                                        <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                            <Grid VerticalAlignment="Center" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Viewbox Width="30" Height="30" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayNameWithHint}" FontSize="17" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayNameWithHint}"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="14" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding Id}"/></StackPanel>
+                                            </Grid>
+                                        </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <!-- Status may contain a recovery deadline; preserve room and expose the
                                          complete value through the shared ellipsis/tooltip behavior. -->
-                                    <DataGridTextColumn Header="{local:Loc Text_Status_920E41}" Binding="{Binding StatusDisplay}" Width="2.2*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                                <Setter Property="ToolTip" Value="{Binding StatusDisplay}"/>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="{local:Loc Text_Offers_E98BF0}" Binding="{Binding PathsServedDisplay}" Width="1.6*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTemplateColumn Header="{local:Loc Text_Status_920E41}" Width="1.2*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Background="{Binding ListStatusBackground}" CornerRadius="16" Padding="9,5" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding StatusDisplay}"><StackPanel Orientation="Horizontal"><Ellipse Width="9" Height="9" Fill="{Binding ListStatusDotBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBlock Text="{Binding ListStatusDisplay}" Foreground="#172B4D" FontSize="16" MaxWidth="130" TextTrimming="CharacterEllipsis"/></StackPanel></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="1*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
+                                    <DataGridTextColumn Header="{local:Loc Text_Offers_E98BF0}" Binding="{Binding BackupSets.Count, StringFormat={}{0}개}" Width="0.8*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
+                                    <DataGridTemplateColumn Header="작업" Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="⋯" FontSize="19" Style="{StaticResource LinkButtonStyle}" Click="OnAgentMoreClick" ToolTip="에이전트 작업"><Button.ContextMenu><ContextMenu><MenuItem Header="상태 새로고침" Click="OnRefreshAgentStatusClick"/><Separator/><MenuItem Header="이름 변경" Click="OnRenameAgentMenuClick" IsEnabled="{Binding PlacementTarget.DataContext.HasConnection, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/><MenuItem Header="연결 해제" Click="OnForgetAgentMenuClick" IsEnabled="{Binding PlacementTarget.DataContext.HasConnection, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/></ContextMenu></Button.ContextMenu></Button></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Text="{local:Loc Text_Nocomputerhasreportedanythingt_2B5CCE}" TextWrapping="Wrap" Foreground="#607086" Margin="12,30,12,8" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" IsHitTestVisible="False" Visibility="{Binding Sources.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
-                            <WrapPanel Grid.Row="1" Margin="0,8,0,0" HorizontalAlignment="Right">
-                                <Button Content="{local:Loc Text_Rename_3064D7}" Command="{Binding RenameSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Margin="0,4,6,0" ToolTip="{local:Loc Text_Changeonlywhatthetraydisplaysf_8E2E3E}" AutomationProperties.AutomationId="RenameSourceButton"/>
-                                <Button Content="{local:Loc Text_RemoveSourceAgent_ED5EE3}" Command="{Binding ForgetSourceCommand}" IsEnabled="{Binding HasSelectedSourceConnection}" Style="{StaticResource DangerButtonStyle}" Margin="0,4,6,0" ToolTip="{local:Loc Text_BlockthisSourceAgentandremovei_1A5808}" AutomationProperties.AutomationId="ForgetSourceButton"/>
-                            </WrapPanel>
-                        </Grid>
-                    </GroupBox>
-                    <GroupBox Grid.Row="2" Header="{local:Loc NearbyComputers}" Padding="10" Margin="0,12,0,0">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <TextBlock Text="{local:Loc NearbyDiscoveryWarning}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"/>
-                            <DataGrid Grid.Row="1" MinHeight="70" MaxHeight="150" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" AutomationProperties.AutomationId="NearbyComputersGrid">
+                            <DataGrid x:Name="NearbyAgentsGrid" Grid.Row="1" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" SelectionChanged="OnNearbyAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="86" HeadersVisibility="None" FontSize="16" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="NearbyComputersGrid">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="{local:Loc NearbyName}" Binding="{Binding DisplayName}" Width="2*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
-                                    <DataGridTextColumn Header="{local:Loc Text_Lastseen_21FD79}" Binding="{Binding LastSeenDisplay}" Width="*" ElementStyle="{StaticResource EllipsisCellStyle}"/>
+                                    <DataGridTemplateColumn Width="46"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" Style="{StaticResource SelectionCheckStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="발견된 컴퓨터 선택"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="1.7*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid VerticalAlignment="Center" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Viewbox Width="30" Height="30" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="14" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding AgentId}"/></StackPanel></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="1.2*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Background="#E7F2FF" CornerRadius="16" Padding="9,5" HorizontalAlignment="Left" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><Ellipse Width="9" Height="9" Fill="#1675D1" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBlock Text="{Binding DiscoveryStatus}" Foreground="#17508A" FontSize="16"/></StackPanel></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTextColumn Binding="{Binding LastSeenDisplay}" Width="1*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
+                                    <DataGridTextColumn Binding="{Binding EmptyOffer}" Width="0.8*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
+                                    <DataGridTemplateColumn Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="연결 요청" Click="OnNearbyAgentRequestClick" Style="{StaticResource OutlinedButtonStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="10,7" FontSize="16" AutomationProperties.Name="연결 요청"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                        </Grid>
+                    </Border>
+                    <Border Grid.Column="1" Style="{StaticResource CardStyle}" TextElement.FontSize="16" Padding="22" Margin="0,0,0,0">
+                        <StackPanel DataContext="{Binding SelectedRemoteAgent}">
+                            <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Viewbox Width="37" Height="37" HorizontalAlignment="Left" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="21" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" Foreground="#607596" FontSize="13" Margin="0,3,0,0" ToolTip="{Binding Id}"/></StackPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="38"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+                                <TextBlock Text="상태" Foreground="#526987" VerticalAlignment="Center"/><Border Grid.Column="1" Background="{Binding ListStatusBackground}" CornerRadius="16" Padding="10,4" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding StatusDisplay}"><StackPanel Orientation="Horizontal"><Ellipse Width="9" Height="9" Fill="{Binding ListStatusDotBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBlock Text="{Binding ListStatusDisplay}" Foreground="#172B4D"/></StackPanel></Border>
+                                <TextBlock Grid.Row="1" Text="마지막 확인" Foreground="#526987" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastSeenDisplay}" Foreground="#142A48" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="2" Text="제공 폴더" Foreground="#526987" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BackupSets.Count, StringFormat={}{0}개}" Foreground="#142A48" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="#D7E2F2" Margin="0,0,0,18"/>
+                            <TextBlock Text="제공 폴더 목록" FontSize="16" FontWeight="Bold" Foreground="#142A48" Margin="0,0,0,12"/>
+                            <ItemsControl ItemsSource="{Binding BackupSets}">
+                                <ItemsControl.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="2,0,0,12"><Border Width="30" Height="30" Background="{Binding IconBrush}" CornerRadius="5"><TextBlock Text="{Binding IconGlyph}" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="{Binding Model.Name}" Foreground="#142A48" FontSize="16" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Height="1" Background="#D7E2F2" Margin="0,10,0,18"/>
+                            <TextBlock Text="작업" FontSize="16" FontWeight="Bold" Foreground="#142A48" Margin="0,0,0,14"/>
+                            <WrapPanel DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TabItem}}">
+                                <Button x:Name="AgentRenameButton" Command="{Binding RenameSourceCommand}" IsEnabled="False" Style="{StaticResource OutlinedButtonStyle}" Padding="16,10" Margin="0,0,8,0" ToolTip="{local:Loc Text_Changeonlywhatthetraydisplaysf_8E2E3E}" AutomationProperties.AutomationId="RenameSourceButton" AutomationProperties.Name="이름 변경"><StackPanel Orientation="Horizontal"><Path Data="M 3,17 L 5,12 L 15,2 L 20,7 L 10,17 L 3,19 Z M 13,4 L 18,9" Stroke="#172B4D" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="이름 변경" FontSize="16" VerticalAlignment="Center"/></StackPanel></Button>
+                                <Button x:Name="AgentForgetButton" Command="{Binding ForgetSourceCommand}" IsEnabled="False" Style="{StaticResource OutlinedButtonStyle}" Padding="16,10" Margin="0" Foreground="#C93232" Background="#FFF9F9" BorderBrush="#FFB5B5" ToolTip="{local:Loc Text_BlockthisSourceAgentandremovei_1A5808}" AutomationProperties.AutomationId="ForgetSourceButton" AutomationProperties.Name="연결 해제"><StackPanel Orientation="Horizontal"><Path Data="M 4,5 L 18,5 M 8,5 L 8,3 L 14,3 L 14,5 M 6,7 L 7,19 L 17,19 L 18,7 M 10,9 L 10,16 M 14,9 L 14,16" Stroke="#C93232" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="연결 해제" FontSize="16" VerticalAlignment="Center"/></StackPanel></Button>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    </Grid>
+                    <Expander x:Name="AgentHelpExpander" Grid.Row="3" Header="연결 도움말 및 요청 상태" Padding="10" Margin="0,14,0,0" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <TextBlock Text="{local:Loc NearbyDiscoveryWarning}" TextWrapping="Wrap" Foreground="#607086" Margin="0,0,0,8"/>
+                            <StackPanel Grid.Row="1" Margin="0,8,0,0">
                                 <TextBlock Text="{Binding NearbyPairingStatus}" TextWrapping="Wrap"/>
                                 <Border Background="#FFF7D6" BorderBrush="#D69E2E" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,8,0,0" Visibility="{Binding HasNearbyComparisonCode, Converter={StaticResource BoolToVisibleConverter}}">
                                     <StackPanel>
@@ -271,68 +560,108 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
-                            <WrapPanel Grid.Row="3" Margin="0,8,0,0">
+                            <WrapPanel Grid.Row="2" Margin="0,8,0,0">
                                 <Button Content="{local:Loc NearbyRequestPairing}" Command="{Binding RequestNearbyPairingCommand}" IsEnabled="{Binding HasSelectedNearbyComputer}" Style="{StaticResource PrimaryButtonStyle}" AutomationProperties.AutomationId="RequestNearbyPairingButton"/>
                                 <Button Content="{local:Loc NearbyCancelPairing}" Command="{Binding CancelNearbyPairingCommand}" IsEnabled="{Binding CanCancelNearbyPairing}" Margin="6,0,0,0" AutomationProperties.AutomationId="CancelNearbyPairingButton"/>
                                 <Button Content="{local:Loc NearbyRefresh}" Command="{Binding RefreshNearbyComputersCommand}" Margin="6,0,0,0" AutomationProperties.AutomationId="RefreshNearbyComputersButton"/>
                             </WrapPanel>
                         </Grid>
-                    </GroupBox>
+                    </Expander>
+                    <Grid Grid.Row="4" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding FooterStatus}" TextTrimming="CharacterEllipsis" Foreground="#60718D" VerticalAlignment="Center" Margin="0,0,16,0"/><TextBlock Grid.Column="1" Text="♢ 모든 데이터는 사용자의 PC에만 저장됩니다." Foreground="#60718D" FontSize="12"/></Grid>
                 </Grid>
-                </ScrollViewer>
             </TabItem>
-
-            <TabItem Header="{local:Loc Text_Settings_74A883}" AutomationProperties.AutomationId="SettingsTab">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="24" MaxWidth="720" HorizontalAlignment="Left">
-                        <TextBlock Text="{local:Loc Text_Language_A4FE65}" FontSize="20" FontWeight="SemiBold"/>
-                        <ComboBox ItemsSource="{Binding Languages}" DisplayMemberPath="DisplayName" SelectedValuePath="Code" SelectedValue="{Binding Language}" Width="240" HorizontalAlignment="Left" AutomationProperties.AutomationId="LanguageCombo"/>
-                        <TextBlock Text="{local:Loc Text_SavedautomaticallyExitBackupMe_6E29AA}" TextWrapping="Wrap" Foreground="#607086" Margin="0,4,0,20"/>
-                        <TextBlock Text="{local:Loc Text_Automation_D90975}" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                        <CheckBox Content="{local:Loc Text_StartBackupMeshwhenIsignin_A44225}" IsChecked="{Binding StartWithWindows}" Margin="4,8" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
-                        <CheckBox Content="{local:Loc Text_ShowaWindowsnotificationwhenab_B5FAB9}" IsChecked="{Binding NotifyOnDeviceArrival}" Margin="4,8" AutomationProperties.AutomationId="NotifyOnDeviceArrivalCheckBox"/>
-                        <CheckBox Content="{local:Loc Text_Automaticallystarteligibleback_02F7BF}" IsChecked="{Binding AutomaticBackups}" Margin="4,8" AutomationProperties.AutomationId="AutomaticBackupsCheckBox"/>
-                        <CheckBox Content="{local:Loc Text_Showastatuswindowwhenabackupst_8A774A}" IsChecked="{Binding ShowFlyoutOnBackupStart}" Margin="4,8" ToolTip="{local:Loc Text_Asmallpopupnearthetrayiconwith_C54240}" AutomationProperties.AutomationId="ShowFlyoutOnBackupStartCheckBox"/>
-                        <StackPanel Orientation="Horizontal" Margin="4,8">
-                            <TextBlock Text="{local:Loc Text_Waitbeforestartingafteranytarg_F8504D}" VerticalAlignment="Center" ToolTip="{local:Loc Text_Appliestoeverybackuptarget_F4D827}"/>
-                            <TextBox Text="{Binding DefaultArrivalDelayMinutes}" Width="55" Margin="6,0" AutomationProperties.AutomationId="DefaultArrivalDelayInput"/>
-                            <TextBlock Text="{local:Loc Text_minutes_90E63D}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <Button Content="{local:Loc Text_Savesettings_7F3A3B}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" Margin="0,18,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
-                        <Separator Margin="0,18"/>
-                        <Expander Header="{local:Loc Text_Security_8F6FB4}" Margin="0,0,0,18">
-                            <Border Background="#FFF8F6" BorderBrush="#E8C7C0" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,10,0,0">
-                                <StackPanel>
-                                    <TextBlock TextWrapping="Wrap" Foreground="#6F3B32" Margin="0,0,0,10" Text="{local:Loc Text_RotatingtheStorageidentityrege_47B7C4}"/>
-                                    <Button Content="{local:Loc Text_RotateStorageidentity_8CA37E}" Command="{Binding RotateStorageIdentityCommand}" Style="{StaticResource DangerButtonStyle}" HorizontalAlignment="Left" AutomationProperties.AutomationId="RotateStorageIdentityButton"/>
-                                </StackPanel>
-                            </Border>
-                        </Expander>
-                        <Separator Margin="0,8"/>
-                        <TextBlock Text="{local:Loc Text_AboutBackupMesh_0F063F}" FontSize="20" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding ProductVersion}" Margin="0,8"/>
-                        <TextBlock Text="{local:Loc Text_Automaticbackupswhenyourstorag_6BDA2D}" TextWrapping="Wrap"/>
-                        <TextBlock Text="{local:Loc Text_CreatedbynamiotoApache20_6CDCF2}" Margin="0,6"/>
-                        <TextBlock Margin="0,6" TextWrapping="Wrap">
-                            <Hyperlink NavigateUri="https://github.com/namioto/backupmesh" RequestNavigate="OnProjectLink" AutomationProperties.AutomationId="ProjectLink">github.com/namioto/backupmesh</Hyperlink>
-                        </TextBlock>
-                        <TextBlock Margin="0,6" TextWrapping="Wrap">
-                            <Hyperlink NavigateUri="https://github.com/namioto/backupmesh/blob/main/docs/USER_GUIDE.md" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_Userguide_86A2A9}"/></Hyperlink>
-                            <Run Text=" · "/>
-                            <Hyperlink NavigateUri="https://github.com/namioto/backupmesh/issues" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_Reportanissue_635AE2}"/></Hyperlink>
-                            <Run Text=" · "/>
-                            <Hyperlink NavigateUri="https://github.com/namioto/backupmesh/blob/main/LICENSE" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_License_C011D6}"/></Hyperlink>
-                        </TextBlock>
-                    </StackPanel>
-                </ScrollViewer>
+            <TabItem x:Name="SettingsTabItem" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" AutomationProperties.AutomationId="SettingsTab">
+                <TabItem.Resources>
+                    <Style x:Key="SettingsToggleStyle" TargetType="CheckBox">
+                        <Setter Property="Foreground" Value="#172B4D"/><Setter Property="FontSize" Value="16"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,2"/>
+                        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                            <Grid Background="Transparent" MinHeight="48">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <ContentPresenter VerticalAlignment="Center" Margin="0,0,18,0"/>
+                                <Border x:Name="Track" Grid.Column="1" Width="48" Height="26" CornerRadius="13" Background="#0A927E" VerticalAlignment="Center">
+                                    <Ellipse x:Name="Thumb" Width="20" Height="20" Fill="White" HorizontalAlignment="Right" Margin="3"/>
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False"><Setter TargetName="Track" Property="Background" Value="#9BACC1"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Left"/></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="#172B4D"/><Setter TargetName="Track" Property="BorderThickness" Value="2"/></Trigger>
+                                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate></Setter.Value></Setter>
+                    </Style>
+                </TabItem.Resources>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-settings.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="설정"/></StackPanel></TabItem.Header>
+                <Grid Margin="34,52,40,42" TextElement.Foreground="#172B4D" TextElement.FontSize="16">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="{local:Loc Text_Settings_74A883}" Style="{StaticResource PageHeadingStyle}"/>
+                    <ScrollViewer Grid.Row="1" Margin="0,22,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <Border Style="{StaticResource CardStyle}" Padding="24" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="{local:Loc Text_Language_A4FE65}" Style="{StaticResource CardHeadingStyle}"/>
+                                        <ComboBox ItemsSource="{Binding Languages}" SelectedValuePath="Code" SelectedValue="{Binding Language}" Style="{StaticResource RuleFilterStyle}" Width="260" HorizontalAlignment="Left" FontSize="16" AutomationProperties.AutomationId="LanguageCombo"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                                        <TextBlock Text="{local:Loc Text_SavedautomaticallyExitBackupMe_6E29AA}" FontSize="14" TextWrapping="Wrap" Foreground="#60718D" Margin="0,12,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource CardStyle}" Padding="24">
+                                    <StackPanel>
+                                        <TextBlock Text="{local:Loc Text_Automation_D90975}" Style="{StaticResource CardHeadingStyle}" Margin="0,0,0,14"/>
+                                        <CheckBox Content="{local:Loc Text_StartBackupMeshwhenIsignin_A44225}" IsChecked="{Binding StartWithWindows}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
+                                        <CheckBox Content="{local:Loc Text_ShowaWindowsnotificationwhenab_B5FAB9}" IsChecked="{Binding NotifyOnDeviceArrival}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="NotifyOnDeviceArrivalCheckBox"/>
+                                        <CheckBox Content="{local:Loc Text_Automaticallystarteligibleback_02F7BF}" IsChecked="{Binding AutomaticBackups}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="AutomaticBackupsCheckBox"/>
+                                        <CheckBox Content="{local:Loc Text_Showastatuswindowwhenabackupst_8A774A}" IsChecked="{Binding ShowFlyoutOnBackupStart}" Style="{StaticResource SettingsToggleStyle}" ToolTip="{local:Loc Text_Asmallpopupnearthetrayiconwith_C54240}" AutomationProperties.AutomationId="ShowFlyoutOnBackupStartCheckBox"/>
+                                        <Border Height="1" Background="#D7E2F2" Margin="0,14,0,18"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{local:Loc Text_Waitbeforestartingafteranytarg_F8504D}" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip="{local:Loc Text_Appliestoeverybackuptarget_F4D827}"/>
+                                            <TextBox Grid.Column="1" Text="{Binding DefaultArrivalDelayMinutes}" Style="{StaticResource SearchTextBoxStyle}" Width="74" Height="42" Padding="8,2" FontSize="16" VerticalContentAlignment="Center" Margin="12,0,8,0" AutomationProperties.AutomationId="DefaultArrivalDelayInput"/>
+                                            <TextBlock Grid.Column="2" Text="{local:Loc Text_minutes_90E63D}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Button Content="{local:Loc Text_Savesettings_7F3A3B}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" FontSize="16" Padding="24,11" HorizontalAlignment="Left" Margin="0,22,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <Border Style="{StaticResource CardStyle}" Padding="24" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="{local:Loc Text_Security_8F6FB4}" Style="{StaticResource CardHeadingStyle}"/>
+                                        <Border Background="#FFF8F6" BorderBrush="#E8C7C0" BorderThickness="1" CornerRadius="8" Padding="14">
+                                            <TextBlock Text="{local:Loc Text_RotatingtheStorageidentityrege_47B7C4}" Foreground="#6F3B32" FontSize="14" TextWrapping="Wrap"/>
+                                        </Border>
+                                        <Button Content="{local:Loc Text_RotateStorageidentity_8CA37E}" Command="{Binding RotateStorageIdentityCommand}" Style="{StaticResource OutlinedButtonStyle}" Foreground="#C93232" Background="#FFF9F9" BorderBrush="#FFB5B5" Padding="14,10" FontSize="15" HorizontalAlignment="Left" Margin="0,16,0,0" AutomationProperties.AutomationId="RotateStorageIdentityButton"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource CardStyle}" Padding="24">
+                                    <StackPanel>
+                                        <TextBlock Text="{local:Loc Text_AboutBackupMesh_0F063F}" Style="{StaticResource CardHeadingStyle}"/>
+                                        <TextBlock Text="{Binding ProductVersion}" FontWeight="SemiBold" Foreground="#142A48" Margin="0,0,0,10"/>
+                                        <TextBlock Text="{local:Loc Text_Automaticbackupswhenyourstorag_6BDA2D}" TextWrapping="Wrap" Foreground="#60718D"/>
+                                        <TextBlock Text="{local:Loc Text_CreatedbynamiotoApache20_6CDCF2}" Foreground="#60718D" Margin="0,10,0,16"/>
+                                        <Border Height="1" Background="#D7E2F2" Margin="0,0,0,14"/>
+                                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"><Hyperlink NavigateUri="https://github.com/namioto/backupmesh" RequestNavigate="OnProjectLink" AutomationProperties.AutomationId="ProjectLink">github.com/namioto/backupmesh</Hyperlink></TextBlock>
+                                        <TextBlock TextWrapping="Wrap"><Hyperlink NavigateUri="https://github.com/namioto/backupmesh/blob/main/docs/USER_GUIDE.md" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_Userguide_86A2A9}"/></Hyperlink><Run Text=" · "/><Hyperlink NavigateUri="https://github.com/namioto/backupmesh/issues" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_Reportanissue_635AE2}"/></Hyperlink><Run Text=" · "/><Hyperlink NavigateUri="https://github.com/namioto/backupmesh/blob/main/LICENSE" RequestNavigate="OnProjectLink"><Run Text="{local:Loc Text_License_C011D6}"/></Hyperlink></TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                    <Grid Grid.Row="2" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding FooterStatus}" TextTrimming="CharacterEllipsis" Foreground="#60718D" VerticalAlignment="Center" Margin="0,0,16,0"/><TextBlock Grid.Column="1" Text="♢ 모든 데이터는 사용자의 PC에만 저장됩니다." Foreground="#60718D" FontSize="12"/></Grid>
+                </Grid>
             </TabItem>
-        </TabControl>
-
-        <Border Grid.Row="2" Background="#E8EDF4" Padding="12,6">
+            </TabControl>
+        <Border x:Name="StatusFooter" Grid.Row="1" Background="#E8EDF4" Padding="12,6">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0"><Run Text="{Binding ProductVersion, Mode=OneWay}"/><Run Text=" · "/><Hyperlink NavigateUri="https://github.com/namioto/backupmesh" RequestNavigate="OnProjectLink" AutomationProperties.AutomationId="FooterGitHubLink">GitHub</Hyperlink></TextBlock>
                 <TextBlock Text="{Binding FooterStatus}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FooterStatus}" Foreground="#44566C" AutomationProperties.AutomationId="FooterStatusText"/>
             </DockPanel>
         </Border>
+        </Grid>
+        <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,10,0" Panel.ZIndex="10">
+            <Button Width="60" Height="38" Style="{StaticResource LinkButtonStyle}" Click="OnMinimizeWindowClick" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="최소화" AutomationProperties.Name="최소화"><Path Data="M 0,0 L 12,0" Stroke="#172B4D" StrokeThickness="1.6" Width="12" Height="2" Stretch="Fill"/></Button>
+            <Button Width="60" Height="38" Style="{StaticResource LinkButtonStyle}" Click="OnMaximizeWindowClick" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="최대화 또는 복원" AutomationProperties.Name="최대화 또는 복원"><Path Data="M 1,1 L 12,1 12,12 1,12 Z" Stroke="#172B4D" StrokeThickness="1.6" Width="12" Height="12" Stretch="Fill"/></Button>
+            <Button Width="60" Height="38" Style="{StaticResource LinkButtonStyle}" Click="OnCloseWindowClick" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="닫기" AutomationProperties.Name="닫기"><Path Data="M 1,1 L 12,12 M 12,1 L 1,12" Stroke="#172B4D" StrokeThickness="1.6" Width="12" Height="12" Stretch="Fill"/></Button>
+        </StackPanel>
     </Grid>
 </Window>

@@ -77,5 +77,6 @@ New-NetFirewallRule -DisplayName $discoveryFirewallRuleName -Direction Inbound -
 
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $trayCommand = '"' + (Join-Path $packageRoot 'App\BackupMesh.Storage.App.exe') + '"'
+Remove-ItemProperty -Path $runKey -Name 'BackupMesh.Storage.Agent' -ErrorAction SilentlyContinue
 New-ItemProperty -Path $runKey -Name 'BackupMesh Storage Agent' -Value $trayCommand -PropertyType String -Force | Out-Null
 Write-Host 'BackupMesh Storage Agent is installed and running. The tray app will start at sign-in; Control and repository ports are open to the local subnet on Private and Domain networks.'

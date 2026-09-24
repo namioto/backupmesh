@@ -25,6 +25,102 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public void DashboardTransferTracksOnlyActiveMappedJobs()
+    {
+        using var viewModel = new MainWindowViewModel(loadLocalState: false);
+        var agentId = Guid.NewGuid();
+        var source = new BackupSetViewModel(new(Guid.NewGuid(), agentId, "Remote", "Documents", [@"C:\Data"]));
+        var agent = new RemoteAgentViewModel(agentId, "Remote")
+        {
+            Connection = new(new(agentId, "Remote", "Remote", DateTimeOffset.UtcNow, null, 1, false, null))
+        };
+        viewModel.Sources.Add(agent);
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Archive drive", "A", @"D:\", DateTimeOffset.UtcNow, null)) { IsConnected = true };
+        viewModel.Devices.Add(device);
+        var mapping = new MappingViewModel(new(Guid.NewGuid(), source.Id, device.Id, "backup"), source, device);
+        viewModel.Mappings.Add(mapping);
+        viewModel.Jobs.Add(new(new(Guid.NewGuid(), "RUNNING", DateTimeOffset.UtcNow, new(50, 100, 1, 2), null, mapping.Id)));
+
+        Assert.True(viewModel.IsDashboardTransferActive);
+        Assert.True(viewModel.IsRemoteDashboardTransferActive);
+        Assert.Equal(50, viewModel.DashboardTransferPercent);
+        Assert.Contains("50%", viewModel.DashboardTransferLabel);
+        Assert.False(viewModel.IsDashboardTransferIndeterminate);
+
+        device.IsConnected = false;
+        Assert.Equal("저장 장치 없음", viewModel.DashboardDeviceName);
+        Assert.False(viewModel.IsDashboardTransferActive);
+        device.IsConnected = true;
+
+        viewModel.Jobs.Clear();
+        viewModel.Jobs.Add(new(new(Guid.NewGuid(), "SUCCEEDED", DateTimeOffset.UtcNow, null, null, mapping.Id)));
+        Assert.False(viewModel.IsDashboardTransferActive);
+    }
+
+    [Fact]
+    public void DashboardShowsConnectedNamesInsteadOfOfflineRegistrations()
+    {
+        var inventory = new MutableDeviceInventory();
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, deviceInventory: inventory);
+        var offline = new DeviceViewModel(new(Guid.NewGuid(), "disk:old", "Old drive", "OLD", @"E:\", DateTimeOffset.UtcNow, null));
+        var connected = new DeviceViewModel(new(Guid.NewGuid(), "disk:new", "Current drive", "NEW", @"F:\", DateTimeOffset.UtcNow, null));
+        viewModel.Devices.Add(offline);
+        viewModel.Devices.Add(connected);
+        var nameChanged = 0;
+        viewModel.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(viewModel.DashboardDeviceName)) nameChanged++; };
+        inventory.Drives = [new("disk:new", @"F:\", "NEW", 1, 2, "Current drive", 1)];
+        viewModel.RefreshDrivesCommand.Execute(null);
+        Assert.Equal("Current drive", viewModel.DashboardDeviceName);
+
+        var oldAgentId = Guid.NewGuid();
+        var oldAgent = new RemoteAgentViewModel(oldAgentId, "Old computer")
+        {
+            Connection = new(new(oldAgentId, "Old computer", "Old computer", DateTimeOffset.UtcNow.AddMinutes(-10), null, 1, false, null))
+        };
+        var currentAgentId = Guid.NewGuid();
+        var currentAgent = new RemoteAgentViewModel(currentAgentId, "Current computer")
+        {
+            Connection = new(new(currentAgentId, "Current computer", "Current computer", DateTimeOffset.UtcNow, null, 1, false, null))
+        };
+        viewModel.Sources.Add(oldAgent);
+        viewModel.Sources.Add(currentAgent);
+        Assert.Equal("Current computer", viewModel.LaptopName);
+
+        inventory.Drives = [];
+        viewModel.RefreshDrivesCommand.Execute(null);
+        Assert.Equal("저장 장치 없음", viewModel.DashboardDeviceName);
+        Assert.Equal("연결 대기 중", viewModel.DashboardDeviceStatus);
+        Assert.True(nameChanged >= 2);
+        currentAgent.Connection = new(new(currentAgentId, "Current computer", "Current computer", DateTimeOffset.UtcNow.AddMinutes(-10), null, 1, false, null));
+        Assert.Equal("원격 컴퓨터 없음", viewModel.LaptopName);
+    }
+
+    [Fact]
+    public async Task RecentActivityRecordsJobTransitionsOnceWithTimeAndKind()
+    {
+        var jobs = new List<BackupJobDto>();
+        var configuration = new FakeConfigurationClient(new(0, DateTimeOffset.UtcNow, new([], [], [])));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: new FakeJobClient(jobs), configurationClient: configuration);
+        await viewModel.RefreshJobsAsync();
+
+        var id = Guid.NewGuid();
+        jobs.Add(new(id, "RUNNING", DateTimeOffset.UtcNow, new(25, 100, 1, 4), null));
+        await viewModel.RefreshJobsAsync();
+        await viewModel.RefreshJobsAsync();
+        Assert.Single(viewModel.Activity, item => item.Kind == ActivityKind.Started);
+
+        jobs[0] = new(id, "SUCCEEDED", DateTimeOffset.UtcNow, null, new("SUCCEEDED", "snapshot", null));
+        await viewModel.RefreshJobsAsync();
+        var completed = Assert.Single(viewModel.Activity, item => item.Kind == ActivityKind.Completed);
+        Assert.EndsWith("activity-complete.png", completed.IconSource);
+        Assert.Contains("Today", completed.DetailAndTime);
+
+        jobs.Add(new(Guid.NewGuid(), "FAILED", DateTimeOffset.UtcNow.AddDays(-1), null, new("FAILED", null, "Old failure")));
+        await viewModel.RefreshJobsAsync();
+        Assert.Equal(ActivityKind.Failed, viewModel.Activity.Last().Kind);
+    }
+
+    [Fact]
     public void RefreshDrivesPublishesEveryAvailableBackupDestination()
     {
         var first = new AvailableDriveViewModel("disk:first", "C:\\", "FIRST", 1, 2, "First disk", 1);
@@ -229,6 +325,29 @@ public sealed class StorageConfigurationViewModelTests
         await viewModel.QueueSelectedMappingAsync();
 
         Assert.Equal([selected.Id], client.EnqueuedMappingIds);
+    }
+
+    [Fact]
+    public async Task SelectedRulesQueueAndRemoveOnlyChosenMappings()
+    {
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Studio", "Documents", [@"C:\Data"]));
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:a", "Disk A", "READY", @"D:\", DateTimeOffset.UtcNow, null)) { IsConnected = true };
+        var selected = new[] { "one", "two" }.Select(folder => new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, folder), set, device)).ToArray();
+        var other = new MappingViewModel(new(Guid.NewGuid(), set.Id, device.Id, "three"), set, device);
+        var jobs = new FakeJobClient([]);
+        var configuration = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, jobClient: jobs, configurationClient: configuration);
+        viewModel.BackupSets.Add(set);
+        viewModel.Devices.Add(device);
+        foreach (var mapping in selected) viewModel.Mappings.Add(mapping);
+        viewModel.Mappings.Add(other);
+
+        await viewModel.QueueMappingsAsync(selected);
+        Assert.Equal(selected.Select(mapping => mapping.Id), jobs.EnqueuedMappingIds);
+
+        await viewModel.RemoveMappingsAsync(selected);
+        Assert.Equal(other, Assert.Single(viewModel.Mappings));
+        Assert.Contains(device, viewModel.Devices);
     }
 
     [Fact]
@@ -483,6 +602,23 @@ public sealed class StorageConfigurationViewModelTests
         Assert.Equal(existing.Id, saved.Id);
         Assert.Equal("new", saved.RepositoryPath);
         Assert.False(saved.Enabled);
+    }
+
+    [Fact]
+    public async Task BackupRulePersistsSelectedPathsForOneDestination()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:docs", "Archive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Remote", "Documents", ["/doc/img", "/doc/db"]));
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        viewModel.Devices.Add(device);
+        viewModel.BackupSets.Add(set);
+
+        Assert.Null(await viewModel.SaveMappingAsync(null, set, device, "BackupMesh/docs", true, ["/doc/db"]));
+        var mapping = Assert.Single(viewModel.Mappings);
+        Assert.Equal(["/doc/db"], mapping.SelectedSourcePaths);
+        Assert.Equal("/doc/db", mapping.SourcePathsDisplay);
+        Assert.Equal(["/doc/db"], Assert.Single(client.Document.Configuration.Mappings).SelectedSourcePaths);
     }
 
     [Fact]

@@ -14,5 +14,10 @@
     <ProjectReference Include="..\BackupMesh.Storage.Core\BackupMesh.Storage.Core.csproj" />
     <Content Include="Assets\backupmesh-tray.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\backupmesh-tray.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\laptop.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\desktop.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\drive.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

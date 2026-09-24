@@ -19,7 +19,7 @@ public sealed record RegisteredDevice(
     string? LastKnownRoot,
     DateTimeOffset RegisteredAt,
     DateTimeOffset? LastSeenAt,
-    int ArrivalDelayMinutes = 30);
+    int ArrivalDelayMinutes = 1);
 
 // AnyAvailable (the default, and the only behavior possible before trigger devices existed) fires a
 // source arrival as soon as one trigger device is ready. AllAvailable only applies when a Backup Set's
@@ -51,7 +51,12 @@ public sealed record BackupTargetMapping(
     Guid BackupSetId,
     Guid DeviceId,
     string RepositoryPath,
-    bool Enabled = true);
+    bool Enabled = true,
+    // Null keeps the pre-selection behavior of backing up every path in the Backup Set.
+    IReadOnlyList<string>? SelectedSourcePaths = null,
+    int BackupIntervalMinutes = 30,
+    bool DelayWhenBusy = true,
+    int? UploadLimitKiBps = null);
 
 public sealed record StorageAgentConfiguration(
     IReadOnlyList<RegisteredDevice> Devices,
@@ -107,6 +112,11 @@ public static class BackupTopologyValidator
             if (!deviceIds.Contains(mapping.DeviceId)) errors.Add($"Mapping {mapping.Id} references an unknown device.");
             if (!backupSetIds.Contains(mapping.BackupSetId)) errors.Add($"Mapping {mapping.Id} references an unknown backup set.");
             if (!IsSafeRelativeRepositoryPath(mapping.RepositoryPath)) errors.Add($"Mapping {mapping.Id} has an unsafe repository path.");
+            if (mapping.BackupIntervalMinutes is < 5 or > 1440) errors.Add($"Mapping {mapping.Id} has an invalid backup interval.");
+            if (mapping.UploadLimitKiBps is < 0 or > 1_048_576) errors.Add($"Mapping {mapping.Id} has an invalid upload limit.");
+            var set = configuration.BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
+            if (set is not null && mapping.SelectedSourcePaths is not null && SourcePathsFor(mapping, set) is null)
+                errors.Add($"Mapping {mapping.Id} selects paths outside its Backup Set.");
         }
 
         foreach (var device in configuration.Devices)
@@ -120,6 +130,16 @@ public static class BackupTopologyValidator
             errors.Add($"Multiple enabled mappings target the same device path '{duplicate.Key.Path}'.");
 
         return errors;
+    }
+
+    public static IReadOnlyList<string>? SourcePathsFor(BackupTargetMapping mapping, SourceBackupSet set)
+    {
+        var allowed = set.SourcePaths;
+        if (mapping.SelectedSourcePaths is null) return allowed.Count > 0 ? allowed : null;
+        var selected = mapping.SelectedSourcePaths;
+        return selected.Count > 0
+            && selected.Distinct(StringComparer.Ordinal).Count() == selected.Count
+            && selected.All(path => allowed.Contains(path, StringComparer.Ordinal)) ? selected : null;
     }
 
     public static bool IsSafeRelativeRepositoryPath(string path)

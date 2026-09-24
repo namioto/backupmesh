@@ -28,6 +28,7 @@ if ($service) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not remove the BackupMesh service.' }
 }
 Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'BackupMesh Storage Agent' -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'BackupMesh.Storage.Agent' -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName $repositoryFirewallRuleName -ErrorAction SilentlyContinue
 if ($RemoveSettings) {

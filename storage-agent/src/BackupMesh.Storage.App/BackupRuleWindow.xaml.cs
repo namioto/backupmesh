@@ -1,50 +1,93 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Data;
+using BackupMesh.Storage.Core;
 using Forms = System.Windows.Forms;
 
 namespace BackupMesh.Storage.App;
 
-public partial class BackupRuleWindow : Window
+public partial class BackupRuleWindow : System.Windows.Controls.UserControl
 {
+    public event Action? CloseRequested;
     private readonly MainWindowViewModel _viewModel;
     private readonly MappingViewModel? _existing;
     private bool _initializing = true;
+    private bool _updatingPathSelection;
+    private List<SourcePathOption> _sourcePaths = [];
+    private ListCollectionView? _sourcePathView;
 
-    public BackupRuleWindow(MainWindowViewModel viewModel, MappingViewModel? existing = null)
+    internal IReadOnlyList<string> SelectedSourcePaths => _sourcePaths.Where(path => path.IsSelected).Select(path => path.Path).ToArray();
+
+    public BackupRuleWindow(MainWindowViewModel viewModel, MappingViewModel? existing = null, bool copy = false)
     {
         _viewModel = viewModel;
-        _existing = existing;
+        _existing = copy ? null : existing;
         InitializeComponent();
         DataContext = viewModel;
 
-        viewModel.SelectedBackupSet = existing?.BackupSet ?? viewModel.SelectedBackupSet ?? viewModel.BackupSets.FirstOrDefault();
+        viewModel.SelectedBackupSet = existing?.BackupSet ?? (viewModel.SelectedBackupSet is { } selected && viewModel.BackupSets.Contains(selected)
+            ? selected : viewModel.BackupSets.FirstOrDefault());
         TargetDeviceCombo.SelectedItem = existing is null
             ? viewModel.BackupDestinations.FirstOrDefault()
             : viewModel.BackupDestinations.FirstOrDefault(option => option.Device?.Id == existing.Device.Id);
-        DestinationInput.Text = existing?.DestinationFolder ?? string.Empty;
-        EnabledCheckBox.IsChecked = existing?.Enabled ?? true;
-        if (existing is not null)
+        DestinationInput.Text = existing is null ? string.Empty : copy
+            ? CopyDestination(existing.DestinationFolder, viewModel.Mappings.Select(mapping => mapping.DestinationFolder))
+            : existing.DestinationFolder;
+        BackupIntervalInput.Text = (existing?.BackupIntervalMinutes ?? 30).ToString();
+        DelayWhenBusyCheckBox.IsChecked = existing?.DelayWhenBusy ?? true;
+        UploadLimitInput.Text = existing?.UploadLimitKiBps?.ToString() ?? string.Empty;
+        if (copy)
         {
-            Title = Localization.Text("Text_Editbackuprule_A40603");
+            HeadingText.Text = "백업 규칙 복제";
+            SaveButton.Content = "복제";
+        }
+        else if (existing is not null)
+        {
             HeadingText.Text = Localization.Text("Text_Editbackuprule_A40603");
             SaveButton.Content = Localization.Text("Text_Savechanges_DD0AE7");
         }
         _initializing = false;
+        SelectSourcePaths(existing?.SelectedSourcePaths ?? viewModel.SelectedBackupSet?.Model.SourcePaths);
+        UpdateUploadLimitVisibility();
         if (existing is null) OnTargetChanged(TargetDeviceCombo, null!);
+    }
+
+    internal static string CopyDestination(string destination, IEnumerable<string> existing)
+    {
+        var candidate = destination + " - 복사본";
+        for (var number = 2; existing.Contains(candidate, StringComparer.OrdinalIgnoreCase); number++)
+            candidate = destination + $" - 복사본 {number}";
+        return candidate;
     }
 
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
-        SaveButton.IsEnabled = false;
         ValidationText.Text = string.Empty;
+        if (!int.TryParse(BackupIntervalInput.Text, out var interval) || interval is < 5 or > 1440)
+        {
+            ValidationText.Text = "백업 간격은 5~1440분 사이로 입력하세요.";
+            return;
+        }
+        var uploadLimit = -1;
+        if (!string.IsNullOrWhiteSpace(UploadLimitInput.Text)
+            && (!int.TryParse(UploadLimitInput.Text, out uploadLimit) || uploadLimit is < 0 or > 1_048_576))
+        {
+            ValidationText.Text = "업로드 제한은 0~1048576 KiB/s 사이로 입력하세요.";
+            return;
+        }
+        SaveButton.IsEnabled = false;
         var error = await _viewModel.SaveMappingAsync(
             _existing,
             BackupSetCombo.SelectedItem as BackupSetViewModel,
             TargetDeviceCombo.SelectedItem as BackupDestinationOptionViewModel,
             DestinationInput.Text,
-            EnabledCheckBox.IsChecked == true);
+            _existing?.Enabled ?? true,
+            SelectedSourcePaths,
+            interval,
+            DelayWhenBusyCheckBox.IsChecked == true,
+            uploadLimit);
         SaveButton.IsEnabled = true;
-        if (error is null) DialogResult = true;
+        if (error is null) CloseRequested?.Invoke();
         else ValidationText.Text = error;
     }
 
@@ -100,8 +143,85 @@ public partial class BackupRuleWindow : Window
         DestinationInput.Text = destination;
     }
 
-    private void OnBackupSetChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) =>
-        SourcePathsText.Text = (BackupSetCombo.SelectedItem as BackupSetViewModel)?.SourcePathsDisplay ?? string.Empty;
+    private void OnBackupSetChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_initializing) return;
+        SelectSourcePaths((BackupSetCombo.SelectedItem as BackupSetViewModel)?.Model.SourcePaths);
+        UpdateUploadLimitVisibility();
+    }
+
+    private void UpdateUploadLimitVisibility()
+    {
+        var remote = (BackupSetCombo.SelectedItem as BackupSetViewModel)?.Model.SourceAgentId != LocalSourceIdentity.AgentId;
+        UploadLimitSection.Visibility = remote ? Visibility.Visible : Visibility.Collapsed;
+        UploadDividerColumn.Width = remote ? new GridLength(1) : new GridLength(0);
+        UploadSettingsColumn.Width = remote ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    }
+
+    private void SelectSourcePaths(IReadOnlyList<string>? selected)
+    {
+        SourcePathSearch.Clear();
+        var selectedPaths = selected?.ToHashSet(StringComparer.Ordinal) ?? [];
+        var availablePaths = (BackupSetCombo.SelectedItem as BackupSetViewModel)?.Model.SourcePaths ?? [];
+        _sourcePaths = availablePaths.Select(path => new SourcePathOption(path, selectedPaths.Contains(path), UpdateSourcePathsSummary)).ToList();
+        _sourcePathView = new ListCollectionView(_sourcePaths)
+        {
+            Filter = item => item is SourcePathOption path && path.Path.Contains(SourcePathSearch.Text, StringComparison.CurrentCultureIgnoreCase)
+        };
+        SourcePathsList.ItemsSource = _sourcePathView;
+        UpdateSourcePathsSummary();
+    }
+
+    private void OnSourcePathSearchChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _sourcePathView?.Refresh();
+        UpdateSourcePathsSummary();
+    }
+
+    private void OnSelectVisibleSourcePathsClick(object sender, RoutedEventArgs e) => SetVisibleSourcePaths(true);
+
+    private void OnClearVisibleSourcePathsClick(object sender, RoutedEventArgs e) => SetVisibleSourcePaths(false);
+
+    private void SetVisibleSourcePaths(bool selected)
+    {
+        _updatingPathSelection = true;
+        try
+        {
+            foreach (SourcePathOption path in SourcePathsList.Items) path.IsSelected = selected;
+        }
+        finally
+        {
+            _updatingPathSelection = false;
+        }
+        UpdateSourcePathsSummary();
+    }
+
+    private void UpdateSourcePathsSummary()
+    {
+        if (_updatingPathSelection || SourcePathsList is null || SourcePathsSummary is null) return;
+        SourcePathSearchHint.Visibility = string.IsNullOrEmpty(SourcePathSearch.Text) ? Visibility.Visible : Visibility.Collapsed;
+        SourcePathsSummary.Text = $"선택 {_sourcePaths.Count(path => path.IsSelected)} / 전체 {_sourcePaths.Count}";
+        var visible = SourcePathsList.Items.Count;
+        SourcePathsMatches.Text = string.IsNullOrEmpty(SourcePathSearch.Text) ? $"전체 {visible}개" : $"검색 결과 {visible}개";
+        SourcePathsEmptyText.Text = _sourcePaths.Count == 0 ? "원본 경로가 없습니다." : "검색 결과가 없습니다.";
+        SourcePathsEmptyText.Visibility = visible == 0 ? Visibility.Visible : Visibility.Collapsed;
+        SelectVisibleSourcePathsButton.IsEnabled = visible > 0;
+        ClearVisibleSourcePathsButton.IsEnabled = visible > 0;
+    }
+
+    private sealed class SourcePathOption(string path, bool selected, Action onChanged) : ObservableObject
+    {
+        private bool _selected = selected;
+        public string Path { get; } = path;
+        public bool IsSelected
+        {
+            get => _selected;
+            set
+            {
+                if (Set(ref _selected, value)) onChanged();
+            }
+        }
+    }
 
     private void OnTargetChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
@@ -110,5 +230,5 @@ public partial class BackupRuleWindow : Window
         DestinationInput.Text = Path.Combine(option.Root, repositoryPath);
     }
 
-    private void OnCancelClick(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void OnCancelClick(object sender, RoutedEventArgs e) => CloseRequested?.Invoke();
 }

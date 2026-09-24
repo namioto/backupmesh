@@ -105,6 +105,7 @@ public sealed class LocalBackupExecutorService(
     LocalRepositoryPasswordStore passwords,
     LocalBackupOptions options,
     StorageStateMachine state,
+    HostLoadProbe load,
     ILogger<LocalBackupExecutorService> logger) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
@@ -117,7 +118,9 @@ public sealed class LocalBackupExecutorService(
             try
             {
                 var command = commands.ClaimNext(LocalSourceIdentity.AgentId, DateTimeOffset.UtcNow, Lease);
-                if (command is not null) await RunCommandAsync(command, stoppingToken);
+                if (command?.DelayWhenBusy == true && await load.IsBusyAsync(stoppingToken))
+                    commands.Defer(LocalSourceIdentity.AgentId, command.CommandId, DateTimeOffset.UtcNow);
+                else if (command is not null) await RunCommandAsync(command, stoppingToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -141,7 +144,7 @@ public sealed class LocalBackupExecutorService(
             return;
         }
         var jobId = Guid.NewGuid();
-        var request = new BackupRequest(jobId, LocalSourceIdentity.AgentId, command.BackupSetId, command.TargetMappingId, now, null);
+        var request = new BackupRequest(jobId, LocalSourceIdentity.AgentId, command.BackupSetId, command.TargetMappingId, now, null, true);
         var resolution = targets.Resolve(request);
         if (resolution.Target is null)
         {
@@ -155,7 +158,7 @@ public sealed class LocalBackupExecutorService(
             commands.Complete(LocalSourceIdentity.AgentId, command.CommandId, "FAILED", DateTimeOffset.UtcNow, null, "The Backup Set has no source paths.");
             return;
         }
-        var admission = jobs.Admit(request, $"local:{command.CommandId:N}", new Uri(target.DestinationFolder), target.DeviceId);
+        var admission = jobs.Admit(request, $"local:{command.CommandId:N}", new Uri(target.DestinationFolder), target.DeviceId, target.SourcePaths);
         if (admission.Outcome != StoreOutcome.Accepted || admission.Admission is null)
         {
             commands.Complete(LocalSourceIdentity.AgentId, command.CommandId, "FAILED", DateTimeOffset.UtcNow, null, "Could not admit the local backup job.");
@@ -168,7 +171,7 @@ public sealed class LocalBackupExecutorService(
             var runner = new LocalResticRunner(options.ResticExecutablePath, ResolveCacheDirectory());
             using var passwordFile = passwords.GetOrCreatePlaintextPasswordFile(target.MappingId, out var passwordPath);
             await runner.EnsureRepositoryAsync(target.DestinationFolder, passwordPath, stoppingToken);
-            var result = await runner.BackupAsync(target.DestinationFolder, passwordPath, backupSet.SourcePaths, progress =>
+            var result = await runner.BackupAsync(target.DestinationFolder, passwordPath, target.SourcePaths!, progress =>
             {
                 jobs.Progress(new BackupProgress(Guid.NewGuid(), jobId, ++sequence, DateTimeOffset.UtcNow, "UPLOADING", progress.BytesDone, progress.BytesTotal, progress.FilesDone, progress.FilesTotal, null));
             }, stoppingToken);

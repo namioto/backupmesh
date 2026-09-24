@@ -17,10 +17,28 @@ public partial class App : System.Windows.Application
     private bool _wasAwaitingDecision;
     private bool _flyoutStateUpdateScheduled;
     private readonly DispatcherTimer _flyoutAutoHideTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    private Mutex? _instanceMutex;
+    private EventWaitHandle? _openRequest;
+    private RegisteredWaitHandle? _openRequestWait;
+    private bool _ownsInstance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        var preview = e.Args.Contains("--preview-backups", StringComparer.OrdinalIgnoreCase);
+        var instanceName = @"Local\BackupMesh.Storage.App" + (preview ? ".Preview" : string.Empty);
+        _openRequest = new EventWaitHandle(false, EventResetMode.AutoReset, instanceName + ".Show");
+        _instanceMutex = new Mutex(true, instanceName, out _ownsInstance);
+        if (!_ownsInstance)
+        {
+            _openRequest.Set();
+            Shutdown();
+            return;
+        }
+        _openRequestWait = ThreadPool.RegisterWaitForSingleObject(_openRequest, (_, _) =>
+            Dispatcher.BeginInvoke(new Action(ShowWindow)), null, Timeout.Infinite, false);
+        if (preview) DispatcherUnhandledException += (_, args) =>
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-preview-error.txt"), args.Exception.ToString());
         var demoMode = e.Args.Any(argument => argument.Equals("--demo", StringComparison.OrdinalIgnoreCase));
         var languageArgument = e.Args.FirstOrDefault(argument => argument.StartsWith("--language=", StringComparison.OrdinalIgnoreCase));
         Localization.Initialize(languageArgument is not null ? languageArgument["--language=".Length..] : demoMode ? "en" : new ConfigurationStore().Load().Language);
@@ -28,6 +46,110 @@ public partial class App : System.Windows.Application
         var endpointArgument = e.Args.FirstOrDefault(argument => argument.StartsWith("--service-endpoint=", StringComparison.OrdinalIgnoreCase));
         var serviceEndpoint = endpointArgument is null ? null : endpointArgument[(endpointArgument.IndexOf('=') + 1)..];
         _window = new MainWindow(demoMode, serviceEndpoint);
+        if (e.Args.Any(argument => argument.Equals("--preview-backups", StringComparison.OrdinalIgnoreCase)))
+        {
+            _window.Title = "BackupMesh 백업 규칙 미리보기";
+            _window.ViewModel.LoadPreviewRules();
+            _window.ViewModel.LoadPreviewAgents();
+            _window.ViewModel.SelectedMapping = _window.ViewModel.Mappings.FirstOrDefault();
+            _window.ShowBackupRules();
+            void CapturePreview(string filename, Window? target = null)
+            {
+                var path = Path.Combine(Path.GetTempPath(), filename);
+                if (target is not null)
+                {
+                    var width = (int)target.ActualWidth;
+                    var height = (int)target.ActualHeight;
+                    var dialogImage = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    var drawing = new System.Windows.Media.DrawingVisual();
+                    using (var context = drawing.RenderOpen())
+                    {
+                        var bounds = new Rect(0, 0, width, height);
+                        context.DrawRectangle(System.Windows.Media.Brushes.White, null, bounds);
+                        context.DrawRectangle(new System.Windows.Media.VisualBrush(target), null, bounds);
+                    }
+                    dialogImage.Render(drawing);
+                    var dialogEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    dialogEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(dialogImage));
+                    using var dialogOutput = File.Create(path);
+                    dialogEncoder.Save(dialogOutput);
+                    return;
+                }
+                var image = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                    (int)_window.ActualWidth, (int)_window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                image.Render(_window);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
+                using var output = File.Create(path);
+                encoder.Save(output);
+            }
+            var captured = false;
+            _window.ContentRendered += (_, _) =>
+            {
+                if (captured) return;
+                captured = true;
+                _window.Dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    CapturePreview("backupmesh-rules-preview.png");
+                    try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rules-check.txt"), await _window.VerifyPreviewRuleControlsAsync()); }
+                    catch (Exception error) { File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rules-check.txt"), error.ToString()); }
+                    try
+                    {
+                        _window.ViewModel.SelectedRemoteAgent = _window.ViewModel.Sources.FirstOrDefault();
+                        _window.ShowRemoteAgents();
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-agents-preview.png");
+                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-agents-check.txt"), await _window.VerifyPreviewAgentControlsAsync());
+                        _window.ShowSettings();
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-settings-preview.png");
+                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-settings-check.txt"), _window.VerifyPreviewSettingsControls());
+                        _window.ShowBackupRules();
+                        _window.ViewModel.SelectedBackupSet = _window.ViewModel.BackupSets.FirstOrDefault(set => set.Model.SourcePaths.Count > 1);
+                        _window.OpenBackupRule(null);
+                        var ruleDialog = _window.RuleEditor ?? throw new InvalidOperationException("Backup rule editor did not open in the page.");
+                        if (_window.RuleEditorHost.Visibility != Visibility.Visible)
+                            throw new InvalidOperationException("Backup rule editor is not visible inside the rules page.");
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        if (ruleDialog.SourcePathsList.Items.Count != 2 || ruleDialog.SelectedSourcePaths.Count != 2)
+                            throw new InvalidOperationException("Backup rule did not offer and select both source paths.");
+                        CapturePreview("backupmesh-new-rule-preview.png");
+                        ruleDialog.SourcePathSearch.Text = "/doc/img";
+                        if (ruleDialog.SourcePathsList.Items.Count != 1 || ruleDialog.SelectedSourcePaths.Count != 2)
+                            throw new InvalidOperationException("Searching source paths lost a hidden selection.");
+                        ruleDialog.ClearVisibleSourcePathsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                        if (ruleDialog.SelectedSourcePaths.Count != 1 || ruleDialog.SelectedSourcePaths[0] != "/doc/db")
+                            throw new InvalidOperationException("Clearing visible source paths changed a hidden selection.");
+                        ruleDialog.SourcePathSearch.Clear();
+                        ruleDialog.SelectVisibleSourcePathsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                        if (ruleDialog.SelectedSourcePaths.Count != 2)
+                            throw new InvalidOperationException("Selecting all source paths failed.");
+                        ruleDialog.CancelButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                        if (_window.RuleEditorHost.Visibility != Visibility.Collapsed)
+                            throw new InvalidOperationException("Cancel did not return to the rules list.");
+                        var sampleRule = _window.ViewModel.Mappings.First();
+                        _window.OpenBackupRule(sampleRule);
+                        if (_window.RuleEditor?.HeadingText.Text != Localization.Text("Text_Editbackuprule_A40603"))
+                            throw new InvalidOperationException("Edit did not open in the rules page.");
+                        _window.CloseRuleEditor();
+                        _window.OpenBackupRule(sampleRule, copy: true);
+                        if (_window.RuleEditor?.HeadingText.Text != "백업 규칙 복제")
+                            throw new InvalidOperationException("Duplicate did not open in the rules page.");
+                        _window.CloseRuleEditor();
+                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rule-paths-check.txt"), "In-page add, cancel, edit, duplicate, search and visible bulk selection: passed.");
+                        var agentDialog = new ConnectAgentWindow { Owner = _window };
+                        agentDialog.Show();
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-connect-agent-preview.png", agentDialog);
+                        agentDialog.Close();
+                    }
+                    catch (Exception error)
+                    {
+                        File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-agents-check.txt"), error.ToString());
+                    }
+                }), DispatcherPriority.ApplicationIdle);
+            };
+        }
         _window.Closing += (_, args) => { args.Cancel = true; _window.Hide(); };
 
         var menu = new Forms.ContextMenuStrip();
@@ -71,7 +193,7 @@ public partial class App : System.Windows.Application
         _window.ViewModel.Jobs.CollectionChanged += (_, _) => ScheduleFlyoutStateUpdate();
         flyoutViewModel.PendingArrivals.CollectionChanged += (_, _) => ScheduleFlyoutStateUpdate();
 
-        _window.ViewModel.StartDeviceMonitoring();
+        if (!preview) _window.ViewModel.StartDeviceMonitoring();
         ShowWindow();
     }
 
@@ -172,5 +294,14 @@ public partial class App : System.Windows.Application
         _flyout?.Close();
         _window?.ViewModel.Dispose();
         Shutdown();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _openRequestWait?.Unregister(null);
+        _openRequest?.Dispose();
+        if (_ownsInstance) _instanceMutex?.ReleaseMutex();
+        _instanceMutex?.Dispose();
+        base.OnExit(e);
     }
 }

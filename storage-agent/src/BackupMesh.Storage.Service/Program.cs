@@ -77,6 +77,7 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.O
 builder.Services.AddSingleton<StorageStateMachine>();
 builder.Services.AddSingleton<BackupJobStore>();
 builder.Services.AddSingleton<BackupCommandQueue>();
+builder.Services.AddSingleton<HostLoadProbe>();
 builder.Services.AddSingleton<AutomationSettingsStore>();
 builder.Services.AddSingleton<PairingCredentialStore>();
 builder.Services.AddSingleton<RevokedSourceStore>();

@@ -7,7 +7,7 @@ using BackupMesh.Storage.Core;
 namespace BackupMesh.Storage.Service;
 
 public sealed record BackupTargetAvailability(Guid MappingId, Guid DeviceId, Guid BackupSetId, string DeviceName, string DestinationFolder, string State, string? Reason);
-public sealed record ResolvedBackupTarget(Guid MappingId, Guid DeviceId, Guid BackupSetId, Guid SourceAgentId, string DeviceName, string DeviceRoot, string RepositoryPath, string DestinationFolder);
+public sealed record ResolvedBackupTarget(Guid MappingId, Guid DeviceId, Guid BackupSetId, Guid SourceAgentId, string DeviceName, string DeviceRoot, string RepositoryPath, string DestinationFolder, IReadOnlyList<string>? SourcePaths = null);
 public sealed record TargetResolution(ResolvedBackupTarget? Target, string? ErrorCode = null, string? Message = null);
 
 public sealed class BackupTargetResolver(StorageConfigurationStore configuration, StoragePresenceStore presence)
@@ -37,6 +37,10 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
             return new(null, "TARGET_NOT_FOUND", "The Backup Set does not belong to this Source Agent.");
         var mapping = topology.Mappings.FirstOrDefault(item => item.Id == request.TargetMappingId && item.BackupSetId == request.BackupSetId && item.Enabled);
         if (mapping is null) return new(null, "TARGET_NOT_FOUND", "The enabled target mapping was not found.");
+        var selectedPaths = BackupTopologyValidator.SourcePathsFor(mapping, backupSet);
+        if (selectedPaths is null) return new(null, "INVALID_CONFIGURATION", "The selected source paths are no longer offered by this Backup Set.");
+        if (!request.SupportsSourcePathSelection && selectedPaths.Count != backupSet.SourcePaths.Count)
+            return new(null, "SOURCE_UPGRADE_REQUIRED", "Update the Remote Agent to back up only the selected source paths.");
         var device = topology.Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
         var status = presence.List().FirstOrDefault(item => item.DeviceId == mapping.DeviceId);
         // A direct backup request is an explicit action (for example, Start now in the tray), so the
@@ -46,7 +50,7 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
             return new(null, "TARGET_NOT_READY", status?.Reason ?? "The mapped device is not ready.");
         var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
         if (!IsWithinRoot(status.CurrentRoot, destination)) return new(null, "INVALID_CONFIGURATION", "The repository destination is outside the registered device.");
-        return new(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));
+        return new(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination, selectedPaths));
     }
 
     public IReadOnlyList<ResolvedBackupTarget> ListReady(Guid[]? mappingIds)
@@ -65,11 +69,12 @@ public sealed class BackupTargetResolver(StorageConfigurationStore configuration
         {
             var backupSet = topology.BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
             var device = topology.Devices.FirstOrDefault(item => item.Id == mapping.DeviceId);
+            var selectedPaths = backupSet is null ? null : BackupTopologyValidator.SourcePathsFor(mapping, backupSet);
             if (backupSet is null || device is null || !presenceByDevice.TryGetValue(mapping.DeviceId, out var status)
-                || (requireReady ? !status.Ready : !status.Connected) || string.IsNullOrWhiteSpace(status.CurrentRoot)) continue;
+                || selectedPaths is null || (requireReady ? !status.Ready : !status.Connected) || string.IsNullOrWhiteSpace(status.CurrentRoot)) continue;
             var destination = Destination(status.CurrentRoot, mapping.RepositoryPath);
             if (!IsWithinRoot(status.CurrentRoot, destination)) continue;
-            targets.Add(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination));
+            targets.Add(new(mapping.Id, device.Id, backupSet.Id, backupSet.SourceAgentId, device.DisplayName, status.CurrentRoot, mapping.RepositoryPath, destination, selectedPaths));
         }
         return targets;
     }

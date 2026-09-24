@@ -4,7 +4,7 @@
 
 **Plug in your backup storage. BackupMesh takes it from there.**
 
-Current version: **0.3.7** — guided Ubuntu Remote Agent setup now adds backup folders and approves nearby pairing without editing JSON or copying a request ID. See the [changelog](CHANGELOG.md).
+Current version: **0.3.12** — the redesigned Storage app supports multi-path backup rules and per-rule automatic backup intervals. See the [changelog](CHANGELOG.md).
 
 BackupMesh is a storage-aware backup orchestrator. It detects when trusted storage becomes available and automatically backs up data from registered source computers—even when the data and storage live on different machines.
 

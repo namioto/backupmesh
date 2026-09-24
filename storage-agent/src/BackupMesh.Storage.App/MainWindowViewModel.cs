@@ -13,6 +13,24 @@ using Forms = System.Windows.Forms;
 namespace BackupMesh.Storage.App;
 
 public sealed record AppNotification(string Title, string Message, bool IsError = false);
+public sealed record RuleComputerOption(Guid Id, string Name);
+
+public enum ActivityKind { Information, Started, Completed, Failed, Storage }
+
+public sealed record ActivityItem(string Title, string Detail, DateTimeOffset At, ActivityKind Kind)
+{
+    public string IconSource => Kind switch
+    {
+        ActivityKind.Completed => "Assets/Icons/activity-complete.png",
+        ActivityKind.Failed => "Assets/Icons/activity-failed.png",
+        ActivityKind.Storage => "Assets/Icons/activity-storage.png",
+        _ => "Assets/Icons/activity-info.png"
+    };
+    public string TimeDisplay => At.LocalDateTime.Date == DateTime.Today
+        ? $"{Localization.Text("ActivityToday")} {At.LocalDateTime:t}" : At.LocalDateTime.ToString("g");
+    public string DetailAndTime => string.IsNullOrWhiteSpace(Detail) ? TimeDisplay : $"{Detail} · {TimeDisplay}";
+    public override string ToString() => $"{Title} {DetailAndTime}";
+}
 
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
@@ -30,6 +48,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly INearbyPairingClient _nearbyPairingClient;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly HashSet<string> _connectedRoots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, string> _observedJobStates = [];
+    private readonly Dictionary<Guid, string> _onlineSourceNames = [];
+    private bool _jobsInitialized;
     // Mappings this session paused via the tray flyout's "Skip this time" - tracked separately from a
     // mapping the user disabled deliberately and permanently via the Backups grid's own checkbox, so
     // reconnecting the device only ever restores the ones *this* skip touched, never a mapping that was
@@ -39,6 +60,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private IReadOnlyList<BackupCommandStatusDto> _backupCommands = [];
     private bool _refreshingJobs;
     private bool _serviceAutomaticBackups = true;
+    private bool _legacyArrivalDelayNeedsUpdate;
+    private bool _arrivalDelayMigrationAttempted;
     private BackupSetViewModel? _selectedBackupSet;
     private RemoteAgentViewModel? _selectedRemoteAgent;
     private SourceConnectionViewModel? _selectedSourceConnection;
@@ -56,11 +79,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<SourceConnectionViewModel> SourceConnections { get; } = [];
     public ObservableCollection<NearbyComputerViewModel> NearbyComputers { get; } = [];
     public ObservableCollection<BackupSetViewModel> BackupSets { get; } = [];
+    public ObservableCollection<RuleComputerOption> RuleComputerOptions { get; } = [];
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public ObservableCollection<BackupDestinationOptionViewModel> BackupDestinations { get; } = [];
     public ObservableCollection<MappingViewModel> Mappings { get; } = [];
     public ObservableCollection<AvailableDriveViewModel> AvailableDrives { get; } = [];
-    public ObservableCollection<string> Activity { get; } = [];
+    public ObservableCollection<ActivityItem> Activity { get; } = [];
     public ObservableCollection<BackupJobViewModel> Jobs { get; } = [];
     public string ProductVersion => "BackupMesh v" + typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3);
     public IReadOnlyList<LanguageOption> Languages { get; } = [new("", ""), new("ko", "한국어"), new("en", "English")];
@@ -102,6 +126,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RequestNearbyPairingCommand { get; }
     public ICommand CancelNearbyPairingCommand { get; }
     public ICommand QueueSelectedMappingCommand { get; }
+    public ICommand QueueAllBackupsCommand { get; }
 
     public MainWindowViewModel(bool demoMode = false, ISourceCatalogClient? catalogClient = null, bool loadLocalState = true, IStorageConfigurationClient? configurationClient = null, IDeviceInventory? deviceInventory = null, IBackupJobClient? jobClient = null, IPairingClient? pairingClient = null, ISourceConnectionsClient? connectionsClient = null, INearbyPairingClient? nearbyPairingClient = null)
     {
@@ -127,17 +152,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RequestNearbyPairingCommand = new RelayCommand(() => _ = RequestNearbyPairingAsync());
         CancelNearbyPairingCommand = new RelayCommand(() => _ = CancelNearbyPairingAsync());
         QueueSelectedMappingCommand = new RelayCommand(() => _ = QueueSelectedMappingAsync());
+        QueueAllBackupsCommand = new RelayCommand(QueueSelectedBackups);
         // Recomputed from Mappings itself, not from each call site that mutates it, so a test (or any
         // future caller) that adds/removes a mapping directly never needs to know this bookkeeping exists.
         Mappings.CollectionChanged += (_, _) => UpdateMappingRepeatMarkers();
+        BackupSets.CollectionChanged += (_, _) => RefreshRuleComputerOptions();
         _deviceTimer.Tick += (_, _) => RefreshDrives();
         _catalogTimer.Tick += async (_, _) => { await RefreshCatalogsAsync(); await RefreshConnectionsAsync(); };
         _jobTimer.Tick += async (_, _) => await RefreshJobsAsync();
         _nearbyTimer.Tick += async (_, _) => await RefreshNearbyPairingStateAsync();
         if (loadLocalState) Load();
-        else Activity.Add(Localization.Text("Text_StorageAgentUIteststateinitial_49AF15"));
+        else AddActivity(Localization.Text("Text_StorageAgentUIteststateinitial_49AF15"));
         if (_demoMode && BackupSets.Count == 0) LoadDemoSources();
         if (loadLocalState || demoMode) RefreshDrives();
+        RefreshRuleComputerOptions();
         Localization.LanguageChanged += OnLanguageChanged;
     }
 
@@ -160,6 +188,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public int ConnectedDeviceCount => Devices.Count(device => device.IsConnected);
     public int SourceCount => Sources.Count;
     public int MappingCount => Mappings.Count(mapping => mapping.Enabled);
+    public string LocalComputerName => Environment.MachineName;
+    private RemoteAgentViewModel? DashboardRemoteAgent => Sources.FirstOrDefault(source => source.Id == DashboardJobMapping?.BackupSet.Model.SourceAgentId && source.Connection?.IsOnline == true)
+        ?? Sources.FirstOrDefault(source => source.Connection?.IsOnline == true);
+    private DeviceViewModel? DashboardDevice => DashboardJobMapping?.Device is { IsConnected: true } target
+        ? target : Devices.FirstOrDefault(device => device.IsConnected);
+    public string LaptopName => DashboardRemoteAgent?.DisplayName ?? "원격 컴퓨터 없음";
+    public string LaptopStatus => DashboardRemoteAgent?.StatusDisplay ?? (Sources.Any(source => source.Id != LocalSourceIdentity.AgentId) ? "연결 대기 중" : "연결된 원격 컴퓨터 없음");
+    public string DashboardDeviceName => DashboardDevice?.DisplayName ?? "저장 장치 없음";
+    public string DashboardDeviceStatus => DashboardDevice?.Status ?? (Devices.Count > 0 ? "연결 대기 중" : "등록된 장치 없음");
+    public string DashboardDescription => ConnectedDeviceCount == 0 ? "백업 저장 장치를 연결하면 백업할 수 있습니다." : CanQueueAnyBackup ? "백업할 수 있는 규칙이 준비되었습니다." : "사용 가능한 백업 규칙을 확인하세요.";
+    public System.Windows.Media.Brush StatusBrush => ConnectedDeviceCount > 0 ? System.Windows.Media.Brushes.Teal : System.Windows.Media.Brushes.DarkOrange;
+    public bool CanQueueAnyBackup => Mappings.Any(mapping => mapping.Enabled && mapping.Device.IsConnected);
+    public string QueueAllBackupsHint => CanQueueAnyBackup ? "연결된 저장 장치의 활성 백업 규칙을 실행합니다." : "활성 백업 규칙과 연결된 저장 장치가 필요합니다.";
+    public string LastBackupSummary => Jobs.Where(job => job.State == "SUCCEEDED").OrderByDescending(job => job.UpdatedAt).FirstOrDefault()?.Updated ?? "완료된 백업 없음";
+    private BackupJobViewModel? DashboardJob => Jobs.Where(job => !job.IsTerminal && Mappings.Any(mapping => mapping.Id == job.TargetMappingId))
+        .OrderByDescending(job => job.State == "RUNNING").ThenByDescending(job => job.UpdatedAt).FirstOrDefault();
+    private MappingViewModel? DashboardJobMapping => Mappings.FirstOrDefault(mapping => mapping.Id == DashboardJob?.TargetMappingId);
+    public bool IsDashboardTransferActive => DashboardJobMapping?.Device.IsConnected == true;
+    public bool IsRemoteDashboardTransferActive => IsDashboardTransferActive
+        && DashboardJobMapping?.BackupSet.Model.SourceAgentId is { } sourceId
+        && sourceId != LocalSourceIdentity.AgentId && DashboardRemoteAgent?.Id == sourceId;
+    public double DashboardTransferPercent => DashboardJob?.PercentComplete ?? 0;
+    public bool IsDashboardTransferIndeterminate => DashboardJob?.PercentComplete is null;
+    public string DashboardTransferLabel => DashboardJob is { } job
+        ? job.PercentComplete is { } percent ? $"{job.StateDisplay} {percent:0}%" : job.StateDisplay
+        : string.Empty;
     public BackupSetViewModel? SelectedBackupSet { get => _selectedBackupSet; set => Set(ref _selectedBackupSet, value); }
     // The merged Computers grid selects a computer directly; picking one resolves (or clears) the
     // connection the action buttons act on, replacing what used to be a separate tree-selection handler
@@ -226,7 +280,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     // has no screen left to show or change its own value, so leaving that value in effect after this
     // changed would silently disagree with what the screen says (the same failure mode the removed
     // trigger-device editor had). SaveAsync() enforces this by writing this value onto every device.
-    public int DefaultArrivalDelayMinutes { get; set; } = 30;
+    public int DefaultArrivalDelayMinutes { get; set; } = 1;
     // Controls the tray flyout popup (App.xaml.cs) - shown briefly near the tray icon when a backup
     // starts, skipped entirely under a fullscreen app. A person who finds it distracting can turn it off
     // without losing the information: Overview's Backup jobs grid and the removal banner already show
@@ -262,9 +316,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             var selectedId = SelectedJob?.JobId;
             var jobs = await _jobClient.ListAsync(_shutdown.Token);
+            var changedJobs = _jobsInitialized
+                ? jobs.Where(job => !_observedJobStates.TryGetValue(job.JobId, out var state) || state != job.State).OrderBy(job => job.UpdatedAt)
+                : jobs.OrderByDescending(job => job.UpdatedAt).Take(6).OrderBy(job => job.UpdatedAt);
+            foreach (var job in changedJobs) RecordJobActivity(job);
+            _observedJobStates.Clear();
+            foreach (var job in jobs) _observedJobStates[job.JobId] = job.State;
+            _jobsInitialized = true;
             Jobs.Clear();
             foreach (var job in jobs) Jobs.Add(new(job, Mappings.FirstOrDefault(mapping => mapping.Id == job.TargetMappingId)));
             SelectedJob = Jobs.FirstOrDefault(job => job.JobId == selectedId) ?? Jobs.FirstOrDefault();
+            OnPropertyChanged(nameof(LastBackupSummary));
+            NotifyDashboardTransfer();
             _deviceStatuses = await _configurationClient.GetDeviceStatusesAsync(_shutdown.Token);
             _backupCommands = await _jobClient.ListCommandsAsync(_shutdown.Token);
             UpdateMappingLastBackupInfo();
@@ -285,6 +348,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             mapping.TriggerNote = ComputeTriggerNote(mapping.BackupSet.Model);
             var jobsForMapping = Jobs.Where(job => job.TargetMappingId == mapping.Id).ToArray();
+            mapping.LastBackupAt = jobsForMapping.OrderByDescending(job => job.UpdatedAt).FirstOrDefault()?.UpdatedAt;
             mapping.NextBackupDisplay = ComputeNextBackupDisplay(mapping, _serviceAutomaticBackups,
                 _deviceStatuses.FirstOrDefault(status => status.DeviceId == mapping.Device.Id),
                 _backupCommands.FirstOrDefault(command => command.TargetMappingId == mapping.Id && command.State is "PENDING" or "CLAIMED" or "RUNNING"),
@@ -382,6 +446,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public Task RefreshCatalogsOnceAsync() => RefreshCatalogsAsync();
 
+    public async Task RefreshAgentConnectionsAsync()
+    {
+        await RefreshCatalogsAsync();
+        await RefreshConnectionsAsync();
+    }
+
     private async Task RefreshConnectionsAsync()
     {
         if (_demoMode) return;
@@ -390,11 +460,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var connections = await _connectionsClient.ListAsync(_shutdown.Token);
             SourceConnections.Clear();
             foreach (var connection in connections.OrderBy(c => c.AgentName, StringComparer.OrdinalIgnoreCase)) SourceConnections.Add(new(connection));
+            var currentlyOnline = SourceConnections.Where(connection => connection.IsOnline).ToDictionary(connection => connection.AgentId, connection => connection.AgentName);
+            foreach (var connection in currentlyOnline.Where(pair => !_onlineSourceNames.ContainsKey(pair.Key)))
+                AddActivity(Localization.Text("ActivitySourceConnected"), ActivityKind.Storage, connection.Value);
+            foreach (var connection in _onlineSourceNames.Where(pair => !currentlyOnline.ContainsKey(pair.Key)))
+                AddActivity(Localization.Text("ActivitySourceDisconnected"), ActivityKind.Storage, connection.Value);
+            _onlineSourceNames.Clear();
+            foreach (var connection in currentlyOnline) _onlineSourceNames.Add(connection.Key, connection.Value);
             ApplySourceConnections();
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
+    }
+
+    private void RefreshRuleComputerOptions()
+    {
+        var wanted = BackupSets.Select(set => new RuleComputerOption(set.Model.SourceAgentId, set.SourceDisplayName))
+            .DistinctBy(option => option.Id).OrderBy(option => option.Name).ToArray();
+        foreach (var option in RuleComputerOptions.Where(option => !wanted.Contains(option)).ToArray()) RuleComputerOptions.Remove(option);
+        foreach (var option in wanted.Where(option => !RuleComputerOptions.Contains(option))) RuleComputerOptions.Add(option);
     }
 
     internal static string ComputeNextBackupDisplay(MappingViewModel mapping, bool automaticBackups,
@@ -414,7 +499,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return Localization.Format("NextBackupWaitEnds", eligibleAt.LocalDateTime.ToString("t"), minutes);
         }
         if (!deviceStatus.Ready) return Localization.Text("NextBackupWaiting");
-        return Localization.Text(mapping.BackupSet.Model.TriggerDeviceIds.Count == 0 ? "NextBackupReadyOnReconnect" : "NextBackupReady");
+        return Localization.Format("NextBackupEveryMinutes", mapping.BackupIntervalMinutes);
     }
 
     public Task RefreshConnectionsOnceAsync() => RefreshConnectionsAsync();
@@ -576,6 +661,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Sources.Add(new(connection.AgentId, connection.AgentName));
         foreach (var source in Sources) source.Connection = SourceConnections.FirstOrDefault(connection => connection.AgentId == source.Id);
         SelectedSourceConnection = SelectedRemoteAgent is null ? null : SourceConnections.FirstOrDefault(connection => connection.AgentId == SelectedRemoteAgent.Id);
+        NotifyDashboardTransfer();
         UpdateMappingLastBackupInfo();
     }
 
@@ -650,6 +736,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             ApplyTopology(document.Configuration);
             _configurationRevision = document.Revision;
             AutomaticBackups = _serviceAutomaticBackups = (await _configurationClient.GetAutomationAsync(_shutdown.Token)).Enabled;
+            if (!_arrivalDelayMigrationAttempted && (_legacyArrivalDelayNeedsUpdate || Devices.Any(device => device.ArrivalDelayMinutes == 30)))
+            {
+                _arrivalDelayMigrationAttempted = true;
+                _legacyArrivalDelayNeedsUpdate = false;
+                await SaveAsync();
+            }
             FooterStatus = Localization.Format("Text_LoadedStorageServiceconfigurat_E46147", document.Revision);
         }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
@@ -763,6 +855,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         ? QueueEligibleBackupsAsync(candidate => candidate.Id == mapping.Id)
         : Task.FromResult(0);
 
+    internal Task<int> QueueMappingsAsync(IEnumerable<MappingViewModel> mappings)
+    {
+        var ids = mappings.Select(mapping => mapping.Id).ToHashSet();
+        return ids.Count == 0 ? Task.FromResult(0) : QueueEligibleBackupsAsync(mapping => ids.Contains(mapping.Id));
+    }
+
     private async Task<int> QueueEligibleBackupsAsync(Func<MappingViewModel, bool> filter)
     {
         var eligible = Mappings.Where(mapping => mapping.Enabled && mapping.Device.IsConnected && filter(mapping)).ToArray();
@@ -805,7 +903,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         StartWithWindows = state.StartWithWindows;
         NotifyOnDeviceArrival = state.NotifyOnDeviceArrival;
         AutomaticBackups = state.AutomaticBackups;
-        DefaultArrivalDelayMinutes = state.DefaultArrivalDelayMinutes;
+        _legacyArrivalDelayNeedsUpdate = state.DefaultArrivalDelayMinutes == 30;
+        DefaultArrivalDelayMinutes = _legacyArrivalDelayNeedsUpdate ? 1 : state.DefaultArrivalDelayMinutes;
         ShowFlyoutOnBackupStart = state.ShowFlyoutOnBackupStart;
 
         foreach (var device in state.Topology.Devices) Devices.Add(new(device));
@@ -831,7 +930,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             _skipDisabledMappingIds.UnionWith(skipped);
             RestoreSkipDisabledMappingsIntoCurrentSet();
         }
-        Activity.Add(Localization.Text("Text_StorageAgentUIstarted_99C199"));
+        AddActivity(Localization.Text("Text_StorageAgentUIstarted_99C199"));
     }
 
     private void LoadDemoSources()
@@ -856,6 +955,80 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedBackupSet = BackupSets.FirstOrDefault();
         AddActivity("Demo Source catalog loaded for UX validation.");
         NotifyCounts();
+    }
+
+    public void LoadPreviewRules()
+    {
+        if (!_demoMode) return;
+        var drive = new DeviceViewModel(new RegisteredDevice(Guid.NewGuid(), "preview-drive", "Backup Drive (D:)", "Backup Drive", "D:\\", DateTimeOffset.Now, DateTimeOffset.Now));
+        drive.IsConnected = true;
+        Devices.Add(drive);
+        var samples = new (string Name, string Path, string LastBackup, bool Enabled)[]
+        {
+            ("사진 보관함", @"C:\Users\사용자\Pictures", "오늘 14:32", true),
+            ("문서", @"C:\Users\사용자\Documents", "오늘 14:28", true),
+            ("작업 파일", @"C:\Users\사용자\Desktop\작업", "백업 중", true),
+            ("개발 프로젝트", @"C:\Users\사용자\Projects", "오늘 12:01", true),
+            ("가족 사진", @"C:\Users\사용자\Pictures\가족", "오늘 08:17", true),
+            ("음악", @"C:\Users\사용자\Music", "없음", true),
+            ("회계 자료", @"C:\Users\사용자\Documents\회계", "어제 21:03", true),
+            ("동영상", @"C:\Users\사용자\Videos", "어제 19:45", true),
+            ("스캔 문서", @"C:\Users\사용자\Documents\스캔", "어제 17:20", true),
+            ("노트", @"C:\Users\사용자\OneDrive\노트", "어제 16:11", true),
+            ("다운로드", @"C:\Users\사용자\Downloads", "2024-06-10 11:24", true),
+            ("업무 자료", @"C:\Users\사용자\Desktop\업무", "어제 19:45", false)
+        };
+        for (var index = 0; index < samples.Length; index++)
+        {
+            var sample = samples[index];
+            var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), LocalSourceIdentity.AgentId, LocalSourceIdentity.DisplayName, sample.Name, [sample.Path]));
+            BackupSets.Add(set);
+            var mapping = new MappingViewModel(new BackupTargetMapping(Guid.NewGuid(), set.Id, drive.Id, sample.Name, sample.Enabled), set, drive);
+            mapping.LastBackupDisplay = sample.LastBackup == "백업 중" ? Localization.Text("Text_Backingupnow_CF4F1D")
+                : sample.LastBackup == "없음" ? Localization.Text("Text_Never_6300EF") : sample.LastBackup;
+            mapping.LastBackupAt = sample.LastBackup == "없음" ? null : DateTimeOffset.Now.AddMinutes(-index * 40);
+            Mappings.Add(mapping);
+        }
+    }
+
+    public void LoadPreviewAgents()
+    {
+        if (!_demoMode) return;
+        Sources.Clear();
+        SourceConnections.Clear();
+        NearbyComputers.Clear();
+        foreach (var set in BackupSets.Where(set => set.Model.SourceAgentId != LocalSourceIdentity.AgentId).ToArray()) BackupSets.Remove(set);
+        var agents = new (string Name, string[] Folders, TimeSpan LastSeen, string? PreviewStatus)[]
+        {
+            ("가족 PC", ["사진", "문서", "동영상"], TimeSpan.FromSeconds(30), null),
+            ("작업실 PC", ["작업 파일", "개발 프로젝트"], TimeSpan.FromMinutes(10), null),
+            ("노트북", ["문서"], TimeSpan.FromHours(3), null),
+            ("새 컴퓨터", [], TimeSpan.Zero, "승인 대기")
+        };
+        for (var index = 0; index < agents.Length; index++)
+        {
+            var sample = agents[index];
+            var agent = new RemoteAgentViewModel(Guid.NewGuid(), sample.Name) { PreviewStatus = sample.PreviewStatus };
+            foreach (var folder in sample.Folders)
+            {
+                string[] paths = sample.Name == "가족 PC" && folder == "문서"
+                    ? ["/doc/img", "/doc/db"] : [$"C:\\Users\\사용자\\{folder}"];
+                var set = new BackupSetViewModel(new SourceBackupSet(Guid.NewGuid(), agent.Id, sample.Name, folder, paths));
+                agent.BackupSets.Add(set);
+                BackupSets.Add(set);
+            }
+            Sources.Add(agent);
+            if (sample.PreviewStatus is null)
+            {
+                var connection = new SourceConnectionViewModel(new SourceConnectionDto(agent.Id, sample.Name, sample.Name,
+                    DateTimeOffset.UtcNow - sample.LastSeen, null, sample.Folders.Length, false, DateTimeOffset.UtcNow.AddDays(90)));
+                SourceConnections.Add(connection);
+                agent.Connection = connection;
+            }
+        }
+        NearbyComputers.Add(new(new NearbyComputerDto(Guid.NewGuid(), "NEW-PC", "preview-new-pc", DateTimeOffset.UtcNow.AddSeconds(-30))));
+        NearbyComputers.Add(new(new NearbyComputerDto(Guid.NewGuid(), "STUDIO-LAPTOP", "preview-studio-laptop", DateTimeOffset.UtcNow.AddMinutes(-5))));
+        SelectedRemoteAgent = Sources.FirstOrDefault();
     }
 
     private void AddDemoSet(RemoteAgentViewModel source, SourceBackupSet model)
@@ -980,7 +1153,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private MappingViewModel CreateMapping(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) =>
         new(model, set, device, mapping => { UpdateMappingLastBackupInfo(); _ = SaveAsync(); });
 
-    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled)
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null)
     {
         if (backupSet is null || device is null) return Localization.Text("Text_Choosewhattobackupandatargetde_50AF40");
         var repositoryPath = RelativeDestinationPath(device, destination);
@@ -991,7 +1164,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             && string.Equals(NormalizeRepositoryPath(mapping.RepositoryPath), NormalizeRepositoryPath(repositoryPath), StringComparison.OrdinalIgnoreCase)))
             return Localization.Text("Text_Thatbackuprulealreadyexists_35EA38");
 
-        var candidate = new BackupTargetMapping(existing?.Id ?? Guid.NewGuid(), backupSet.Id, device.Id, repositoryPath, enabled);
+        var candidate = new BackupTargetMapping(existing?.Id ?? Guid.NewGuid(), backupSet.Id, device.Id, repositoryPath, enabled, selectedSourcePaths ?? existing?.SelectedSourcePaths,
+            intervalMinutes ?? existing?.BackupIntervalMinutes ?? 30, delayWhenBusy ?? existing?.DelayWhenBusy ?? true,
+            uploadLimitKiBps == -1 ? null : uploadLimitKiBps ?? existing?.UploadLimitKiBps);
+        if (BackupTopologyValidator.SourcePathsFor(candidate, backupSet.Model) is null)
+            return "백업할 원본 경로를 하나 이상 선택하세요. 에이전트가 허용한 경로만 선택할 수 있습니다.";
         var all = existing is null
             ? Mappings.Select(mapping => mapping.ToModel()).Append(candidate).ToArray()
             : Mappings.Select(mapping => mapping.Id == existing.Id ? candidate : mapping.ToModel()).ToArray();
@@ -1015,7 +1192,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         return null;
     }
 
-    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled)
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null)
     {
         if (destinationOption is null) return Localization.Text("Text_Choosewheretostorethebackup_870A83");
         var device = destinationOption.Device;
@@ -1036,7 +1213,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             added = true;
         }
 
-        var error = await SaveMappingAsync(existing, backupSet, device, destination, enabled);
+        var error = await SaveMappingAsync(existing, backupSet, device, destination, enabled, selectedSourcePaths, intervalMinutes, delayWhenBusy, uploadLimitKiBps);
         if (error is not null && added) Devices.Remove(device!);
         RefreshBackupDestinations();
         return error;
@@ -1090,7 +1267,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private async Task RemoveMappingAsync()
     {
         if (SelectedMapping is null) return;
-        Mappings.Remove(SelectedMapping);
+        await RemoveMappingsAsync([SelectedMapping]);
+    }
+
+    internal async Task RemoveMappingsAsync(IEnumerable<MappingViewModel> mappings)
+    {
+        var selected = mappings.Distinct().Where(Mappings.Contains).ToArray();
+        if (selected.Length == 0) return;
+        foreach (var mapping in selected) Mappings.Remove(mapping);
         SelectedMapping = null;
         RemoveUnreferencedDevices();
         RefreshDeviceTriggerRoles();
@@ -1165,12 +1349,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 device.LastSeenAt = DateTimeOffset.UtcNow;
                 device.ConnectedAt = DateTimeOffset.UtcNow;
-                AddActivity(Localization.Format("Text_Backuptargetconnected0_199CC8", device.DisplayName));
+                AddActivity(Localization.Text("ActivityStorageConnected"), ActivityKind.Storage, device.DisplayName);
                 if (NotifyOnDeviceArrival) NotificationRequested?.Invoke(this, new(Localization.Text("Text_Backupstorageconnected_B99FB5"), DeviceArrivalMessage(device.DisplayName, device.ArrivalDelayMinutes)));
             }
             else if (wasConnected && !device.IsConnected)
             {
                 device.ConnectedAt = null;
+                AddActivity(Localization.Text("ActivityStorageDisconnected"), ActivityKind.Storage, device.DisplayName);
                 _ = RestoreSkippedMappings(device.Id);
             }
         }
@@ -1207,12 +1392,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 if (currentIndex != index) BackupDestinations.Move(currentIndex, index);
             }
         }
+        RefreshRuleComputerOptions();
         while (BackupDestinations.Count > desired.Count) BackupDestinations.RemoveAt(BackupDestinations.Count - 1);
     }
 
-    private void AddActivity(string text)
+    private void RecordJobActivity(BackupJobDto job)
     {
-        Activity.Insert(0, $"{DateTime.Now:t}  {text}");
+        var (key, kind) = job.State switch
+        {
+            "RUNNING" => ("ActivityBackupStarted", ActivityKind.Started),
+            "SUCCEEDED" => ("ActivityBackupCompleted", ActivityKind.Completed),
+            "FAILED" => ("ActivityBackupFailed", ActivityKind.Failed),
+            "CANCELLED" => ("ActivityBackupCancelled", ActivityKind.Information),
+            _ => (string.Empty, ActivityKind.Information)
+        };
+        if (key.Length == 0) return;
+        var mapping = Mappings.FirstOrDefault(item => item.Id == job.TargetMappingId);
+        var detail = mapping is null ? string.Empty : $"{mapping.BackupSetOnlyName} · {mapping.DeviceName}";
+        AddActivity(Localization.Text(key), kind, detail, job.State == "RUNNING" ? job.StartedAt ?? job.UpdatedAt : job.UpdatedAt);
+    }
+
+    private void AddActivity(string text, ActivityKind kind = ActivityKind.Information, string detail = "", DateTimeOffset? at = null)
+    {
+        var item = new ActivityItem(text, detail, at ?? DateTimeOffset.Now, kind);
+        var index = 0;
+        while (index < Activity.Count && Activity[index].At > item.At) index++;
+        Activity.Insert(index, item);
         while (Activity.Count > 100) Activity.RemoveAt(Activity.Count - 1);
     }
 
@@ -1225,15 +1430,38 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ConnectedDeviceCount));
         OnPropertyChanged(nameof(SourceCount));
         OnPropertyChanged(nameof(MappingCount));
+        OnPropertyChanged(nameof(LaptopName));
+        OnPropertyChanged(nameof(LaptopStatus));
+        OnPropertyChanged(nameof(DashboardDeviceName));
+        OnPropertyChanged(nameof(DashboardDeviceStatus));
+        OnPropertyChanged(nameof(DashboardDescription));
+        OnPropertyChanged(nameof(StatusBrush));
+        OnPropertyChanged(nameof(CanQueueAnyBackup));
+        OnPropertyChanged(nameof(QueueAllBackupsHint));
+        NotifyDashboardTransfer();
         UpdateMappingLastBackupInfo();
+    }
+
+    private void NotifyDashboardTransfer()
+    {
+        OnPropertyChanged(nameof(LaptopName));
+        OnPropertyChanged(nameof(LaptopStatus));
+        OnPropertyChanged(nameof(DashboardDeviceName));
+        OnPropertyChanged(nameof(DashboardDeviceStatus));
+        OnPropertyChanged(nameof(IsDashboardTransferActive));
+        OnPropertyChanged(nameof(IsRemoteDashboardTransferActive));
+        OnPropertyChanged(nameof(DashboardTransferPercent));
+        OnPropertyChanged(nameof(IsDashboardTransferIndeterminate));
+        OnPropertyChanged(nameof(DashboardTransferLabel));
     }
 
     private static void ConfigureStartup(bool enabled)
     {
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
         if (key is null) return;
-        if (enabled) key.SetValue("BackupMesh.Storage.Agent", BuildStartupCommand(AppContext.BaseDirectory, Environment.ProcessPath));
-        else key.DeleteValue("BackupMesh.Storage.Agent", throwOnMissingValue: false);
+        key.DeleteValue("BackupMesh.Storage.Agent", throwOnMissingValue: false);
+        if (enabled) key.SetValue("BackupMesh Storage Agent", BuildStartupCommand(AppContext.BaseDirectory, Environment.ProcessPath));
+        else key.DeleteValue("BackupMesh Storage Agent", throwOnMissingValue: false);
     }
 
     internal static string BuildStartupCommand(string appDirectory, string? processPath)
@@ -1295,7 +1523,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 public sealed class RemoteAgentViewModel(Guid id, string displayName) : ObservableObject
 {
     private SourceConnectionViewModel? _connection;
+    internal string? PreviewStatus { get; init; }
     public Guid Id { get; } = id;
+    public string ComputerIdDisplay => "PC-" + Id.ToString("N")[..7].ToUpperInvariant();
+    public bool HasConnection => Connection is not null;
     public string DisplayName => Id == LocalSourceIdentity.AgentId ? Localization.Text("ThisPC") : displayName;
     // State why Address and Status do not apply to the local source.
     public string DisplayNameWithHint => Id == LocalSourceIdentity.AgentId ? Localization.Format("Text_0noagentneeded_182A79", DisplayName) : DisplayName;
@@ -1308,11 +1539,20 @@ public sealed class RemoteAgentViewModel(Guid id, string displayName) : Observab
             if (!Set(ref _connection, value)) return;
             OnPropertyChanged(nameof(LastSeenDisplay));
             OnPropertyChanged(nameof(StatusDisplay));
+            OnPropertyChanged(nameof(ListStatusDisplay));
+            OnPropertyChanged(nameof(ListStatusBackground));
+            OnPropertyChanged(nameof(HasConnection));
             OnPropertyChanged(nameof(AddressDisplay));
         }
     }
     public string LastSeenDisplay => Connection?.LastSeenDisplay ?? "—";
-    public string StatusDisplay => Connection?.StatusDisplay ?? "—";
+    public string StatusDisplay => PreviewStatus ?? Connection?.StatusDisplay ?? "—";
+    public string ListStatusDisplay => PreviewStatus ?? (Connection?.IsOnline == true ? "온라인" : Connection?.StatusDisplay ?? "—");
+    public System.Windows.Media.Brush ListStatusBackground => PreviewStatus is not null ? System.Windows.Media.Brushes.LemonChiffon
+        : Connection?.IsOnline == true ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(225, 249, 245))
+        : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(242, 246, 252));
+    public System.Windows.Media.Brush ListStatusDotBrush => PreviewStatus is not null ? System.Windows.Media.Brushes.Orange
+        : Connection?.IsOnline == true ? System.Windows.Media.Brushes.Teal : System.Windows.Media.Brushes.SlateGray;
     public string AddressDisplay => Connection?.AddressDisplay ?? "—";
     // "Offers" (formerly "Paths served") - the names of this computer's own Backup Sets. "Backup Set" is
     // this tray's own internal grouping; a person configuring the other end thinks of these as folders.
@@ -1347,6 +1587,17 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model) : Obser
     // gone quiet.
     private static readonly TimeSpan OnlineThreshold = TimeSpan.FromMinutes(2);
 
+    public bool IsOnline
+    {
+        get
+        {
+            var now = DateTimeOffset.UtcNow;
+            return !IsRevoked && (CertificateExpiresAt is not { } expires ||
+                (expires > now && (now < expires.AddDays(-30) || LastSeenAt >= expires.AddDays(-30))))
+                && now - LastSeenAt <= OnlineThreshold;
+        }
+    }
+
     public string StatusDisplay
     {
         get
@@ -1362,7 +1613,7 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model) : Obser
                 // reads "hasn't been seen since {a still-future date}" as true and wrongly warns.
                 if (now >= renewalWindowStart && LastSeenAt < renewalWindowStart) return Localization.Format("Text_Offlinerepairbefore0d_A7CF69", expires.LocalDateTime);
             }
-            return now - LastSeenAt <= OnlineThreshold ? Localization.Text("Text_Connected_229655") : Localization.Text("Text_Offline_A17947");
+            return IsOnline ? Localization.Text("Text_Connected_229655") : Localization.Text("Text_Offline_A17947");
         }
     }
     public string DisplayName => Localization.Format("Text_01lastseen2_55F71D", AgentName, StatusDisplay, LastSeenDisplay);
@@ -1375,9 +1626,12 @@ public sealed class SourceConnectionViewModel(SourceConnectionDto model) : Obser
 public sealed class NearbyComputerViewModel(NearbyComputerDto model)
 {
     public Guid AgentId => model.AgentId;
+    public string ComputerIdDisplay => "PC-" + AgentId.ToString("N")[..7].ToUpperInvariant();
     public string Identity => model.Identity;
     public string DisplayName => model.AgentName;
     public string LastSeenDisplay => MainWindowViewModel.RelativeTimeDisplay(model.LastSeenAt);
+    public string DiscoveryStatus => "발견됨";
+    public string EmptyOffer => "—";
 }
 
 public sealed class BackupSetViewModel : ObservableObject
@@ -1391,6 +1645,29 @@ public sealed class BackupSetViewModel : ObservableObject
     public string SourceDisplayName => Model.SourceAgentId == LocalSourceIdentity.AgentId ? Localization.Text("ThisPC") : Model.SourceAgentName;
     public string DisplayName => $"{SourceDisplayName} / {Model.Name}{(IsAvailable ? string.Empty : Localization.Text("Text_notreported_EAAB4F"))}";
     public string SourcePathsDisplay => string.Join(Environment.NewLine, Model.SourcePaths);
+    public string IconGlyph => Model.Name.ToLowerInvariant() switch
+    {
+        var name when name.Contains("사진") || name.Contains("photo") || name.Contains("picture") => "▧",
+        var name when name.Contains("문서") || name.Contains("document") => "▤",
+        var name when name.Contains("동영상") || name.Contains("video") => "▶",
+        var name when name.Contains("음악") || name.Contains("music") => "♫",
+        var name when name.Contains("개발") || name.Contains("project") => "⌘",
+        var name when name.Contains("회계") => "▥",
+        var name when name.Contains("노트") || name.Contains("note") => "≡",
+        var name when name.Contains("다운로드") || name.Contains("download") => "↓",
+        _ => "▰"
+    };
+    public System.Windows.Media.Brush IconBrush => IconGlyph switch
+    {
+        "▧" => System.Windows.Media.Brushes.MediumSeaGreen,
+        "▤" => System.Windows.Media.Brushes.DodgerBlue,
+        "▶" or "⌘" => System.Windows.Media.Brushes.MediumPurple,
+        "♫" => System.Windows.Media.Brushes.DeepPink,
+        "▥" => System.Windows.Media.Brushes.IndianRed,
+        "≡" => System.Windows.Media.Brushes.Goldenrod,
+        "↓" => System.Windows.Media.Brushes.DeepSkyBlue,
+        _ => System.Windows.Media.Brushes.Goldenrod
+    };
     public void Update(SourceBackupSet model)
     {
         _model = model;
@@ -1398,6 +1675,8 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(SourcePathsDisplay));
+        OnPropertyChanged(nameof(IconGlyph));
+        OnPropertyChanged(nameof(IconBrush));
     }
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
@@ -1491,6 +1770,7 @@ public sealed class MappingViewModel : ObservableObject
     private bool _isRepeatOfPreviousSource;
     private bool _isRepeatOfPreviousSourceFolder;
     private string _lastBackupDisplay = Localization.Text("Text_Never_6300EF");
+    private DateTimeOffset? _lastBackupAt;
     private string _lastBackupIssue = string.Empty;
     private string _triggerNote = string.Empty;
     private string _nextBackupDisplay = string.Empty;
@@ -1501,6 +1781,10 @@ public sealed class MappingViewModel : ObservableObject
         BackupSet = set;
         Device = device;
         RepositoryPath = model.RepositoryPath;
+        SelectedSourcePaths = model.SelectedSourcePaths;
+        BackupIntervalMinutes = model.BackupIntervalMinutes;
+        DelayWhenBusy = model.DelayWhenBusy;
+        UploadLimitKiBps = model.UploadLimitKiBps;
         _enabled = model.Enabled;
         _onEnabledChanged = onEnabledChanged;
     }
@@ -1511,19 +1795,34 @@ public sealed class MappingViewModel : ObservableObject
     public string BackupSetName => BackupSet.DisplayName;
     public string SourceAgentName => BackupSet.SourceDisplayName;
     public string BackupSetOnlyName => BackupSet.Model.Name;
-    public string SourcePathsDisplay => string.Join(" · ", BackupSet.Model.SourcePaths);
+    public IReadOnlyList<string>? SelectedSourcePaths { get; }
+    public int BackupIntervalMinutes { get; }
+    public bool DelayWhenBusy { get; }
+    public int? UploadLimitKiBps { get; }
+    public string SourcePathsDisplay => string.Join(" · ", SelectedSourcePaths ?? BackupSet.Model.SourcePaths);
     public string DeviceName => Device.DisplayName;
     public string RepositoryPath { get; }
     public string DestinationFolder => Path.GetFullPath(Path.Combine(Device.LastKnownRoot ?? string.Empty, RepositoryPath));
     // A real pause toggle, not a read-only status dot - previously nothing in the UI ever changed this
     // after a mapping was created, so the column only ever displayed "true". Persists immediately, same
     // as every other in-screen edit this pass made auto-saving.
-    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) _onEnabledChanged?.Invoke(this); } }
+    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) { OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(RuleStatusBrush)); _onEnabledChanged?.Invoke(this); } } }
+    public string StatusDisplay => !Enabled ? "일시 중지"
+        : LastBackupDisplay == Localization.Text("Text_Backingupnow_CF4F1D") ? "백업 중"
+        : LastBackupIssue.Length > 0 ? "확인 필요"
+        : LastBackupDisplay == Localization.Text("Text_Never_6300EF") ? "대기 중" : "완료";
+    public System.Windows.Media.Brush RuleStatusBrush => StatusDisplay switch
+    {
+        "완료" => System.Windows.Media.Brushes.SeaGreen,
+        "백업 중" => System.Windows.Media.Brushes.DodgerBlue,
+        "확인 필요" => System.Windows.Media.Brushes.DarkOrange,
+        _ => System.Windows.Media.Brushes.SlateGray
+    };
     // For a caller that's about to toggle several mappings at once and save them together (e.g.
     // MainWindowViewModel.SkipDeviceThisConnection) - the normal setter's per-mapping auto-save would fire
     // one overlapping SaveAsync() per mapping, and a config revision conflict on any but the first could
     // leave a mapping toggled in memory but not actually persisted to the server that enforces it.
-    internal void SetEnabledWithoutSaving(bool value) => Set(ref _enabled, value);
+    internal void SetEnabledWithoutSaving(bool value) { if (Set(ref _enabled, value)) { OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(RuleStatusBrush)); } }
     // Consecutive rows sharing the same Source, or the same Source folder, are flagged here so the view
     // can dim the repeated text - recomputed for the whole list by
     // MainWindowViewModel.UpdateMappingRepeatMarkers() whenever Mappings changes, never inferred by the
@@ -1532,8 +1831,9 @@ public sealed class MappingViewModel : ObservableObject
     public bool IsRepeatOfPreviousSourceFolder { get => _isRepeatOfPreviousSourceFolder; set => Set(ref _isRepeatOfPreviousSourceFolder, value); }
     // Set by MainWindowViewModel.UpdateMappingLastBackupInfo() from the job list - a mapping does not hold
     // its own reference to Jobs, so this is pushed in rather than computed here.
-    public string LastBackupDisplay { get => _lastBackupDisplay; set => Set(ref _lastBackupDisplay, value); }
-    public string LastBackupIssue { get => _lastBackupIssue; set => Set(ref _lastBackupIssue, value); }
+    public string LastBackupDisplay { get => _lastBackupDisplay; set { if (Set(ref _lastBackupDisplay, value)) { OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(RuleStatusBrush)); } } }
+    public DateTimeOffset? LastBackupAt { get => _lastBackupAt; set => Set(ref _lastBackupAt, value); }
+    public string LastBackupIssue { get => _lastBackupIssue; set { if (Set(ref _lastBackupIssue, value)) { OnPropertyChanged(nameof(StatusDisplay)); OnPropertyChanged(nameof(RuleStatusBrush)); } } }
     // Read-only surface for a Backup Set's TriggerDeviceIds/TriggerPolicy, set by
     // MainWindowViewModel.UpdateMappingTriggerNotes() - the per-row editor for these is gone (peer
     // review: its default, starting when the mapped destination connects, covers the ordinary case with
@@ -1543,7 +1843,7 @@ public sealed class MappingViewModel : ObservableObject
     // "starts when Target connects" for a row that in fact does not.
     public string TriggerNote { get => _triggerNote; set => Set(ref _triggerNote, value); }
     public string NextBackupDisplay { get => _nextBackupDisplay; set => Set(ref _nextBackupDisplay, value); }
-    public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled);
+    public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled, SelectedSourcePaths, BackupIntervalMinutes, DelayWhenBusy, UploadLimitKiBps);
 }
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)
@@ -1568,7 +1868,7 @@ public sealed record AvailableDriveViewModel(string StableId, string Root, strin
 // is gone if the app exits (crash, forced close, or simply quitting) before that disconnect happens, and
 // without this, the mapping stays persisted as Enabled=false forever with nothing in the UI explaining why
 // because silently leaving a backup disabled after restart would be unsafe.
-public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 30, bool ShowFlyoutOnBackupStart = true, IReadOnlyList<Guid>? SkipDisabledMappingIds = null, string Language = "");
+public sealed record AppConfiguration(StorageAgentConfiguration Topology, bool StartWithWindows = true, bool NotifyOnDeviceArrival = true, bool AutomaticBackups = true, int DefaultArrivalDelayMinutes = 1, bool ShowFlyoutOnBackupStart = true, IReadOnlyList<Guid>? SkipDisabledMappingIds = null, string Language = "");
 
 internal sealed class ConfigurationStore
 {

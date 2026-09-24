@@ -81,6 +81,15 @@ public sealed class BackupJobStoreTests
     }
 
     [Fact]
+    public void AdmissionReturnsOnlyTheMappingSelectedPaths()
+    {
+        var admission = new BackupJobStore().Admit(Request(Guid.NewGuid()), "selected-paths-key", new Uri("https://localhost/repo"), sourcePaths: ["/doc/db"]).Admission;
+
+        Assert.Equal(["/doc/db"], admission?.SourcePaths);
+        Assert.Contains("\"source_paths\":[\"/doc/db\"]", System.Text.Json.JsonSerializer.Serialize(admission));
+    }
+
+    [Fact]
     public void BackupCommandsAreIdempotentAndClaimedByOwningSource()
     {
         var sourceId = Guid.NewGuid();
@@ -120,6 +129,21 @@ public sealed class BackupJobStoreTests
         Assert.Equal(StoreOutcome.Conflict, queue.Complete(Guid.NewGuid(), claimed!.CommandId, "FAILED", now, null, "wrong source"));
         Assert.Equal(StoreOutcome.Accepted, queue.Complete(sourceId, claimed.CommandId, "SUCCEEDED", now, Guid.NewGuid(), null));
         Assert.Equal(StoreOutcome.Terminal, queue.Complete(sourceId, claimed.CommandId, "SUCCEEDED", now, Guid.NewGuid(), null));
+    }
+
+    [Fact]
+    public void BusyAutomaticCommandIsDeferredForOneMinute()
+    {
+        var sourceId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var queue = new BackupCommandQueue(new BackupCommandOptions { PersistencePath = string.Empty });
+        queue.Enqueue("busy-command-0001", [new(sourceId, Guid.NewGuid(), Guid.NewGuid(), "interval", true)], now);
+        var claimed = Assert.IsType<BackupCommand>(queue.ClaimNext(sourceId, now, TimeSpan.FromMinutes(5)));
+
+        Assert.True(claimed.DelayWhenBusy);
+        Assert.Equal(StoreOutcome.Accepted, queue.Defer(sourceId, claimed.CommandId, now));
+        Assert.Null(queue.ClaimNext(sourceId, now.AddSeconds(59), TimeSpan.FromMinutes(5)));
+        Assert.Equal(claimed.CommandId, queue.ClaimNext(sourceId, now.AddMinutes(1), TimeSpan.FromMinutes(5))?.CommandId);
     }
 
     [Fact]

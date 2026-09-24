@@ -65,6 +65,7 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
                 var devices = presence.Refresh(configuration.Get().Configuration, inventory.GetVolumes(), DateTimeOffset.UtcNow);
                 UpdateAggregateState(state, devices);
                 EnqueueNewlyReadyDevices(configuration.Get().Configuration, devices);
+                EnqueueDueBackups(configuration.Get().Configuration, devices, DateTimeOffset.UtcNow);
             }
             catch (Exception exception)
             {
@@ -94,6 +95,36 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
         _readyDevices.UnionWith(readyNow);
     }
 
+    private void EnqueueDueBackups(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices, DateTimeOffset now)
+    {
+        if (!automation.Get().Enabled) return;
+        foreach (var draft in BuildDueDrafts(topology, devices, commands.List(), now))
+            commands.Enqueue($"interval:{draft.TargetMappingId:N}:{now.UtcTicks}", [draft], now);
+    }
+
+    internal static IReadOnlyList<BackupCommandDraft> BuildDueDrafts(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices, IReadOnlyList<BackupCommand> history, DateTimeOffset now)
+    {
+        var ready = devices.Where(device => device.Ready).Select(device => device.DeviceId).ToHashSet();
+        var open = history.Where(command => command.State is "PENDING" or "CLAIMED" or "RUNNING")
+            .Select(command => command.TargetMappingId).ToHashSet();
+        var lastRequests = history
+            .GroupBy(command => command.TargetMappingId)
+            .ToDictionary(group => group.Key, group => group.Max(command => command.CompletedAt ?? command.RequestedAt));
+        var due = new List<BackupCommandDraft>();
+        foreach (var mapping in topology.Mappings.Where(mapping => mapping.Enabled && ready.Contains(mapping.DeviceId)))
+        {
+            if (open.Contains(mapping.Id)) continue;
+            var backupSet = topology.BackupSets.FirstOrDefault(set => set.Id == mapping.BackupSetId);
+            if (backupSet is null || backupSet.TriggerDeviceIds.Count > 0 &&
+                (backupSet.TriggerPolicy == BackupSetTriggerPolicy.AllAvailable
+                    ? !backupSet.TriggerDeviceIds.All(ready.Contains)
+                    : !backupSet.TriggerDeviceIds.Any(ready.Contains))) continue;
+            if (lastRequests.TryGetValue(mapping.Id, out var last) && now - last < TimeSpan.FromMinutes(mapping.BackupIntervalMinutes)) continue;
+            due.Add(new BackupCommandDraft(backupSet.SourceAgentId, backupSet.Id, mapping.Id, "interval", mapping.DelayWhenBusy));
+        }
+        return due;
+    }
+
     internal static IReadOnlyList<BackupCommandDraft> BuildArrivalDrafts(StorageAgentConfiguration topology, IReadOnlyList<RegisteredDevicePresence> devices, RegisteredDevicePresence arrived)
     {
         var readyDeviceIds = devices.Where(device => device.Ready).Select(device => device.DeviceId).ToHashSet();
@@ -106,7 +137,7 @@ public sealed class StorageMonitorService(IStorageVolumeInventory inventory, Sto
                     && (mapping.DeviceId == arrived.DeviceId || sourceSets.Contains(mapping.BackupSetId))
                 join backupSet in topology.BackupSets on mapping.BackupSetId equals backupSet.Id
                 select new BackupCommandDraft(backupSet.SourceAgentId, backupSet.Id, mapping.Id,
-                    mapping.DeviceId == arrived.DeviceId ? "destination-arrival" : "source-arrival"))
+                    mapping.DeviceId == arrived.DeviceId ? "destination-arrival" : "source-arrival", mapping.DelayWhenBusy))
             .DistinctBy(draft => draft.TargetMappingId)
             .ToArray();
     }

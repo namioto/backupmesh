@@ -34,14 +34,15 @@ public static class MutualTlsCertificateValidator
         }
     }
 }
-public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags);
-public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("device_id")] Guid DeviceId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt, [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint);
+public sealed record BackupRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("backup_set_id")] Guid BackupSetId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("snapshot_tags"), MaxLength(32)] string[]? SnapshotTags, [property: JsonPropertyName("supports_source_path_selection")] bool SupportsSourcePathSelection = false);
+public sealed record BackupAdmission([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("target_mapping_id")] Guid TargetMappingId, [property: JsonPropertyName("device_id")] Guid DeviceId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("accepted_at")] DateTimeOffset AcceptedAt, [property: JsonPropertyName("repository_endpoint")] Uri RepositoryEndpoint, [property: JsonPropertyName("source_paths")] IReadOnlyList<string>? SourcePaths = null, [property: JsonPropertyName("upload_limit_kibps")] int? UploadLimitKiBps = null);
 public sealed record BackupProgress([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("reported_at")] DateTimeOffset ReportedAt, [property: JsonPropertyName("phase"), Required, RegularExpression("^(SCANNING|UPLOADING|FINALIZING)$")] string Phase, [property: JsonPropertyName("bytes_done"), Range(0, long.MaxValue)] long BytesDone, [property: JsonPropertyName("bytes_total"), Range(0, long.MaxValue)] long? BytesTotal, [property: JsonPropertyName("files_done"), Range(0, long.MaxValue)] long FilesDone, [property: JsonPropertyName("files_total"), Range(0, long.MaxValue)] long? FilesTotal, [property: JsonPropertyName("message"), StringLength(512)] string? Message);
 public sealed record BackupResult([property: JsonPropertyName("event_id")] Guid EventId, [property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("sequence"), Range(1, long.MaxValue)] long Sequence, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("snapshot_id"), StringLength(128, MinimumLength = 1)] string? SnapshotId, [property: JsonPropertyName("bytes_added"), Range(0, long.MaxValue)] long? BytesAdded, [property: JsonPropertyName("error_code"), RegularExpression("^[A-Z][A-Z0-9_]*$"), StringLength(64)] string? ErrorCode, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record CancelRequest([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("requested_at")] DateTimeOffset RequestedAt, [property: JsonPropertyName("reason"), StringLength(512)] string? Reason);
 public sealed record JobStatus([property: JsonPropertyName("job_id")] Guid JobId, [property: JsonPropertyName("state")] string State, [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt, [property: JsonPropertyName("last_sequence")] long LastSequence, [property: JsonPropertyName("progress")] BackupProgress? Progress, [property: JsonPropertyName("result")] BackupResult? Result, [property: JsonPropertyName("target_mapping_id")] Guid? TargetMappingId = null, [property: JsonPropertyName("source_agent_id")] Guid? SourceAgentId = null, [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt = null);
 public sealed record BackupCommandEnqueueRequest([property: JsonPropertyName("mapping_ids")] Guid[]? MappingIds, [property: JsonPropertyName("reason"), StringLength(64)] string? Reason);
 public sealed record BackupCommandClaimResponse([property: JsonPropertyName("command")] BackupCommand? Command);
+public sealed record BackupCommandDeferRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId);
 public sealed record BackupCommandAcknowledgementRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(RUNNING|CLAIMED)$")] string State, [property: JsonPropertyName("claimed_at")] DateTimeOffset ClaimedAt);
 public sealed record BackupCommandResultRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("outcome"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string Outcome, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
 public sealed record BackupCommandCompletionRequest([property: JsonPropertyName("command_id")] Guid CommandId, [property: JsonPropertyName("source_agent_id")] Guid SourceAgentId, [property: JsonPropertyName("state"), Required, RegularExpression("^(SUCCEEDED|FAILED|CANCELLED)$")] string State, [property: JsonPropertyName("completed_at")] DateTimeOffset CompletedAt, [property: JsonPropertyName("job_id")] Guid? JobId, [property: JsonPropertyName("message"), StringLength(2048)] string? Message);
@@ -115,14 +116,14 @@ public sealed class BackupJobStore
         var pruned = PruneTerminalJobs();
         if (recovered || pruned) Persist();
     }
-    public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default)
+    public (StoreOutcome Outcome, BackupAdmission? Admission) Admit(BackupRequest request, string key, Uri endpoint, Guid deviceId = default, IReadOnlyList<string>? sourcePaths = null)
     {
         lock (_gate)
         {
-            var signature = $"{request.JobId:N}|{request.SourceAgentId:N}|{request.BackupSetId:N}|{request.TargetMappingId:N}|{request.RequestedAt:O}|{string.Join(',', request.SnapshotTags ?? [])}";
+            var signature = $"{request.JobId:N}|{request.SourceAgentId:N}|{request.BackupSetId:N}|{request.TargetMappingId:N}|{request.RequestedAt:O}|{string.Join(',', request.SnapshotTags ?? [])}|{request.SupportsSourcePathSelection}";
             if (_admissions.TryGetValue(key, out var prior)) return prior.Signature == signature ? (StoreOutcome.Replayed, prior.Admission) : (StoreOutcome.Conflict, null);
             if (_activeMappings.ContainsKey(request.TargetMappingId) || _jobs.ContainsKey(request.JobId)) return (StoreOutcome.Conflict, null);
-            var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint);
+            var now = DateTimeOffset.UtcNow; var admission = new BackupAdmission(request.JobId, request.TargetMappingId, deviceId, "ACCEPTED", now, endpoint, sourcePaths);
             _jobs[request.JobId] = new(request.JobId, "ACCEPTED", now, 0, null, null, request.TargetMappingId, request.SourceAgentId, now); _admissions[key] = (signature, admission); _jobMappings[request.JobId] = request.TargetMappingId; _activeMappings[request.TargetMappingId] = request.JobId; ActiveJobId ??= request.JobId;
             _jobSources[request.JobId] = request.SourceAgentId;
             Persist();
@@ -477,7 +478,7 @@ public static class ControlApi
             if (!AgentMatches(http, source_agent_id)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot access another Source.");
             return Results.Ok(targets.List(source_agent_id, backup_set_id));
         });
-        api.MapPost("/backup/request", async (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, BackupTargetResolver targets, IRepositoryEndpointProvider repositories, CancellationToken ct) =>
+        api.MapPost("/backup/request", async (BackupRequest request, HttpContext http, StorageStateMachine state, BackupJobStore jobs, BackupTargetResolver targets, StorageConfigurationStore configuration, IRepositoryEndpointProvider repositories, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested(); var invalid = Validate(request); if (invalid is not null) return invalid;
             if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot submit a backup for another Source.");
@@ -492,10 +493,12 @@ public static class ControlApi
             {
                 return Problem(503, "REPOSITORY_SERVER_FAILED", exception.Message);
             }
-            var result = jobs.Admit(request, http.Request.Headers["Idempotency-Key"].ToString(), endpoint, resolution.Target.DeviceId);
+            var result = jobs.Admit(request, http.Request.Headers["Idempotency-Key"].ToString(), endpoint, resolution.Target.DeviceId, resolution.Target.SourcePaths);
             if (result.Outcome == StoreOutcome.Conflict) return Problem(409, "JOB_CONFLICT", "Another backup is active or the idempotency key conflicts.");
+            if (result.Admission is null) return Problem(500, "JOB_ADMISSION_FAILED", "Backup admission was not created.");
             if (result.Outcome == StoreOutcome.Accepted) state.TransitionTo(StorageState.Busy, request.JobId.ToString());
-            http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant(); return Results.Accepted(value: result.Admission);
+            var uploadLimit = configuration.Get().Configuration.Mappings.FirstOrDefault(mapping => mapping.Id == request.TargetMappingId)?.UploadLimitKiBps;
+            http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant(); return Results.Accepted(value: result.Admission with { UploadLimitKiBps = uploadLimit });
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/progress", (BackupProgress progress, HttpContext http, BackupJobStore jobs, CancellationToken ct) => { ct.ThrowIfCancellationRequested(); if (!AgentCanAccessJob(http, jobs, progress.JobId)) return Problem(403, "FORBIDDEN", "The backup job belongs to another Source Agent."); var invalid = Validate(progress); return invalid ?? EventResult(jobs.Progress(progress), http); }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/result", (BackupResult result, HttpContext http, StorageStateMachine state, BackupJobStore jobs, CancellationToken ct) =>
@@ -540,12 +543,25 @@ public static class ControlApi
             http.Response.Headers["Idempotency-Replayed"] = (result.Outcome == StoreOutcome.Replayed).ToString().ToLowerInvariant();
             return Results.Accepted(value: result.Result);
         }).AddEndpointFilter<RequiredControlHeadersFilter>();
-        api.MapPost("/backup/commands/claim/{source_agent_id:guid}", (Guid source_agent_id, HttpContext http, BackupCommandQueue commands, BackupCommandOptions options, CancellationToken ct) =>
+        api.MapPost("/backup/commands/claim/{source_agent_id:guid}", async (Guid source_agent_id, HttpContext http, BackupCommandQueue commands, BackupCommandOptions options, HostLoadProbe load, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             if (!AgentMatches(http, source_agent_id)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot claim another Source's commands.");
-            return Results.Ok(new BackupCommandClaimResponse(commands.ClaimNext(source_agent_id, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(Math.Max(60, options.LeaseSeconds)))));
+            var command = commands.ClaimNext(source_agent_id, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(Math.Max(60, options.LeaseSeconds)));
+            if (command?.DelayWhenBusy == true && await load.IsBusyAsync(ct))
+            {
+                commands.Defer(source_agent_id, command.CommandId, DateTimeOffset.UtcNow);
+                command = null;
+            }
+            return Results.Ok(new BackupCommandClaimResponse(command));
         });
+        api.MapPost("/backup/commands/defer", (BackupCommandDeferRequest request, HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!AgentMatches(http, request.SourceAgentId)) return Problem(403, "FORBIDDEN", "The authenticated Source Agent cannot defer another Source's command.");
+            if (request.CommandId == Guid.Empty || request.SourceAgentId == Guid.Empty) return Problem(400, "INVALID_REQUEST", "Command IDs are required.");
+            return EventResult(commands.Defer(request.SourceAgentId, request.CommandId, DateTimeOffset.UtcNow), http);
+        }).AddEndpointFilter<RequiredControlHeadersFilter>();
         api.MapPost("/backup/commands/result", (BackupCommandResultRequest request, HttpContext http, BackupCommandQueue commands, CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
