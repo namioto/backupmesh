@@ -2,6 +2,11 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.13 — 2026-09-24
+
+- Reduce text sizes across the Storage app and align page titles and primary actions on Overview, Backup Rules, and Remote Agents.
+- Share page header and action styles so future changes keep those screens consistent.
+
 ## 0.3.12 — 2026-09-24
 
 - Redesign the Storage app's backup rules, remote agents, settings, and in-page rule editor with shared controls and consistent navigation.

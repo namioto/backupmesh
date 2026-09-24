@@ -90,6 +90,11 @@ public partial class App : System.Windows.Application
                 captured = true;
                 _window.Dispatcher.BeginInvoke(new Action(async () =>
                 {
+                    _window.MainTabControl.SelectedIndex = 0;
+                    await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                    CapturePreview("backupmesh-overview-preview.png");
+                    _window.ShowBackupRules();
+                    await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                     CapturePreview("backupmesh-rules-preview.png");
                     try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rules-check.txt"), await _window.VerifyPreviewRuleControlsAsync()); }
                     catch (Exception error) { File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-rules-check.txt"), error.ToString()); }

@@ -20,18 +20,22 @@
             <Setter Property="Padding" Value="20" />
         </Style>
         <Style x:Key="PageHeadingStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="34" />
+            <Setter Property="FontSize" Value="27" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="#142A48" />
         </Style>
+        <Style x:Key="PageHeaderStyle" TargetType="Grid">
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Margin" Value="0,0,0,20" />
+        </Style>
         <Style x:Key="CardHeadingStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="#142A48" />
             <Setter Property="Margin" Value="0,0,0,16" />
         </Style>
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="#172B4D" />
             <Setter Property="Margin" Value="0,0,0,10" />
@@ -75,6 +79,14 @@
             <Setter Property="Template">
                 <Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Outline" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Outline" Property="BorderBrush" Value="#7FA4CF"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Outline" Property="BorderBrush" Value="#078F91"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="Button" x:Key="PageActionButtonStyle" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="20,10" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style TargetType="CheckBox" x:Key="SelectionCheckStyle">
             <Setter Property="Width" Value="20"/><Setter Property="Height" Value="20"/>
