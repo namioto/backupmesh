@@ -86,13 +86,59 @@ public static class RuleIconCatalog
         {
             var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Icons", "RuleAtlas", AtlasFiles[atlasIndex] + ".png");
             var atlas = new BitmapImage(new Uri(path));
-            var cellWidth = atlas.PixelWidth / 3;
-            var cellHeight = atlas.PixelHeight / 3;
+            var pixels = new FormatConvertedBitmap(atlas, PixelFormats.Bgra32, null, 0);
+            var width = pixels.PixelWidth;
+            var height = pixels.PixelHeight;
+            var bytes = new byte[width * height * 4];
+            pixels.CopyPixels(bytes, width * 4, 0);
+            var visited = new byte[width * height];
+            var queue = new int[width * height];
             for (var cell = 0; cell < 9; cell++)
             {
-                var cropped = new CroppedBitmap(atlas, new Int32Rect(cell % 3 * cellWidth, cell / 3 * cellHeight, cellWidth, cellHeight));
+                var centerX = width * (cell % 3 * 2 + 1) / 6;
+                var centerY = height * (cell / 3 * 2 + 1) / 6;
+                var start = centerY * width + centerX;
+                if (bytes[start * 4 + 3] < 240)
+                    throw new InvalidDataException($"Rule icon {atlasIndex * 9 + cell} has no opaque center.");
+
+                var head = 0;
+                var tail = 1;
+                queue[0] = start;
+                visited[start] = 1;
+                var minX = centerX;
+                var maxX = centerX;
+                var minY = centerY;
+                var maxY = centerY;
+                while (head < tail)
+                {
+                    var pixel = queue[head++];
+                    var x = pixel % width;
+                    var y = pixel / width;
+                    minX = Math.Min(minX, x);
+                    maxX = Math.Max(maxX, x);
+                    minY = Math.Min(minY, y);
+                    maxY = Math.Max(maxY, y);
+                    if (x > 0) Visit(pixel - 1);
+                    if (x < width - 1) Visit(pixel + 1);
+                    if (y > 0) Visit(pixel - width);
+                    if (y < height - 1) Visit(pixel + width);
+                }
+                if (tail < 50_000)
+                    throw new InvalidDataException($"Rule icon {atlasIndex * 9 + cell} could not be located.");
+
+                var size = Math.Max(maxX - minX + 1, maxY - minY + 1) + 12;
+                var left = Math.Clamp((minX + maxX + 1 - size) / 2, 0, width - size);
+                var top = Math.Clamp((minY + maxY + 1 - size) / 2, 0, height - size);
+                var cropped = new CroppedBitmap(atlas, new Int32Rect(left, top, size, size));
                 cropped.Freeze();
                 result[atlasIndex * 9 + cell] = cropped;
+
+                void Visit(int pixel)
+                {
+                    if (visited[pixel] != 0 || bytes[pixel * 4 + 3] < 240) return;
+                    visited[pixel] = 1;
+                    queue[tail++] = pixel;
+                }
             }
         }
         return result;

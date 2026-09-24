@@ -131,6 +131,10 @@ public partial class App : System.Windows.Application
                         await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                         if (!ruleDialog.RuleIconPopup.IsOpen || ruleDialog.RuleIconChoices.Items.Count != 72)
                             throw new InvalidOperationException("Backup rule icon picker did not show all 72 choices.");
+                        if (Enumerable.Range(0, RuleIconCatalog.Count).Any(index =>
+                            RuleIconCatalog.Get(index) is { } icon &&
+                            (icon.PixelWidth != icon.PixelHeight || icon.PixelWidth is < 330 or > 390)))
+                            throw new InvalidOperationException("Backup rule icons are not uniformly cropped and centered.");
                         CapturePreview("backupmesh-rule-icons-preview.png", (FrameworkElement)ruleDialog.RuleIconPopup.Child);
                         ruleDialog.RuleIconChoices.SelectedIndex = 42;
                         ruleDialog.RuleNameInput.Text = "가족 자료 백업";
