@@ -81,7 +81,7 @@
             </Setter>
         </Style>
         <Style TargetType="Button" x:Key="PageActionButtonStyle" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Padding" Value="20,10" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="MinHeight" Value="42" />
@@ -90,7 +90,7 @@
         </Style>
         <Style TargetType="CheckBox" x:Key="SelectionCheckStyle">
             <Setter Property="Width" Value="20"/><Setter Property="Height" Value="20"/>
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Border x:Name="Box" Width="19" Height="19" Background="White" BorderBrush="#8296AE" BorderThickness="1.5" CornerRadius="4"><Path x:Name="Mark" Data="M 4,9 L 8,13 L 15,5" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="#078F81"/><Setter TargetName="Box" Property="BorderBrush" Value="#078F81"/><Setter TargetName="Mark" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#1675D1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Border x:Name="Box" Width="19" Height="19" Background="White" BorderBrush="#8296AE" BorderThickness="1.5" CornerRadius="4" HorizontalAlignment="Center" VerticalAlignment="Center"><Path x:Name="Mark" Data="M 1,5 L 4.5,8.5 L 11,1" Width="12" Height="10" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="#078F81"/><Setter TargetName="Box" Property="BorderBrush" Value="#078F81"/><Setter TargetName="Mark" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#1675D1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
         <Style TargetType="TextBox" x:Key="SearchTextBoxStyle">
             <Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#CEDCF0"/><Setter Property="BorderThickness" Value="1"/>

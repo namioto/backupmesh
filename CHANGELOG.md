@@ -2,6 +2,16 @@
 
 All notable changes to BackupMesh are documented in this file.
 
+## 0.3.15 — 2026-09-24
+
+- Give each backup rule its own editable name and one of 72 shared category icons; show the icon consistently in rule lists and summaries.
+- Keep rule names and icons when editing or copying rules, including configurations created before these fields existed.
+- Restore visual hierarchy for navigation, primary actions, rule and agent names, and overview summary values.
+- Tighten remote agent rows and give the overview's lower panels more room while keeping body and supporting text compact.
+- Check Korean and English previews for alignment and spacing across the main screens and rule editor.
+- Strengthen sidebar labels, align icon and label spacing, and replace the selected menu's white focus outline with a subtle focus background.
+- Move toggle focus rings outside their tracks and center the shared table selection check mark.
+
 ## 0.3.14 — 2026-09-24
 
 - Translate Storage screen labels, rule editor, and Remote Agent guide when switching between Korean and English.

@@ -945,4 +945,8 @@ one location</value></data>
   <data name="RulePathsNoMatches"><value>No matching paths.</value></data>
   <data name="InstallGuideOpenFailed"><value>Could not open the installation guide.</value></data>
   <data name="PreviewAwaitingApproval"><value>Awaiting approval</value></data>
+  <data name="RuleNameLabel"><value>Rule name</value></data>
+  <data name="RuleChooseIcon"><value>Choose icon</value></data>
+  <data name="RuleNameInvalid"><value>Enter a rule name of up to 128 characters.</value></data>
+  <data name="RuleIconInvalid"><value>Choose a valid rule icon.</value></data>
 </root>

@@ -622,6 +622,30 @@ public sealed class StorageConfigurationViewModelTests
     }
 
     [Fact]
+    public async Task BackupRuleKeepsItsOwnNameAndIconWhenEdited()
+    {
+        var device = new DeviceViewModel(new(Guid.NewGuid(), "disk:docs", "Archive", "A", "D:\\", DateTimeOffset.UtcNow, null));
+        var set = new BackupSetViewModel(new(Guid.NewGuid(), Guid.NewGuid(), "Remote", "Documents", ["/doc/img", "/doc/db"]));
+        var client = new FakeConfigurationClient(new(1, DateTimeOffset.UtcNow, StorageAgentConfiguration.Empty));
+        using var viewModel = new MainWindowViewModel(loadLocalState: false, configurationClient: client);
+        viewModel.Devices.Add(device);
+        viewModel.BackupSets.Add(set);
+
+        Assert.Null(await viewModel.SaveMappingAsync(null, set, device, "BackupMesh/docs", true, ruleName: "  Family archive  ", iconId: 42));
+        var created = Assert.Single(viewModel.Mappings);
+        Assert.Equal("Family archive", created.RuleName);
+        Assert.Equal(42, created.IconId);
+        Assert.Equal("Family archive", Assert.Single(client.Document.Configuration.Mappings).DisplayName);
+
+        Assert.Null(await viewModel.SaveMappingAsync(created, set, device, "BackupMesh/renamed", true));
+        var saved = Assert.Single(viewModel.Mappings);
+        Assert.Equal(created.Id, saved.Id);
+        Assert.Equal("Family archive", saved.RuleName);
+        Assert.Equal(42, saved.IconId);
+        Assert.Equal(42, Assert.Single(client.Document.Configuration.Mappings).IconId);
+    }
+
+    [Fact]
     public async Task ChoosingAConnectedDriveCreatesItsInternalDeviceWithTheRule()
     {
         var drive = new AvailableDriveViewModel("disk:new", "E:\\", "BACKUP", 100, 200, "USB drive", 1, true);

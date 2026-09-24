@@ -945,4 +945,8 @@
   <data name="RulePathsNoMatches"><value>검색 결과가 없습니다.</value></data>
   <data name="InstallGuideOpenFailed"><value>설치 안내를 열 수 없습니다.</value></data>
   <data name="PreviewAwaitingApproval"><value>승인 대기</value></data>
+  <data name="RuleNameLabel"><value>규칙 이름</value></data>
+  <data name="RuleChooseIcon"><value>아이콘 선택</value></data>
+  <data name="RuleNameInvalid"><value>규칙 이름을 1~128자로 입력하세요.</value></data>
+  <data name="RuleIconInvalid"><value>올바른 규칙 아이콘을 선택하세요.</value></data>
 </root>

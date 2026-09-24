@@ -123,7 +123,7 @@ public partial class MainWindow : Window
         var view = System.Windows.Data.CollectionViewSource.GetDefaultView(ViewModel.Mappings);
         view.SortDescriptions.Clear();
         view.SortDescriptions.Add(RuleSort.SelectedIndex == 1
-            ? new SortDescription(nameof(MappingViewModel.BackupSetOnlyName), ListSortDirection.Ascending)
+            ? new SortDescription(nameof(MappingViewModel.RuleName), ListSortDirection.Ascending)
             : new SortDescription(nameof(MappingViewModel.LastBackupAt), ListSortDirection.Descending));
         UpdateRulePage(resetPage: true);
     }
@@ -223,7 +223,7 @@ public partial class MainWindow : Window
         if (Count() != 12) throw new InvalidOperationException("Device filter failed.");
         RuleDeviceFilter.SelectedItem = null;
         RuleSort.SelectedIndex = 1;
-        if (Count() != 12 || RulePage.First().BackupSetOnlyName != ViewModel.Mappings.MinBy(mapping => mapping.BackupSetOnlyName, StringComparer.CurrentCulture)?.BackupSetOnlyName)
+        if (Count() != 12 || RulePage.First().RuleName != ViewModel.Mappings.MinBy(mapping => mapping.RuleName, StringComparer.CurrentCulture)?.RuleName)
             throw new InvalidOperationException("Name sort failed.");
         RuleSort.SelectedIndex = 0;
         RuleStatusFilter.SelectedIndex = 4;
@@ -506,7 +506,7 @@ public partial class MainWindow : Window
     {
         if (item is not MappingViewModel mapping) return false;
         if (_ruleQuery.Length > 0 &&
-            !new[] { mapping.BackupSetOnlyName, mapping.SourcePathsDisplay, mapping.SourceAgentName, mapping.DeviceName }
+            !new[] { mapping.RuleName, mapping.SourcePathsDisplay, mapping.SourceAgentName, mapping.DeviceName }
                 .Any(value => value.Contains(_ruleQuery, StringComparison.CurrentCultureIgnoreCase))) return false;
         if (_ruleStatus is not null && mapping.StatusDisplay != _ruleStatus) return false;
         if (_ruleComputerId is { } computerId && mapping.BackupSet.Model.SourceAgentId != computerId) return false;

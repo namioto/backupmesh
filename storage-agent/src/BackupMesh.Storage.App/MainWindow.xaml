@@ -43,24 +43,24 @@
                         <Setter Property="Margin" Value="10,2,10,2"/>
                         <Setter Property="Height" Value="64"/>
                         <Setter Property="MinWidth" Value="260"/>
-                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="FontSize" Value="14"/>
                         <Setter Property="HorizontalContentAlignment" Value="Left"/>
                         <Setter Property="Template">
                             <Setter.Value><ControlTemplate TargetType="TabItem">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="10" Margin="0,0,0,2" x:Name="ItemBorder">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="8" Margin="0,0,0,2" x:Name="ItemBorder">
                                     <Grid><Border Width="6" HorizontalAlignment="Left" Background="Transparent" x:Name="Accent" CornerRadius="3"/>
-                                    <ContentPresenter x:Name="HeaderContent" ContentSource="Header" Margin="26,16" TextElement.FontSize="12" TextElement.FontWeight="Normal"/></Grid>
+                                    <ContentPresenter x:Name="HeaderContent" ContentSource="Header" Margin="26,16" TextElement.FontSize="14" TextElement.FontWeight="SemiBold" VerticalAlignment="Center"/></Grid>
                                 </Border>
                                 <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#1C5263"/><Setter Property="Foreground" Value="White"/><Setter TargetName="HeaderContent" Property="TextElement.FontWeight" Value="SemiBold"/><Setter TargetName="Accent" Property="Background" Value="#31E9DD"/></Trigger>
-                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="White"/><Setter TargetName="ItemBorder" Property="BorderThickness" Value="2"/></Trigger>
+                                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#1C5263"/><Setter Property="Foreground" Value="White"/><Setter TargetName="HeaderContent" Property="TextElement.FontWeight" Value="Bold"/><Setter TargetName="Accent" Property="Background" Value="#31E9DD"/></Trigger>
+                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#286170"/></Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate></Setter.Value>
                         </Setter>
                     </Style>
                 </TabControl.Resources>
             <TabItem HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" AutomationProperties.AutomationId="OverviewTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-overview.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="{local:Loc Text_Overview_D4B1EA}"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-overview.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Overview_D4B1EA}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
                     <Grid Margin="34,52,40,42">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -81,7 +81,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                                         <Image Source="Assets/laptop.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="{local:Loc UX_c5e5153c4d}"/>
-                                        <TextBlock Text="{Binding LaptopName}" FontSize="12" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LaptopName}"/>
+                                        <TextBlock Text="{Binding LaptopName}" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LaptopName}"/>
                                         <TextBlock Text="{Binding LaptopStatus}" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                     <Grid Grid.Column="1" Width="100" Height="38" VerticalAlignment="Center" Margin="0,0,0,36" AutomationProperties.Name="{local:Loc UX_d34400b3be}">
@@ -92,7 +92,7 @@
                                     </Grid>
                                     <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                                         <Image Source="Assets/desktop.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="{local:Loc UX_25c866f6ad}"/>
-                                        <TextBlock Text="{Binding LocalComputerName}" FontSize="12" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LocalComputerName}"/>
+                                        <TextBlock Text="{Binding LocalComputerName}" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding LocalComputerName}"/>
                                         <TextBlock Text="{local:Loc UX_036ce3b5d3}" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                     <Grid Grid.Column="3" Width="100" Height="38" VerticalAlignment="Center" Margin="0,0,0,36" AutomationProperties.Name="{local:Loc UX_9ef8bacf76}">
@@ -103,7 +103,7 @@
                                     </Grid>
                                     <StackPanel Grid.Column="4" HorizontalAlignment="Center">
                                         <Image Source="Assets/drive.png" Width="130" Height="104" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="{local:Loc UX_32fff60045}"/>
-                                        <TextBlock Text="{Binding DashboardDeviceName}" FontSize="12" FontWeight="Bold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding DashboardDeviceName}"/>
+                                        <TextBlock Text="{Binding DashboardDeviceName}" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="175" ToolTip="{Binding DashboardDeviceName}"/>
                                         <TextBlock Text="{Binding DashboardDeviceStatus}" FontSize="12" Foreground="#61748C" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Grid>
@@ -115,7 +115,7 @@
                                     <Border Width="46" Height="46" Background="#DDF5F1" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-drive.png" Width="25" Height="25"/></Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0">
                                         <TextBlock Text="{local:Loc UX_6e5c660c9d}" FontSize="12" Foreground="#61748C"/>
-                                        <TextBlock FontSize="12" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding ConnectedDeviceCount, Mode=OneWay}"/><Run Text="{local:Loc UX_38b96fa75c}"/></TextBlock>
+                                        <TextBlock FontSize="16" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding ConnectedDeviceCount, Mode=OneWay}"/><Run Text="{local:Loc UX_38b96fa75c}"/></TextBlock>
                                         <TextBlock Text="{Binding DashboardDeviceName}" FontSize="12" Foreground="#61748C" TextTrimming="CharacterEllipsis" ToolTip="{Binding DashboardDeviceName}"/>
                                     </StackPanel>
                                 </Grid>
@@ -125,7 +125,7 @@
                                     <Border Width="46" Height="46" Background="#E0EEFF" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-rules.png" Width="25" Height="25"/></Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0">
                                         <TextBlock Text="{local:Loc Text_Backuprules_566313}" FontSize="12" Foreground="#61748C"/>
-                                        <TextBlock FontSize="12" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding MappingCount, Mode=OneWay}"/><Run Text="{local:Loc UX_cf3f0efd7d}"/></TextBlock>
+                                        <TextBlock FontSize="16" FontWeight="Bold" Foreground="#142A48"><Run Text="{Binding MappingCount, Mode=OneWay}"/><Run Text="{local:Loc UX_cf3f0efd7d}"/></TextBlock>
                                         <TextBlock Text="{local:Loc UX_dbd51e07df}" FontSize="12" Foreground="#61748C" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Grid>
@@ -135,13 +135,13 @@
                                     <Border Width="46" Height="46" Background="#FFF0DE" CornerRadius="23" VerticalAlignment="Center"><Image Source="Assets/Icons/summary-clock.png" Width="25" Height="25"/></Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0">
                                         <TextBlock Text="{local:Loc UX_2e1b34e93d}" FontSize="12" Foreground="#61748C"/>
-                                        <TextBlock Text="{Binding LastBackupSummary}" FontSize="12" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding LastBackupSummary}"/>
+                                        <TextBlock Text="{Binding LastBackupSummary}" FontSize="16" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding LastBackupSummary}"/>
                                         <TextBlock Text="{local:Loc UX_20fa1a74a2}" FontSize="12" Foreground="#61748C"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
                         </UniformGrid>
-                        <Grid Grid.Row="4" Height="200">
+                        <Grid Grid.Row="4" Height="270">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource CardStyle}" Margin="0,0,8,0">
                                 <Grid>
@@ -158,12 +158,13 @@
                                                     <DataTemplate>
                                                         <Border BorderBrush="#E4EBF3" BorderThickness="0,1,0,0" Padding="4,12">
                                                             <Grid>
-                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-                                                                <StackPanel ToolTip="{Binding SourcePathsDisplay}">
-                                                                    <TextBlock Text="{Binding BackupSetOnlyName}" FontWeight="SemiBold" Foreground="#172B4D" TextTrimming="CharacterEllipsis"/>
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                                                <local:RuleIcon IconId="{Binding IconId}" Width="28" Height="28" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                                                <StackPanel Grid.Column="1" ToolTip="{Binding SourcePathsDisplay}">
+                                                                    <TextBlock Text="{Binding RuleName}" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" TextTrimming="CharacterEllipsis"/>
                                                                     <TextBlock Text="{Binding SourcePathsDisplay}" FontSize="12" Foreground="#61748C" TextTrimming="CharacterEllipsis"/>
                                                                 </StackPanel>
-                                                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                                <StackPanel Grid.Column="2" Margin="10,0,0,0">
                                                                     <TextBlock Text="{Binding NextBackupDisplay}" Foreground="#147681" TextWrapping="Wrap"/>
                                                                     <TextBlock Text="{Binding Device.Status}" Foreground="#61748C" FontSize="12"/>
                                                                 </StackPanel>
@@ -208,7 +209,7 @@
                 </ScrollViewer>
             </TabItem>
             <TabItem x:Name="HistoryTabItem" Visibility="Collapsed" AutomationProperties.AutomationId="BackupHistoryTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-history.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="{local:Loc UX_a1901c92f1}"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-history.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc UX_a1901c92f1}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                 <Grid Margin="28">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Text="{local:Loc UX_a1901c92f1}" Style="{StaticResource SectionTitleStyle}" FontSize="22"/>
@@ -249,7 +250,7 @@
             <TabItem x:Name="BackupsTabItem" AutomationProperties.AutomationId="BackupsTab">
                 <TabItem.Resources>
                     <Style x:Key="RuleActionStyle" TargetType="Button" BasedOn="{StaticResource LinkButtonStyle}">
-                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="FontSize" Value="13"/>
                         <Setter Property="Foreground" Value="#172B4D"/>
                         <Setter Property="Margin" Value="7,0"/>
                         <Setter Property="Padding" Value="7,5"/>
@@ -258,13 +259,13 @@
                         <Setter Property="FontFamily" Value="Segoe UI"/>
                     </Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="{local:Loc Text_Backuprules_566313}"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Backuprules_566313}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,52,40,42">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid Style="{StaticResource PageHeaderStyle}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{local:Loc Text_Backuprules_566313}" Style="{StaticResource PageHeadingStyle}"/>
-                            <TextBlock Text="{Binding RuleHeaderCount}" FontSize="12" Foreground="#60718D" Margin="16,0,0,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RuleHeaderCount}" FontSize="13" Foreground="#60718D" Margin="16,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                         <Button Content="{local:Loc UX_7dec790322}" Click="OnAddMappingClick" Style="{StaticResource PageActionButtonStyle}" AutomationProperties.AutomationId="AddMappingButton"/>
                     </Grid>
@@ -290,7 +291,7 @@
                             <Grid Background="#FAFCFF" Margin="1,1,1,0" Height="54">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,18,0">
-                                    <TextBlock x:Name="RuleCountText" FontSize="12" Foreground="#172B4D" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="RuleCountText" FontSize="13" Foreground="#172B4D" VerticalAlignment="Center"/>
                                     <Border x:Name="SelectedRuleCountBadge" Background="#E4F8F5" CornerRadius="14" Padding="9,4" Margin="12,0,0,0" Visibility="Collapsed"><TextBlock x:Name="SelectedRuleCountText" FontSize="12" Foreground="#087D73"/></Border>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -310,9 +311,9 @@
                                     </ContextMenu></Button.ContextMenu>
                                 </Button>
                             </Grid>
-                            <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" RowHeight="44" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="12" HorizontalScrollBarVisibility="Disabled"
+                            <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" RowHeight="46" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="12" HorizontalScrollBarVisibility="Disabled"
                                       MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
-                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
+                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
                                 <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style></DataGrid.CellStyle>
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
@@ -363,9 +364,9 @@
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Grid Margin="7,2" VerticalAlignment="Center">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                    <Border Width="30" Height="30" CornerRadius="6" Background="{Binding BackupSet.IconBrush}" VerticalAlignment="Center"><TextBlock Text="{Binding BackupSet.IconGlyph}" Foreground="White" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                                                    <TextBlock Grid.Column="1" Text="{Binding BackupSetOnlyName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="12" VerticalAlignment="Center"/>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <local:RuleIcon IconId="{Binding IconId}" Width="30" Height="30" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding RuleName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceAgentName}" Style="{StaticResource RepeatDimmedFolderNameStyle}" FontSize="14" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -438,6 +439,7 @@
                         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Grid Width="50" Height="28" Margin="0,0,12,0">
+                                    <Border x:Name="FocusRing" Margin="-3" CornerRadius="17" BorderBrush="#46C6C0" BorderThickness="1.5" Visibility="Collapsed" IsHitTestVisible="False"/>
                                     <Border x:Name="Track" Background="#0A927E" CornerRadius="14"/>
                                     <Ellipse x:Name="Thumb" Width="21" Height="21" Fill="White" HorizontalAlignment="Right" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                 </Grid>
@@ -445,20 +447,20 @@
                             </StackPanel>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="False"><Setter TargetName="Track" Property="Background" Value="#9BACC1"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Left"/><Setter TargetName="Thumb" Property="Margin" Value="4,0,0,0"/></Trigger>
-                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="#172B4D"/><Setter TargetName="Track" Property="BorderThickness" Value="2"/></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible"/></Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate></Setter.Value></Setter>
                     </Style>
                     <Style x:Key="AgentRowStyle" TargetType="DataGridRow"><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
                     <Style x:Key="AgentCellStyle" TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-agents.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="{local:Loc Text_SourceAgent_21CF69}"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-agents.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_SourceAgent_21CF69}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,51,40,47">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid Grid.Row="0" Style="{StaticResource PageHeaderStyle}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{local:Loc Text_SourceAgent_21CF69}" Style="{StaticResource PageHeadingStyle}"/>
-                            <TextBlock FontSize="12" Foreground="#526987" Margin="16,0,0,0" VerticalAlignment="Center"><Run Text="{local:Loc UX_c358bad2a0}"/><Run Text="{Binding Sources.Count, Mode=OneWay}"/><Run Text="{local:Loc UX_02b866dda0}"/><Run Text="{Binding NearbyComputers.Count, Mode=OneWay}"/><Run Text="{local:Loc UX_11600c9ada}"/></TextBlock>
+                            <TextBlock FontSize="13" Foreground="#526987" Margin="16,0,0,0" VerticalAlignment="Center"><Run Text="{local:Loc UX_c358bad2a0}"/><Run Text="{Binding Sources.Count, Mode=OneWay}"/><Run Text="{local:Loc UX_02b866dda0}"/><Run Text="{Binding NearbyComputers.Count, Mode=OneWay}"/><Run Text="{local:Loc UX_11600c9ada}"/></TextBlock>
                         </StackPanel>
                         <Button x:Name="ConnectNewAgentButton" Content="{local:Loc UX_7a12cb87d1}" Click="OnConnectNewAgentClick" Style="{StaticResource PageActionButtonStyle}" AutomationProperties.AutomationId="ConnectNewAgentButton"/>
                     </Grid>
@@ -479,15 +481,15 @@
                     <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="0" Margin="0,0,12,0" MinHeight="640">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DataGrid x:Name="SourceConnectionsGrid" Grid.Row="0" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" SelectionChanged="OnSourceAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="86" ColumnHeaderHeight="52" FontSize="12" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="SourceConnectionsGrid">
-                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
+                            <DataGrid x:Name="SourceConnectionsGrid" Grid.Row="0" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedRemoteAgent}" SelectionChanged="OnSourceAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="74" ColumnHeaderHeight="46" FontSize="12" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="SourceConnectionsGrid">
+                                <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Width="46"><DataGridTemplateColumn.Header><CheckBox x:Name="AgentSelectAll" Style="{StaticResource SelectionCheckStyle}" Margin="14,0,0,0" Checked="OnAgentSelectAllChanged" Unchecked="OnAgentSelectAllChanged" ToolTip="{local:Loc UX_9472751e6a}" AutomationProperties.Name="{local:Loc UX_9472751e6a}"/></DataGridTemplateColumn.Header><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" Style="{StaticResource SelectionCheckStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="{local:Loc UX_e700676b6e}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header="{local:Loc UX_475d33c7ba}" Width="1.7*">
                                         <DataGridTemplateColumn.CellTemplate><DataTemplate>
                                             <Grid VerticalAlignment="Center" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                 <Viewbox Width="30" Height="30" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox>
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayNameWithHint}" FontSize="12" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayNameWithHint}"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="12" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding Id}"/></StackPanel>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayNameWithHint}" FontSize="14" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayNameWithHint}"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="11" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding Id}"/></StackPanel>
                                             </Grid>
                                         </DataTemplate></DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
@@ -499,10 +501,10 @@
                                     <DataGridTemplateColumn Header="{local:Loc UX_9d9bf438ff}" Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="⋯" FontSize="19" Style="{StaticResource LinkButtonStyle}" Click="OnAgentMoreClick" ToolTip="{local:Loc UX_bddb76c84d}"><Button.ContextMenu><ContextMenu><MenuItem Header="{local:Loc UX_5a527e24fa}" Click="OnRefreshAgentStatusClick"/><Separator/><MenuItem Header="{local:Loc Text_Rename_3064D7}" Click="OnRenameAgentMenuClick" IsEnabled="{Binding PlacementTarget.DataContext.HasConnection, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/><MenuItem Header="{local:Loc UX_eb58837ff6}" Click="OnForgetAgentMenuClick" IsEnabled="{Binding PlacementTarget.DataContext.HasConnection, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/></ContextMenu></Button.ContextMenu></Button></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <DataGrid x:Name="NearbyAgentsGrid" Grid.Row="1" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" SelectionChanged="OnNearbyAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="86" HeadersVisibility="None" FontSize="12" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="NearbyComputersGrid">
+                            <DataGrid x:Name="NearbyAgentsGrid" Grid.Row="1" ItemsSource="{Binding NearbyComputers}" SelectedItem="{Binding SelectedNearbyComputer}" SelectionChanged="OnNearbyAgentSelectionChanged" RowStyle="{StaticResource AgentRowStyle}" CellStyle="{StaticResource AgentCellStyle}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeight="74" HeadersVisibility="None" FontSize="12" Background="White" BorderThickness="0" RowHeaderWidth="0" SelectionMode="Extended" AutomationProperties.AutomationId="NearbyComputersGrid">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Width="46"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}" Style="{StaticResource SelectionCheckStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="{local:Loc UX_03ba44624a}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Width="1.7*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid VerticalAlignment="Center" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Viewbox Width="30" Height="30" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="12" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding AgentId}"/></StackPanel></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="1.7*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid VerticalAlignment="Center" Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Viewbox Width="30" Height="30" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" FontSize="11" Foreground="#607596" TextTrimming="CharacterEllipsis" ToolTip="{Binding AgentId}"/></StackPanel></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                     <DataGridTemplateColumn Width="1.2*"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Background="#E7F2FF" CornerRadius="16" Padding="9,5" HorizontalAlignment="Left" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><Ellipse Width="9" Height="9" Fill="#1675D1" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBlock Text="{Binding DiscoveryStatus}" Foreground="#17508A" FontSize="12"/></StackPanel></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                     <DataGridTextColumn Binding="{Binding LastSeenDisplay}" Width="1*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
                                     <DataGridTextColumn Binding="{Binding EmptyOffer}" Width="0.8*" ElementStyle="{StaticResource AgentCellTextStyle}"/>
@@ -513,9 +515,9 @@
                     </Border>
                     <Border Grid.Column="1" Style="{StaticResource CardStyle}" TextElement.FontSize="12" Padding="22" Margin="0,0,0,0">
                         <StackPanel DataContext="{Binding SelectedRemoteAgent}">
-                            <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Viewbox Width="37" Height="37" HorizontalAlignment="Left" VerticalAlignment="Center"><Path Data="M 2,2 L 28,2 28,21 2,21 Z M 15,21 L 15,27 M 8,27 L 22,27" Stroke="#156FCB" StrokeThickness="2.5" StrokeLineJoin="Round"/></Viewbox>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" Foreground="#607596" FontSize="12" Margin="0,3,0,0" ToolTip="{Binding Id}"/></StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="Bold" Foreground="#142A48" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ComputerIdDisplay}" Foreground="#607596" FontSize="12" Margin="0,3,0,0" ToolTip="{Binding Id}"/></StackPanel>
                             </Grid>
                             <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="38"/><RowDefinition Height="38"/></Grid.RowDefinitions>
                                 <TextBlock Text="{local:Loc Text_Status_920E41}" Foreground="#526987" VerticalAlignment="Center"/><Border Grid.Column="1" Background="{Binding ListStatusBackground}" CornerRadius="16" Padding="10,4" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding StatusDisplay}"><StackPanel Orientation="Horizontal"><Ellipse Width="9" Height="9" Fill="{Binding ListStatusDotBrush}" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBlock Text="{Binding ListStatusDisplay}" Foreground="#172B4D"/></StackPanel></Border>
@@ -523,12 +525,12 @@
                                 <TextBlock Grid.Row="2" Text="{local:Loc Text_Offers_E98BF0}" Foreground="#526987" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BackupSets.Count}" Foreground="#142A48" VerticalAlignment="Center"/>
                             </Grid>
                             <Border Height="1" Background="#D7E2F2" Margin="0,0,0,18"/>
-                            <TextBlock Text="{local:Loc UX_0ea309f47e}" FontSize="12" FontWeight="Bold" Foreground="#142A48" Margin="0,0,0,12"/>
+                            <TextBlock Text="{local:Loc UX_0ea309f47e}" FontSize="14" FontWeight="SemiBold" Foreground="#142A48" Margin="0,0,0,12"/>
                             <ItemsControl ItemsSource="{Binding BackupSets}">
-                                <ItemsControl.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="2,0,0,12"><Border Width="30" Height="30" Background="{Binding IconBrush}" CornerRadius="5"><TextBlock Text="{Binding IconGlyph}" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="{Binding Model.Name}" Foreground="#142A48" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate>
+                                <ItemsControl.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="2,0,0,12"><local:RuleIcon IconId="{Binding IconId}" Width="30" Height="30"/><TextBlock Text="{Binding Model.Name}" Foreground="#142A48" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <Border Height="1" Background="#D7E2F2" Margin="0,10,0,18"/>
-                            <TextBlock Text="{local:Loc UX_9d9bf438ff}" FontSize="12" FontWeight="Bold" Foreground="#142A48" Margin="0,0,0,14"/>
+                            <TextBlock Text="{local:Loc UX_9d9bf438ff}" FontSize="14" FontWeight="SemiBold" Foreground="#142A48" Margin="0,0,0,14"/>
                             <WrapPanel DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TabItem}}">
                                 <Button x:Name="AgentRenameButton" Command="{Binding RenameSourceCommand}" IsEnabled="False" Style="{StaticResource OutlinedButtonStyle}" Padding="16,10" Margin="0,0,8,0" ToolTip="{local:Loc Text_Changeonlywhatthetraydisplaysf_8E2E3E}" AutomationProperties.AutomationId="RenameSourceButton" AutomationProperties.Name="{local:Loc Text_Rename_3064D7}"><StackPanel Orientation="Horizontal"><Path Data="M 3,17 L 5,12 L 15,2 L 20,7 L 10,17 L 3,19 Z M 13,4 L 18,9" Stroke="#172B4D" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="{local:Loc Text_Rename_3064D7}" FontSize="12" VerticalAlignment="Center"/></StackPanel></Button>
                                 <Button x:Name="AgentForgetButton" Command="{Binding ForgetSourceCommand}" IsEnabled="False" Style="{StaticResource OutlinedButtonStyle}" Padding="16,10" Margin="0" Foreground="#C93232" Background="#FFF9F9" BorderBrush="#FFB5B5" ToolTip="{local:Loc Text_BlockthisSourceAgentandremovei_1A5808}" AutomationProperties.AutomationId="ForgetSourceButton" AutomationProperties.Name="{local:Loc UX_eb58837ff6}"><StackPanel Orientation="Horizontal"><Path Data="M 4,5 L 18,5 M 8,5 L 8,3 L 14,3 L 14,5 M 6,7 L 7,19 L 17,19 L 18,7 M 10,9 L 10,16 M 14,9 L 14,16" Stroke="#C93232" StrokeThickness="2" StrokeLineJoin="Round" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBlock Text="{local:Loc UX_eb58837ff6}" FontSize="12" VerticalAlignment="Center"/></StackPanel></Button>
@@ -562,24 +564,27 @@
             <TabItem x:Name="SettingsTabItem" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" AutomationProperties.AutomationId="SettingsTab">
                 <TabItem.Resources>
                     <Style x:Key="SettingsToggleStyle" TargetType="CheckBox">
-                        <Setter Property="Foreground" Value="#172B4D"/><Setter Property="FontSize" Value="12"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,2"/>
+                        <Setter Property="Foreground" Value="#172B4D"/><Setter Property="FontSize" Value="13"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,2"/>
                         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
                             <Grid Background="Transparent" MinHeight="48">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <ContentPresenter VerticalAlignment="Center" Margin="0,0,18,0"/>
-                                <Border x:Name="Track" Grid.Column="1" Width="48" Height="26" CornerRadius="13" Background="#0A927E" VerticalAlignment="Center">
-                                    <Ellipse x:Name="Thumb" Width="20" Height="20" Fill="White" HorizontalAlignment="Right" Margin="3"/>
-                                </Border>
+                                <Grid Grid.Column="1" Width="48" Height="26" VerticalAlignment="Center">
+                                    <Border x:Name="FocusRing" Margin="-3" CornerRadius="16" BorderBrush="#46C6C0" BorderThickness="1.5" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <Border x:Name="Track" CornerRadius="13" Background="#0A927E">
+                                        <Ellipse x:Name="Thumb" Width="20" Height="20" Fill="White" HorizontalAlignment="Right" Margin="3"/>
+                                    </Border>
+                                </Grid>
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="False"><Setter TargetName="Track" Property="Background" Value="#9BACC1"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Left"/></Trigger>
-                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="#172B4D"/><Setter TargetName="Track" Property="BorderThickness" Value="2"/></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible"/></Trigger>
                                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate></Setter.Value></Setter>
                     </Style>
                 </TabItem.Resources>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-settings.png" Width="26" Height="26" Margin="0,0,25,0"/><TextBlock Text="{local:Loc Text_Settings_74A883}"/></StackPanel></TabItem.Header>
+                <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-settings.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Settings_74A883}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                 <Grid Margin="34,52,40,42" TextElement.Foreground="#172B4D" TextElement.FontSize="12">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Text="{local:Loc Text_Settings_74A883}" Style="{StaticResource PageHeadingStyle}"/>
@@ -597,7 +602,7 @@
                                 <Border Style="{StaticResource CardStyle}" Padding="24">
                                     <StackPanel>
                                         <TextBlock Text="{local:Loc Text_Automation_D90975}" Style="{StaticResource CardHeadingStyle}" Margin="0,0,0,14"/>
-                                        <CheckBox Content="{local:Loc Text_StartBackupMeshwhenIsignin_A44225}" IsChecked="{Binding StartWithWindows}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
+                                        <CheckBox x:Name="StartWithWindowsToggle" Content="{local:Loc Text_StartBackupMeshwhenIsignin_A44225}" IsChecked="{Binding StartWithWindows}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="StartWithWindowsCheckBox"/>
                                         <CheckBox Content="{local:Loc Text_ShowaWindowsnotificationwhenab_B5FAB9}" IsChecked="{Binding NotifyOnDeviceArrival}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="NotifyOnDeviceArrivalCheckBox"/>
                                         <CheckBox Content="{local:Loc Text_Automaticallystarteligibleback_02F7BF}" IsChecked="{Binding AutomaticBackups}" Style="{StaticResource SettingsToggleStyle}" AutomationProperties.AutomationId="AutomaticBackupsCheckBox"/>
                                         <CheckBox Content="{local:Loc Text_Showastatuswindowwhenabackupst_8A774A}" IsChecked="{Binding ShowFlyoutOnBackupStart}" Style="{StaticResource SettingsToggleStyle}" ToolTip="{local:Loc Text_Asmallpopupnearthetrayiconwith_C54240}" AutomationProperties.AutomationId="ShowFlyoutOnBackupStartCheckBox"/>
@@ -608,7 +613,7 @@
                                             <TextBox Grid.Column="1" Text="{Binding DefaultArrivalDelayMinutes}" Style="{StaticResource SearchTextBoxStyle}" Width="74" Height="42" Padding="8,2" FontSize="12" VerticalContentAlignment="Center" Margin="12,0,8,0" AutomationProperties.AutomationId="DefaultArrivalDelayInput"/>
                                             <TextBlock Grid.Column="2" Text="{local:Loc Text_minutes_90E63D}" VerticalAlignment="Center"/>
                                         </Grid>
-                                        <Button Content="{local:Loc Text_Savesettings_7F3A3B}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" FontSize="12" Padding="24,11" HorizontalAlignment="Left" Margin="0,22,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
+                                        <Button Content="{local:Loc Text_Savesettings_7F3A3B}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" FontSize="14" Padding="24,11" HorizontalAlignment="Left" Margin="0,22,0,0" AutomationProperties.AutomationId="SaveSettingsButton"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -625,7 +630,7 @@
                                 <Border Style="{StaticResource CardStyle}" Padding="24">
                                     <StackPanel>
                                         <TextBlock Text="{local:Loc Text_AboutBackupMesh_0F063F}" Style="{StaticResource CardHeadingStyle}"/>
-                                        <TextBlock Text="{Binding ProductVersion}" FontWeight="SemiBold" Foreground="#142A48" Margin="0,0,0,10"/>
+                                        <TextBlock Text="{Binding ProductVersion}" FontSize="14" FontWeight="SemiBold" Foreground="#142A48" Margin="0,0,0,10"/>
                                         <TextBlock Text="{local:Loc Text_Automaticbackupswhenyourstorag_6BDA2D}" TextWrapping="Wrap" Foreground="#60718D"/>
                                         <TextBlock Text="{local:Loc Text_CreatedbynamiotoApache20_6CDCF2}" Foreground="#60718D" Margin="0,10,0,16"/>
                                         <Border Height="1" Background="#D7E2F2" Margin="0,0,0,14"/>

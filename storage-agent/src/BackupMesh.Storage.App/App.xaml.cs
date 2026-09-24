@@ -55,7 +55,7 @@ public partial class App : System.Windows.Application
             _window.ViewModel.LoadPreviewAgents();
             _window.ViewModel.SelectedMapping = _window.ViewModel.Mappings.FirstOrDefault();
             _window.ShowBackupRules();
-            void CapturePreview(string filename, Window? target = null)
+            void CapturePreview(string filename, FrameworkElement? target = null)
             {
                 var path = Path.Combine(Path.GetTempPath(), filename);
                 if (target is not null)
@@ -106,10 +106,16 @@ public partial class App : System.Windows.Application
                         _window.ShowRemoteAgents();
                         await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                         CapturePreview("backupmesh-agents-preview.png");
+                        _window.IncludeNearbyAgents.Focus();
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-toggle-focus-preview.png");
                         File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-agents-check.txt"), await _window.VerifyPreviewAgentControlsAsync());
                         _window.ShowSettings();
                         await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                         CapturePreview("backupmesh-settings-preview.png");
+                        _window.StartWithWindowsToggle.Focus();
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-settings-toggle-focus-preview.png");
                         File.WriteAllText(Path.Combine(Path.GetTempPath(), "backupmesh-settings-check.txt"), await _window.VerifyPreviewSettingsControlsAsync());
                         _window.ShowBackupRules();
                         _window.ViewModel.SelectedBackupSet = _window.ViewModel.BackupSets.FirstOrDefault(set => set.Model.SourcePaths.Count > 1);
@@ -121,6 +127,17 @@ public partial class App : System.Windows.Application
                         if (ruleDialog.SourcePathsList.Items.Count != 2 || ruleDialog.SelectedSourcePaths.Count != 2)
                             throw new InvalidOperationException("Backup rule did not offer and select both source paths.");
                         CapturePreview("backupmesh-new-rule-preview.png");
+                        ruleDialog.ChooseRuleIconButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        if (!ruleDialog.RuleIconPopup.IsOpen || ruleDialog.RuleIconChoices.Items.Count != 72)
+                            throw new InvalidOperationException("Backup rule icon picker did not show all 72 choices.");
+                        CapturePreview("backupmesh-rule-icons-preview.png", (FrameworkElement)ruleDialog.RuleIconPopup.Child);
+                        ruleDialog.RuleIconChoices.SelectedIndex = 42;
+                        ruleDialog.RuleNameInput.Text = "가족 자료 백업";
+                        if (ruleDialog.SelectedRuleIcon.IconId != 42 || ruleDialog.RuleIconPopup.IsOpen)
+                            throw new InvalidOperationException("Backup rule icon selection failed.");
+                        await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                        CapturePreview("backupmesh-rule-name-icon-preview.png");
                         ruleDialog.SourcePathSearch.Text = "/doc/img";
                         if (ruleDialog.SourcePathsList.Items.Count != 1 || ruleDialog.SelectedSourcePaths.Count != 2)
                             throw new InvalidOperationException("Searching source paths lost a hidden selection.");
@@ -149,6 +166,13 @@ public partial class App : System.Windows.Application
                         await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                         CapturePreview("backupmesh-connect-agent-preview.png", agentDialog);
                         agentDialog.Close();
+                        _window.ShowBackupRules();
+                        if (_window.MainTabControl.SelectedItem is System.Windows.Controls.TabItem selectedTab)
+                        {
+                            selectedTab.Focus();
+                            await _window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                            CapturePreview("backupmesh-menu-selection-preview.png");
+                        }
                     }
                     catch (Exception error)
                     {

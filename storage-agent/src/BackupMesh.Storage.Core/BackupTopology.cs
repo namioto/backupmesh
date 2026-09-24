@@ -56,7 +56,9 @@ public sealed record BackupTargetMapping(
     IReadOnlyList<string>? SelectedSourcePaths = null,
     int BackupIntervalMinutes = 30,
     bool DelayWhenBusy = true,
-    int? UploadLimitKiBps = null);
+    int? UploadLimitKiBps = null,
+    string? DisplayName = null,
+    int? IconId = null);
 
 public sealed record StorageAgentConfiguration(
     IReadOnlyList<RegisteredDevice> Devices,
@@ -114,6 +116,8 @@ public static class BackupTopologyValidator
             if (!IsSafeRelativeRepositoryPath(mapping.RepositoryPath)) errors.Add($"Mapping {mapping.Id} has an unsafe repository path.");
             if (mapping.BackupIntervalMinutes is < 5 or > 1440) errors.Add($"Mapping {mapping.Id} has an invalid backup interval.");
             if (mapping.UploadLimitKiBps is < 0 or > 1_048_576) errors.Add($"Mapping {mapping.Id} has an invalid upload limit.");
+            if (mapping.DisplayName is { } name && (string.IsNullOrWhiteSpace(name) || name.Length > 128)) errors.Add($"Mapping {mapping.Id} has an invalid display name.");
+            if (mapping.IconId is < 0 or >= 72) errors.Add($"Mapping {mapping.Id} has an invalid icon.");
             var set = configuration.BackupSets.FirstOrDefault(item => item.Id == mapping.BackupSetId);
             if (set is not null && mapping.SelectedSourcePaths is not null && SourcePathsFor(mapping, set) is null)
                 errors.Add($"Mapping {mapping.Id} selects paths outside its Backup Set.");

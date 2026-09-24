@@ -13,6 +13,7 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
     private readonly MappingViewModel? _existing;
     private bool _initializing = true;
     private bool _updatingPathSelection;
+    private string _suggestedName = string.Empty;
     private List<SourcePathOption> _sourcePaths = [];
     private ListCollectionView? _sourcePathView;
 
@@ -27,6 +28,11 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
 
         viewModel.SelectedBackupSet = existing?.BackupSet ?? (viewModel.SelectedBackupSet is { } selected && viewModel.BackupSets.Contains(selected)
             ? selected : viewModel.BackupSets.FirstOrDefault());
+        _suggestedName = existing?.RuleName ?? viewModel.SelectedBackupSet?.Model.Name ?? string.Empty;
+        RuleNameInput.Text = copy ? _suggestedName + Localization.Text("RuleCopySuffix") : _suggestedName;
+        var iconId = existing?.IconId ?? RuleIconCatalog.Suggest(_suggestedName);
+        SelectedRuleIcon.IconId = iconId;
+        RuleIconChoices.SelectedIndex = iconId;
         TargetDeviceCombo.SelectedItem = existing is null
             ? viewModel.BackupDestinations.FirstOrDefault()
             : viewModel.BackupDestinations.FirstOrDefault(option => option.Device?.Id == existing.Device.Id);
@@ -85,7 +91,9 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
             SelectedSourcePaths,
             interval,
             DelayWhenBusyCheckBox.IsChecked == true,
-            uploadLimit);
+            uploadLimit,
+            RuleNameInput.Text,
+            SelectedRuleIcon.IconId);
         SaveButton.IsEnabled = true;
         if (error is null) CloseRequested?.Invoke();
         else ValidationText.Text = error;
@@ -146,8 +154,20 @@ public partial class BackupRuleWindow : System.Windows.Controls.UserControl
     private void OnBackupSetChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (_initializing) return;
+        var newSuggestedName = (BackupSetCombo.SelectedItem as BackupSetViewModel)?.Model.Name ?? string.Empty;
+        if (RuleNameInput.Text == _suggestedName) RuleNameInput.Text = newSuggestedName;
+        _suggestedName = newSuggestedName;
         SelectSourcePaths((BackupSetCombo.SelectedItem as BackupSetViewModel)?.Model.SourcePaths);
         UpdateUploadLimitVisibility();
+    }
+
+    private void OnChooseRuleIconClick(object sender, RoutedEventArgs e) => RuleIconPopup.IsOpen = !RuleIconPopup.IsOpen;
+
+    private void OnRuleIconSelected(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_initializing || RuleIconChoices.SelectedItem is not RuleIconChoice choice) return;
+        SelectedRuleIcon.IconId = choice.Id;
+        RuleIconPopup.IsOpen = false;
     }
 
     private void UpdateUploadLimitVisibility()

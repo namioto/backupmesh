@@ -1177,9 +1177,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private MappingViewModel CreateMapping(BackupTargetMapping model, BackupSetViewModel set, DeviceViewModel device) =>
         new(model, set, device, mapping => { UpdateMappingLastBackupInfo(); _ = SaveAsync(); });
 
-    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null)
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, DeviceViewModel? device, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null, string? ruleName = null, int? iconId = null)
     {
         if (backupSet is null || device is null) return Localization.Text("Text_Choosewhattobackupandatargetde_50AF40");
+        ruleName = ruleName?.Trim() ?? existing?.RuleName ?? backupSet.Model.Name;
+        if (ruleName.Length is < 1 or > 128) return Localization.Text("RuleNameInvalid");
+        iconId ??= existing?.IconId ?? RuleIconCatalog.Suggest(backupSet.Model.Name);
+        if (iconId < 0 || iconId >= RuleIconCatalog.Count) return Localization.Text("RuleIconInvalid");
         var repositoryPath = RelativeDestinationPath(device, destination);
         if (repositoryPath is null) return Localization.Text("Text_Chooseadestinationfolderinside_ACC42F");
         if (Mappings.Any(mapping => mapping.Id != existing?.Id
@@ -1190,7 +1194,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         var candidate = new BackupTargetMapping(existing?.Id ?? Guid.NewGuid(), backupSet.Id, device.Id, repositoryPath, enabled, selectedSourcePaths ?? existing?.SelectedSourcePaths,
             intervalMinutes ?? existing?.BackupIntervalMinutes ?? 30, delayWhenBusy ?? existing?.DelayWhenBusy ?? true,
-            uploadLimitKiBps == -1 ? null : uploadLimitKiBps ?? existing?.UploadLimitKiBps);
+            uploadLimitKiBps == -1 ? null : uploadLimitKiBps ?? existing?.UploadLimitKiBps, ruleName, iconId);
         if (BackupTopologyValidator.SourcePathsFor(candidate, backupSet.Model) is null)
             return Localization.Text("RulePathSelectionRequired");
         var all = existing is null
@@ -1216,7 +1220,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         return null;
     }
 
-    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null)
+    internal async Task<string?> SaveMappingAsync(MappingViewModel? existing, BackupSetViewModel? backupSet, BackupDestinationOptionViewModel? destinationOption, string destination, bool enabled, IReadOnlyList<string>? selectedSourcePaths = null, int? intervalMinutes = null, bool? delayWhenBusy = null, int? uploadLimitKiBps = null, string? ruleName = null, int? iconId = null)
     {
         if (destinationOption is null) return Localization.Text("Text_Choosewheretostorethebackup_870A83");
         var device = destinationOption.Device;
@@ -1237,7 +1241,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             added = true;
         }
 
-        var error = await SaveMappingAsync(existing, backupSet, device, destination, enabled, selectedSourcePaths, intervalMinutes, delayWhenBusy, uploadLimitKiBps);
+        var error = await SaveMappingAsync(existing, backupSet, device, destination, enabled, selectedSourcePaths, intervalMinutes, delayWhenBusy, uploadLimitKiBps, ruleName, iconId);
         if (error is not null && added) Devices.Remove(device!);
         RefreshBackupDestinations();
         return error;
@@ -1432,7 +1436,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         };
         if (key.Length == 0) return;
         var mapping = Mappings.FirstOrDefault(item => item.Id == job.TargetMappingId);
-        var detail = mapping is null ? string.Empty : $"{mapping.BackupSetOnlyName} · {mapping.DeviceName}";
+        var detail = mapping is null ? string.Empty : $"{mapping.RuleName} · {mapping.DeviceName}";
         AddActivity(Localization.Text(key), kind, detail, job.State == "RUNNING" ? job.StartedAt ?? job.UpdatedAt : job.UpdatedAt);
     }
 
@@ -1671,29 +1675,7 @@ public sealed class BackupSetViewModel : ObservableObject
     public string SourceDisplayName => Model.SourceAgentId == LocalSourceIdentity.AgentId ? Localization.Text("ThisPC") : Model.SourceAgentName;
     public string DisplayName => $"{SourceDisplayName} / {Model.Name}{(IsAvailable ? string.Empty : Localization.Text("Text_notreported_EAAB4F"))}";
     public string SourcePathsDisplay => string.Join(Environment.NewLine, Model.SourcePaths);
-    public string IconGlyph => Model.Name.ToLowerInvariant() switch
-    {
-        var name when name.Contains("사진") || name.Contains("photo") || name.Contains("picture") => "▧",
-        var name when name.Contains("문서") || name.Contains("document") => "▤",
-        var name when name.Contains("동영상") || name.Contains("video") => "▶",
-        var name when name.Contains("음악") || name.Contains("music") => "♫",
-        var name when name.Contains("개발") || name.Contains("project") => "⌘",
-        var name when name.Contains("회계") => "▥",
-        var name when name.Contains("노트") || name.Contains("note") => "≡",
-        var name when name.Contains("다운로드") || name.Contains("download") => "↓",
-        _ => "▰"
-    };
-    public System.Windows.Media.Brush IconBrush => IconGlyph switch
-    {
-        "▧" => System.Windows.Media.Brushes.MediumSeaGreen,
-        "▤" => System.Windows.Media.Brushes.DodgerBlue,
-        "▶" or "⌘" => System.Windows.Media.Brushes.MediumPurple,
-        "♫" => System.Windows.Media.Brushes.DeepPink,
-        "▥" => System.Windows.Media.Brushes.IndianRed,
-        "≡" => System.Windows.Media.Brushes.Goldenrod,
-        "↓" => System.Windows.Media.Brushes.DeepSkyBlue,
-        _ => System.Windows.Media.Brushes.Goldenrod
-    };
+    public int IconId => RuleIconCatalog.Suggest(Model.Name);
     public void Update(SourceBackupSet model)
     {
         _model = model;
@@ -1701,8 +1683,7 @@ public sealed class BackupSetViewModel : ObservableObject
         OnPropertyChanged(nameof(Model));
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(SourcePathsDisplay));
-        OnPropertyChanged(nameof(IconGlyph));
-        OnPropertyChanged(nameof(IconBrush));
+        OnPropertyChanged(nameof(IconId));
     }
 
     // UI Automation reads Name from ToString(); DisplayMemberPath and item templates do not apply to it.
@@ -1811,6 +1792,8 @@ public sealed class MappingViewModel : ObservableObject
         BackupIntervalMinutes = model.BackupIntervalMinutes;
         DelayWhenBusy = model.DelayWhenBusy;
         UploadLimitKiBps = model.UploadLimitKiBps;
+        RuleName = string.IsNullOrWhiteSpace(model.DisplayName) ? set.Model.Name : model.DisplayName;
+        IconId = model.IconId ?? RuleIconCatalog.Suggest(set.Model.Name);
         _enabled = model.Enabled;
         _onEnabledChanged = onEnabledChanged;
     }
@@ -1818,9 +1801,10 @@ public sealed class MappingViewModel : ObservableObject
     public Guid Id { get; }
     public BackupSetViewModel BackupSet { get; }
     public DeviceViewModel Device { get; }
-    public string BackupSetName => BackupSet.DisplayName;
+    public string BackupSetName => RuleName;
     public string SourceAgentName => BackupSet.SourceDisplayName;
-    public string BackupSetOnlyName => BackupSet.Model.Name;
+    public string RuleName { get; }
+    public int IconId { get; }
     public IReadOnlyList<string>? SelectedSourcePaths { get; }
     public int BackupIntervalMinutes { get; }
     public bool DelayWhenBusy { get; }
@@ -1867,7 +1851,7 @@ public sealed class MappingViewModel : ObservableObject
     // "starts when Target connects" for a row that in fact does not.
     public string TriggerNote { get => _triggerNote; set => Set(ref _triggerNote, value); }
     public string NextBackupDisplay { get => _nextBackupDisplay; set => Set(ref _nextBackupDisplay, value); }
-    public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled, SelectedSourcePaths, BackupIntervalMinutes, DelayWhenBusy, UploadLimitKiBps);
+    public BackupTargetMapping ToModel() => new(Id, BackupSet.Id, Device.Id, RepositoryPath, Enabled, SelectedSourcePaths, BackupIntervalMinutes, DelayWhenBusy, UploadLimitKiBps, RuleName, IconId);
 }
 
 public sealed record AvailableDriveViewModel(string StableId, string Root, string VolumeLabel, long AvailableBytes, long TotalBytes, string HardwareName, int VolumeCount, bool CanEject = false)

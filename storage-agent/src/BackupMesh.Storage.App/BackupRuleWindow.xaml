@@ -7,22 +7,41 @@
         </StackPanel>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
+            <Border Style="{StaticResource CardStyle}" Padding="20,12" Margin="0,0,0,10">
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="{local:Loc RuleNameLabel}" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <TextBox x:Name="RuleNameInput" Grid.Column="1" Style="{StaticResource SearchTextBoxStyle}" Height="42" Padding="12,0" Margin="0" MaxLength="128" FontSize="14" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleNameInput" AutomationProperties.Name="{local:Loc RuleNameLabel}"/>
+                    <Button x:Name="ChooseRuleIconButton" Grid.Column="2" Style="{StaticResource OutlinedButtonStyle}" Width="48" Height="42" Padding="3" Margin="8,0,0,0" Click="OnChooseRuleIconClick" ToolTip="{local:Loc RuleChooseIcon}" AutomationProperties.AutomationId="BackupRuleChooseIconButton" AutomationProperties.Name="{local:Loc RuleChooseIcon}"><local:RuleIcon x:Name="SelectedRuleIcon" Width="32" Height="32"/></Button>
+                </Grid>
+            </Border>
+            <Popup x:Name="RuleIconPopup" PlacementTarget="{Binding ElementName=ChooseRuleIconButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Background="White" BorderBrush="#CEDCF0" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,4,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{local:Loc RuleChooseIcon}" Style="{StaticResource SectionTitleStyle}" Margin="4,0,0,8"/>
+                        <ListBox x:Name="RuleIconChoices" ItemsSource="{x:Static local:RuleIconCatalog.Choices}" Width="422" MaxHeight="276" SelectionChanged="OnRuleIconSelected" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="BackupRuleIconChoices">
+                            <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="4"/><Setter Property="Margin" Value="2"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="ChoiceBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="2" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="ChoiceBorder" Property="Background" Value="#E9FAF7"/><Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="#078F81"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="#1675D1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate><DataTemplate><local:RuleIcon IconId="{Binding Id}" Width="36" Height="36" ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+            </Popup>
             <Grid MinWidth="850" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Style="{StaticResource CardStyle}" Padding="24" MinHeight="450">
+                <Border Style="{StaticResource CardStyle}" Padding="20" MinHeight="410">
                     <StackPanel>
                         <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="{local:Loc Text_Whattobackup_6B4FC3}" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
-                            <Border Grid.Column="1" Width="64" Height="64" CornerRadius="20" Background="#175A68"><Image Source="Assets/Icons/nav-agents.png" Width="38" Height="38" Stretch="Uniform"/></Border>
+                            <Border Grid.Column="1" Width="52" Height="52" CornerRadius="16" Background="#175A68"><Image Source="Assets/Icons/nav-agents.png" Width="32" Height="32" Stretch="Uniform"/></Border>
                         </Grid>
                         <TextBlock Text="{local:Loc UX_3af87e7739}" Foreground="#526987" Margin="0,0,0,7"/>
-                        <Grid Margin="0,0,0,23"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid Margin="0,0,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="BackupSetCombo" ItemsSource="{Binding BackupSets}" SelectedItem="{Binding SelectedBackupSet, Mode=TwoWay}" DisplayMemberPath="DisplayName" SelectionChanged="OnBackupSetChanged" ToolTip="{Binding SelectedItem.DisplayName, RelativeSource={RelativeSource Self}}" Style="{StaticResource RuleFilterStyle}" AutomationProperties.AutomationId="BackupRuleBackupSetCombo"/>
                             <Button Grid.Column="1" Content="{local:Loc UXChooseThisPCFolder}" Command="{Binding AddLocalBackupSetCommand}" Style="{StaticResource OutlinedButtonStyle}" Margin="12,0,0,0" Padding="12,9" ToolTip="{local:Loc Text_BackupafolderonthisPCdirectlyn_11F9C0}" AutomationProperties.AutomationId="BackupRuleAddLocalBackupSetButton"/>
                         </Grid>
                         <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="{local:Loc UX_5b0d0ff4ca}" Foreground="#526987" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="SourcePathsSummary" Grid.Column="1" Foreground="#007F78" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.AutomationId="BackupRuleSourcePathsSummary"/>
+                            <TextBlock x:Name="SourcePathsSummary" Grid.Column="1" Foreground="#007F78" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.AutomationId="BackupRuleSourcePathsSummary"/>
                         </Grid>
                         <Grid Margin="0,0,0,8">
                             <TextBox x:Name="SourcePathSearch" Style="{StaticResource SearchTextBoxStyle}" Padding="40,9,12,9" Height="42" VerticalContentAlignment="Center" TextChanged="OnSourcePathSearchChanged" ToolTip="{local:Loc UX_d62207ee27}" AutomationProperties.AutomationId="BackupRuleSourcePathSearch" AutomationProperties.Name="{local:Loc UX_dfde9e7bab}"/>
@@ -30,7 +49,7 @@
                             <TextBlock x:Name="SourcePathSearchHint" Text="{local:Loc UX_dfde9e7bab}" Foreground="#8292A8" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
                         </Grid>
                         <Grid>
-                            <ListBox x:Name="SourcePathsList" Height="136" Background="White" BorderBrush="#CEDCF0" BorderThickness="1" Padding="7" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.AutomationId="BackupRuleSourcePathsList">
+                            <ListBox x:Name="SourcePathsList" Height="120" Background="White" BorderBrush="#CEDCF0" BorderThickness="1" Padding="7" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.AutomationId="BackupRuleSourcePathsList">
                                 <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="8,7"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border Background="{TemplateBinding Background}" CornerRadius="5"><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Margin="{TemplateBinding Padding}"/></Border></ControlTemplate></Setter.Value></Setter><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="#F0F9FB"/></DataTrigger></Style.Triggers></Style></ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Path}" ToolTip="{Binding Path}" IsChecked="{Binding IsSelected, Mode=TwoWay}" FontSize="12" Foreground="#172B4D" AutomationProperties.Name="{Binding Path}"/></DataTemplate></ListBox.ItemTemplate>
                             </ListBox>
@@ -44,11 +63,11 @@
                     </StackPanel>
                 </Border>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="➜" FontSize="36" Foreground="#07AFC3" HorizontalAlignment="Center"/><TextBlock Text="{local:Loc UX_5d4992a1ba}" TextAlignment="Center" FontSize="12" Foreground="#60718D"/></StackPanel>
-                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="24" MinHeight="450">
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="20" MinHeight="410">
                     <StackPanel>
                         <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="{local:Loc StorageLocation}" Style="{StaticResource CardHeadingStyle}" VerticalAlignment="Center" Margin="0"/>
-                            <Border Grid.Column="1" Width="64" Height="64" CornerRadius="20" Background="#EAF6FB"><Image Source="Assets/Icons/summary-drive.png" Width="38" Height="38" Stretch="Uniform"/></Border>
+                            <Border Grid.Column="1" Width="52" Height="52" CornerRadius="16" Background="#EAF6FB"><Image Source="Assets/Icons/summary-drive.png" Width="32" Height="32" Stretch="Uniform"/></Border>
                         </Grid>
                         <TextBlock Text="{local:Loc UX_3982d6c2c6}" Foreground="#526987" Margin="0,0,0,7"/>
                         <ComboBox x:Name="TargetDeviceCombo" ItemsSource="{Binding BackupDestinations}" DisplayMemberPath="DisplayName" SelectionChanged="OnTargetChanged" Style="{StaticResource RuleFilterStyle}" AutomationProperties.AutomationId="BackupRuleDeviceCombo"/>
@@ -78,7 +97,7 @@
                         </StackPanel>
                         <Border Grid.Column="1" Background="#DFE8F2"/>
                         <StackPanel Grid.Column="2" Margin="22,0">
-                            <CheckBox x:Name="DelayWhenBusyCheckBox" Content="{local:Loc UX_d158c2ae6e}" IsChecked="True" AutomationProperties.AutomationId="BackupRuleDelayWhenBusyCheckBox"/>
+                            <CheckBox x:Name="DelayWhenBusyCheckBox" Content="{local:Loc UX_d158c2ae6e}" FontSize="13" IsChecked="True" AutomationProperties.AutomationId="BackupRuleDelayWhenBusyCheckBox"/>
                             <TextBlock Text="{local:Loc UX_5541b6e16a}" TextWrapping="Wrap" Foreground="#60718D" FontSize="12" Margin="0,6,0,0"/>
                         </StackPanel>
                         <Border Grid.Column="3" Background="#DFE8F2"/>
@@ -100,7 +119,7 @@
             <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="CancelButton" Content="{local:Loc Text_Cancel_19766E}" Click="OnCancelClick" Style="{StaticResource OutlinedButtonStyle}" Margin="0,0,10,0" Padding="22,10"/>
-                    <Button x:Name="SaveButton" Content="{local:Loc Text_Addbackup_9C04C0}" Click="OnSaveClick" IsDefault="True" Style="{StaticResource PrimaryButtonStyle}" Margin="0" Padding="22,10" AutomationProperties.AutomationId="BackupRuleSaveButton"/>
+                    <Button x:Name="SaveButton" Content="{local:Loc Text_Addbackup_9C04C0}" Click="OnSaveClick" IsDefault="True" Style="{StaticResource PrimaryButtonStyle}" FontSize="14" Margin="0" Padding="22,10" AutomationProperties.AutomationId="BackupRuleSaveButton"/>
                 </StackPanel>
             </Grid>
         </Grid>

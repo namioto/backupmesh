@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.3.14"
+#define AppVersion "0.3.15"
 #endif
 #ifndef SourcePackage
   #define SourcePackage "..\..\artifacts\BackupMesh-Source-win-x64"
