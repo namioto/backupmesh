@@ -8,10 +8,10 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
             <Border Style="{StaticResource CardStyle}" Padding="20,12" Margin="0,0,0,10">
-                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <TextBlock Text="{local:Loc RuleNameLabel}" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                    <TextBox x:Name="RuleNameInput" Grid.Column="1" Style="{StaticResource SearchTextBoxStyle}" Height="42" Padding="12,0" Margin="0" MaxLength="128" FontSize="14" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleNameInput" AutomationProperties.Name="{local:Loc RuleNameLabel}"/>
-                    <Button x:Name="ChooseRuleIconButton" Grid.Column="2" Style="{StaticResource OutlinedButtonStyle}" Width="48" Height="42" Padding="3" Margin="8,0,0,0" Click="OnChooseRuleIconClick" ToolTip="{local:Loc RuleChooseIcon}" AutomationProperties.AutomationId="BackupRuleChooseIconButton" AutomationProperties.Name="{local:Loc RuleChooseIcon}"><local:RuleIcon x:Name="SelectedRuleIcon" Width="32" Height="32"/></Button>
+                    <Button x:Name="ChooseRuleIconButton" Grid.Column="1" Style="{StaticResource OutlinedButtonStyle}" Width="42" Height="42" Padding="3" Margin="0,0,10,0" Click="OnChooseRuleIconClick" ToolTip="{local:Loc RuleChooseIcon}" AutomationProperties.AutomationId="BackupRuleChooseIconButton" AutomationProperties.Name="{local:Loc RuleChooseIcon}"><local:RuleIcon x:Name="SelectedRuleIcon" Width="30" Height="30"/></Button>
+                    <TextBox x:Name="RuleNameInput" Grid.Column="2" Style="{StaticResource SearchTextBoxStyle}" Height="42" Padding="12,0" Margin="0" MaxLength="128" FontSize="14" VerticalContentAlignment="Center" AutomationProperties.AutomationId="BackupRuleNameInput" AutomationProperties.Name="{local:Loc RuleNameLabel}"/>
                 </Grid>
             </Border>
             <Popup x:Name="RuleIconPopup" PlacementTarget="{Binding ElementName=ChooseRuleIconButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">

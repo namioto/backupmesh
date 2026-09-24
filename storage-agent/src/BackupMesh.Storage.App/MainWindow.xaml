@@ -257,6 +257,7 @@
                     </Style>
                     <Style x:Key="RulePathStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisCellStyle}">
                         <Setter Property="FontFamily" Value="Segoe UI"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
                     </Style>
                 </TabItem.Resources>
                 <TabItem.Header><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/nav-rules.png" Width="26" Height="26" Margin="0,0,18,0"/><TextBlock Text="{local:Loc Text_Backuprules_566313}" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
@@ -311,7 +312,7 @@
                                     </ContextMenu></Button.ContextMenu>
                                 </Button>
                             </Grid>
-                            <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" RowHeight="46" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="12" HorizontalScrollBarVisibility="Disabled"
+                            <DataGrid x:Name="MappingsGrid" Grid.Row="1" ItemsSource="{Binding RulePage, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SelectedMapping}" SelectionChanged="OnRuleSelectionChanged" SelectionMode="Extended" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" MinRowHeight="46" ColumnHeaderHeight="44" Background="White" AlternatingRowBackground="#FBFDFF" SelectionUnit="FullRow" FontSize="12" HorizontalScrollBarVisibility="Disabled"
                                       MouseDoubleClick="OnMappingDoubleClick" AutomationProperties.AutomationId="MappingsGrid">
                                 <DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="#F7FAFF"/><Setter Property="Foreground" Value="#172B4D"/></Style></DataGrid.ColumnHeaderStyle>
                                 <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#E9FAF7"/><Setter Property="Foreground" Value="#172B4D"/></Trigger></Style.Triggers></Style></DataGrid.CellStyle>
@@ -385,7 +386,7 @@
                                     <DataGridTemplateColumn Header="{local:Loc Text_Lastbackup_8462B6}" Width="1.4*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel Margin="4,2">
+                                                <StackPanel Margin="4,2" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding LastBackupDisplay}" Style="{StaticResource SelectedRowTextStyle}" TextWrapping="Wrap"/>
                                                     <!-- A small leading glyph plus color keeps this line from
                                                          reading as more of the same "when" fact above it - one
